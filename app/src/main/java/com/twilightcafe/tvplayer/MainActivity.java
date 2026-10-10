@@ -63,6 +63,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Shows the café TV page full screen, and around it:
@@ -215,8 +217,32 @@ public class MainActivity extends Activity {
         if (web == null) return;
         pageOpenedAt = lastAlive = System.currentTimeMillis();
         web.onResume();
+        boolean setup = inQualitySetup();
+        useComputerPlayer(setup);
         // Quality setup leaves test mode's details out: they would cover YouTube's controls
-        web.loadUrl(inQualitySetup() ? PAGE + "?setup=quality" : testMode ? PAGE + "?debug=1" : PAGE);
+        web.loadUrl(setup ? PAGE + "?setup=quality" : testMode ? PAGE + "?debug=1" : PAGE);
+    }
+
+    // Quality setup asks YouTube for the version of its player it gives computers, as a browser's
+    // "Desktop site" option does (the same words Chrome on Android then sends). Inside Android's web
+    // engine YouTube showed its player without any controls: a click only paused the video. In the
+    // computer version the controls appear when the pointer moves over the video, and stay while it's
+    // paused.
+    private void useComputerPlayer(boolean on) {
+        WebSettings s = web.getSettings();
+        if (!on) {
+            s.setUserAgentString(null);                  // Android's own
+            return;
+        }
+        String chrome = "120";
+        try {
+            Matcher m = Pattern.compile("Chrome/(\\d+)").matcher(WebSettings.getDefaultUserAgent(this));
+            if (m.find()) chrome = m.group(1);
+        } catch (RuntimeException e) {
+            // keep the fallback version
+        }
+        s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
+                + chrome + ".0.0.0 Safari/537.36");
     }
 
     // What the app draws over the page: the setup pointer, or test mode's details (never both)
@@ -261,6 +287,7 @@ public class MainActivity extends Activity {
     // OK: the same as touching the screen where the pointer is
     private void clickAtPointer() {
         if (web == null) return;
+        pointer.pressed();                                               // the arrow flashes, so OK is seen to work
         final float x = pointerX, y = pointerY;
         final long t = SystemClock.uptimeMillis();
         MotionEvent down = pointerEvent(t, t, MotionEvent.ACTION_DOWN, x, y, true);
@@ -314,6 +341,22 @@ public class MainActivity extends Activity {
             arrow.lineTo(size * 0.44f, size * 0.69f);
             arrow.lineTo(size * 0.78f, size * 0.69f);
             arrow.close();
+        }
+
+        private final Runnable unpress = new Runnable() {
+            @Override
+            public void run() {
+                fill.setColor(0xFFFFFFFF);
+                invalidate();
+            }
+        };
+
+        // A click: gold for a moment
+        void pressed() {
+            fill.setColor(0xFFFFCF8A);
+            invalidate();
+            removeCallbacks(unpress);
+            postDelayed(unpress, 250);
         }
 
         @Override

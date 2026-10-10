@@ -60,9 +60,12 @@ A pause starts again by itself after 3 hours. Outside opening hours, the button 
 YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on each TV. YouTube remembers the choice on that TV for weeks.
 
 1. On the phone page, Control tab, press **Choose the highest quality on the TV**.
-2. On the TV, the video pauses so YouTube's own controls stay on screen, and a pointer appears. Move it with the remote's arrow buttons and press **OK** to click. A USB mouse plugged into the box works too.
-3. Click the gear ⚙ on the video (usually at the bottom right). Choose **Quality**, then the highest number.
-4. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
+2. On the TV, a pointer appears. Move it with the remote's arrow buttons and press **OK** to click. A USB mouse plugged into the box works too.
+3. Move it over the video, so YouTube shows its controls at the bottom. If they don't appear, click the video once.
+4. Click the gear ⚙ at the bottom right (or top right). Choose **Quality**, then the highest number (2160p on a 4K TV).
+5. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
+
+During setup the app asks YouTube for the version of its player it gives computers, as a browser's "Desktop site" option does. Inside Android apps, YouTube's player showed no controls at all: a click only paused the video. The quality choice is saved in the same place either way, so the music afterwards uses it. A line under the instructions on the TV shows which version is on, whether the video is paused, and the picture quality playing.
 
 The Control tab shows the quality YouTube is actually playing.
 - **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.

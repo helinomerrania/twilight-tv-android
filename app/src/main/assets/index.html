@@ -20,11 +20,13 @@
          border-radius: .5em; background: rgba(10, 14, 44, .75); color: #fff1e0;
          font: 600 3vmin/1.3 system-ui, sans-serif; pointer-events: none; }
   /* Setup problems only, on top of the café screen */
-  /* Quality setup's instructions: top left, clear of YouTube's controls (bottom, and the top right corner) */
-  #setupNote { position: fixed; top: 3vh; left: 3vw; z-index: 3; display: none; width: min(56vw, 46rem);
+  /* Quality setup's instructions: top left, clear of YouTube's controls (bottom, and the top right corner),
+     and inside the part of the picture every TV shows */
+  #setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 3; display: none; width: min(54vw, 46rem);
                padding: 1.1em 1.4em; border-radius: .8em; background: rgba(10, 14, 44, .88); color: #fff1e0; pointer-events: none;
                font: 500 2.4vmin/1.5 system-ui, sans-serif; text-shadow: none; }
   #setupNote b { color: #ffcf8a; }
+  #setupStatus { margin-top: .6em; opacity: .8; font-size: .85em; }
   #note { position: fixed; left: 50%; bottom: 7vh; transform: translateX(-50%); z-index: 3; display: none;
           max-width: 80vw; padding: .8em 1.2em; border-radius: .6em; background: rgba(10, 14, 44, .85);
           color: #ffe9d6; text-align: center; font: 2.4vmin/1.5 system-ui, sans-serif; pointer-events: none; }
@@ -304,10 +306,12 @@ var SETTINGS = {
   if (SETUP) {
     document.getElementById("shield").style.display = "none";   // clicks go to YouTube's controls
     var setupNote = document.getElementById("setupNote");
-    setupNote.innerHTML = "<b>Quality setup.</b> The video pauses so YouTube's controls stay on screen.<br>" +
-      "1. Move the pointer with the remote's arrow buttons (that also brings back YouTube's controls). Press <b>OK</b> to click.<br>" +
-      "2. Click the gear \u2699 on the video (usually at the bottom right), then <b>Quality</b>, then the highest number.<br>" +
-      "3. Press <b>Back</b> on the remote when you're done. YouTube remembers it on this TV.";
+    setupNote.innerHTML = "<b>Quality setup.</b> Choose the highest quality once in YouTube's own menu. YouTube remembers it on this TV.<br>" +
+      "1. The remote's arrow buttons move the pointer. <b>OK</b> clicks.<br>" +
+      "2. Move the pointer over the video: YouTube's controls appear at the bottom. If they don't, click the video once.<br>" +
+      "3. Click the gear \u2699 at the bottom right (or top right), then <b>Quality</b>, then the highest number (2160p on a 4K TV).<br>" +
+      "4. Press <b>Back</b> on the remote when you're done." +
+      "<div id=\"setupStatus\"></div>";
     setupNote.style.display = "block";
   }
 
@@ -627,7 +631,12 @@ var SETTINGS = {
     if (APP && now - settingsCheckAt > 2000) { settingsCheckAt = now; checkAppSettings(); }
     if (SETUP) {                                 // quality setup: no covering, fading or ad handling
       if (!ready || !current) return;
-      var sst = player.getPlayerState();
+      var sst = player.getPlayerState(), sq = "";
+      try { sq = player.getPlaybackQuality() || ""; } catch (e) {}
+      // What YouTube is doing, so staff can see the choice worked (and what to tell for help)
+      document.getElementById("setupStatus").textContent = "Now: " +
+        (/Android/.test(navigator.userAgent) ? "app" : "computer") + " version of YouTube's player, video " + (NAMES[sst] || "starting") +
+        ", picture " + (QUALITY[sq] || QUALITY[quality] || "not reported yet");
       if (!setupPaused && sst === PLAYING && (player.getCurrentTime() || 0) > 1.5) {
         setupPaused = true;                      // paused once, so YouTube keeps its controls (and gear) on screen
         player.pauseVideo();
@@ -764,7 +773,9 @@ var SETTINGS = {
     var dpr = window.devicePixelRatio || 1;
     var fitH = Math.min(lastH, lastW * 9 / 16);                    // biggest 16:9 area on screen
     var h = Math.max(Number(S.quality) || 2160, fitH * dpr) / dpr; // player size in CSS pixels
-    if (SETUP) h = fitH;            // quality setup: screen size and no zoom, so YouTube's controls are full size and all on screen
+    // Quality setup: nearly screen size and no zoom, so YouTube's controls are full size, and all of
+    // them stay inside the part of the picture every TV shows (some TVs cut off the edges)
+    if (SETUP) h = fitH * 0.9;
     var w = h * 16 / 9;
     var s = SETUP ? 1 : fitH / h * songZoom() / 100;
     renderW = Math.round(w * dpr);

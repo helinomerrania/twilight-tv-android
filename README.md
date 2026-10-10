@@ -36,6 +36,8 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 | Back | Nothing, so nobody stops the music by accident |
 | Home | Leaves the app. The music stops, and starts again when you open the app |
 
+During quality setup (below), the arrows move a pointer, OK clicks, and Back finishes the setup.
+
 ## Phone control
 
 1. On the TV, hold OK for 3 seconds. At the bottom right you'll see something like `Phone control: http://192.168.1.23:8080   PIN 4821`.
@@ -58,8 +60,9 @@ A pause starts again by itself after 3 hours. Outside opening hours, the button 
 YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on each TV. YouTube remembers the choice on that TV for weeks.
 
 1. On the phone page, Control tab, press **Choose the highest quality on the TV**.
-2. On the TV, YouTube's own controls appear. With the remote's mouse button (or a USB mouse plugged into the box), click the gear ⚙ at the bottom right of the video. Choose **Quality**, then the highest number.
-3. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
+2. On the TV, the video pauses so YouTube's own controls stay on screen, and a pointer appears. Move it with the remote's arrow buttons and press **OK** to click. A USB mouse plugged into the box works too.
+3. Click the gear ⚙ on the video (usually at the bottom right). Choose **Quality**, then the highest number.
+4. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
 
 The Control tab shows the quality YouTube is actually playing.
 - **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.

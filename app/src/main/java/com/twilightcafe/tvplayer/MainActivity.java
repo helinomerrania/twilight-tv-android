@@ -8,6 +8,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
@@ -15,10 +18,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -81,6 +87,8 @@ public class MainActivity extends Activity {
     private FrameLayout root;
     private WebView web;
     private TextView overlay;                            // test mode: the app's own information
+    private PointerView pointer;                         // quality setup: a pointer moved with the remote
+    private float pointerX, pointerY;
     private boolean visible = false;                     // the app is on screen
     private boolean testMode = false;                    // hold OK for 3 seconds to switch it on or off
 
@@ -140,6 +148,11 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.END);
         root.addView(overlay, olp);
 
+        float density = getResources().getDisplayMetrics().density;
+        pointer = new PointerView(this, 30 * density);
+        pointer.setVisibility(View.GONE);
+        root.addView(pointer, new FrameLayout.LayoutParams((int) (36 * density), (int) (46 * density)));
+
         makeWebView();
         server = new ControlServer(phone);
         server.start();
@@ -198,11 +211,19 @@ public class MainActivity extends Activity {
     }
 
     private void open() {
+        syncOverlays();
         if (web == null) return;
         pageOpenedAt = lastAlive = System.currentTimeMillis();
         web.onResume();
-        String query = (testMode ? "&debug=1" : "") + (inQualitySetup() ? "&setup=quality" : "");
-        web.loadUrl(query.isEmpty() ? PAGE : PAGE + "?" + query.substring(1));
+        // Quality setup leaves test mode's details out: they would cover YouTube's controls
+        web.loadUrl(inQualitySetup() ? PAGE + "?setup=quality" : testMode ? PAGE + "?debug=1" : PAGE);
+    }
+
+    // What the app draws over the page: the setup pointer, or test mode's details (never both)
+    private void syncOverlays() {
+        boolean setup = inQualitySetup();
+        if (pointer != null) pointer.setVisibility(setup ? View.VISIBLE : View.GONE);
+        if (overlay != null) overlay.setVisibility(testMode && !setup ? View.VISIBLE : View.GONE);
     }
 
     /* ---------- quality setup: YouTube's own controls, to pick the highest quality by hand ---------- */
@@ -213,7 +234,94 @@ public class MainActivity extends Activity {
 
     private void startQualitySetup() {
         qualitySetupUntil = System.currentTimeMillis() + 10 * 60000L;   // ends by itself after 10 minutes
+        pointerX = root.getWidth() / 2f;                                 // the pointer starts in the middle
+        pointerY = root.getHeight() / 2f;
+        placePointer();
         open();
+    }
+
+    private void placePointer() {
+        pointer.setTranslationX(pointerX - pointer.tip);
+        pointer.setTranslationY(pointerY - pointer.tip);
+    }
+
+    // The remote's arrows move the pointer. The page gets the same as a mouse moving over
+    // it, so YouTube shows its controls.
+    private void movePointer(float dx, float dy) {
+        pointerX = Math.max(0, Math.min(root.getWidth() - 1, pointerX + dx));
+        pointerY = Math.max(0, Math.min(root.getHeight() - 1, pointerY + dy));
+        placePointer();
+        if (web == null) return;
+        long t = SystemClock.uptimeMillis();
+        MotionEvent hover = pointerEvent(t, t, MotionEvent.ACTION_HOVER_MOVE, pointerX, pointerY, false);
+        web.dispatchGenericMotionEvent(hover);
+        hover.recycle();
+    }
+
+    // OK: the same as touching the screen where the pointer is
+    private void clickAtPointer() {
+        if (web == null) return;
+        final float x = pointerX, y = pointerY;
+        final long t = SystemClock.uptimeMillis();
+        MotionEvent down = pointerEvent(t, t, MotionEvent.ACTION_DOWN, x, y, true);
+        web.dispatchTouchEvent(down);
+        down.recycle();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (web == null) return;
+                MotionEvent up = pointerEvent(t, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, true);
+                web.dispatchTouchEvent(up);
+                up.recycle();
+            }
+        }, 70);
+    }
+
+    // A mouse moving (touch false) or a finger on the screen (touch true), at x, y on the page
+    private static MotionEvent pointerEvent(long downTime, long time, int action, float x, float y, boolean touch) {
+        MotionEvent.PointerProperties props = new MotionEvent.PointerProperties();
+        props.id = 0;
+        props.toolType = touch ? MotionEvent.TOOL_TYPE_FINGER : MotionEvent.TOOL_TYPE_MOUSE;
+        MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
+        coords.x = x;
+        coords.y = y;
+        coords.pressure = touch ? 1f : 0f;
+        coords.size = touch ? 0.05f : 0f;
+        return MotionEvent.obtain(downTime, time, action, 1, new MotionEvent.PointerProperties[] { props },
+                new MotionEvent.PointerCoords[] { coords }, 0, 0, 1f, 1f, 0, 0,
+                touch ? InputDevice.SOURCE_TOUCHSCREEN : InputDevice.SOURCE_MOUSE, 0);
+    }
+
+    /** The pointer shown during quality setup: a white arrow with a dark edge, its tip at (tip, tip). */
+    private static final class PointerView extends View {
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path arrow = new Path();
+        final float tip;
+
+        PointerView(Context c, float size) {
+            super(c);
+            fill.setColor(0xFFFFFFFF);
+            edge.setColor(0xFF0B1030);
+            edge.setStyle(Paint.Style.STROKE);
+            edge.setStrokeWidth(Math.max(2f, size / 12f));
+            tip = edge.getStrokeWidth();
+            arrow.moveTo(0, 0);
+            arrow.lineTo(0, size);
+            arrow.lineTo(size * 0.27f, size * 0.75f);
+            arrow.lineTo(size * 0.46f, size * 1.15f);
+            arrow.lineTo(size * 0.62f, size * 1.08f);
+            arrow.lineTo(size * 0.44f, size * 0.69f);
+            arrow.lineTo(size * 0.78f, size * 0.69f);
+            arrow.close();
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            c.translate(tip, tip);
+            c.drawPath(arrow, fill);
+            c.drawPath(arrow, edge);
+        }
     }
 
     private void endQualitySetup() {
@@ -279,6 +387,33 @@ public class MainActivity extends Activity {
             if (inQualitySetup() && event.getAction() == KeyEvent.ACTION_UP) endQualitySetup();
             return true;
         }
+        // Quality setup: arrows move the pointer, OK clicks
+        if (inQualitySetup() && web != null) {
+            boolean press = event.getAction() == KeyEvent.ACTION_DOWN;
+            // one press: a small step, to land on a menu line; held down: faster
+            float step = Math.max(root.getWidth(), root.getHeight()) * (event.getRepeatCount() > 4 ? 0.035f : 0.012f);
+            switch (key) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    if (press) movePointer(-step, 0);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (press) movePointer(step, 0);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    if (press) movePointer(0, -step);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (press) movePointer(0, step);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    if (event.getAction() == KeyEvent.ACTION_UP) clickAtPointer();
+                    return true;
+                default:
+                    break;
+            }
+        }
         // Hold OK for 3 seconds: test mode (the page's details, and the app's: phone address and PIN)
         if ((key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER)
                 && event.getAction() == KeyEvent.ACTION_UP && event.getEventTime() - event.getDownTime() >= 3000) {
@@ -290,7 +425,6 @@ public class MainActivity extends Activity {
 
     private void toggleTestMode() {
         testMode = !testMode;
-        overlay.setVisibility(testMode ? View.VISIBLE : View.GONE);
         if (testMode) handler.post(overlayTick);
         open();
     }

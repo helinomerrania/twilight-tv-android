@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- YouTube refuses embeds that don't say which website they are on ("Error 153") -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>TV Player</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b1030; cursor: none; }
+  /* The player: drawn big (for quality), scaled to fit exactly, faded in and out by the script */
+  #player { position: fixed; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; opacity: 0; }
+  /* Invisible layer over the video: taps and clicks can't pause it or open YouTube */
+  #shield { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 2; }
+  /* Small speaker icon, shown only while the TV's browser is blocking sound */
+  #muted { position: fixed; right: 3vmin; bottom: 3vmin; z-index: 3; width: 5vmin; height: 5vmin;
+           display: none; opacity: .5; pointer-events: none; }
+  /* Song volume, shown for a moment after the remote's up/down arrows */
+  #vol { position: fixed; left: 3vmin; bottom: 3vmin; z-index: 3; display: none; padding: .35em .8em;
+         border-radius: .5em; background: rgba(10, 14, 44, .75); color: #fff1e0;
+         font: 600 3vmin/1.3 system-ui, sans-serif; pointer-events: none; }
+  /* Setup problems only, on top of the café screen */
+  #note { position: fixed; left: 50%; bottom: 7vh; transform: translateX(-50%); z-index: 3; display: none;
+          max-width: 80vw; padding: .8em 1.2em; border-radius: .6em; background: rgba(10, 14, 44, .85);
+          color: #ffe9d6; text-align: center; font: 2.4vmin/1.5 system-ui, sans-serif; pointer-events: none; }
+  /* Test mode only (?debug=1) */
+  #debug { position: fixed; top: 12px; left: 12px; z-index: 4; display: none; max-width: 75%;
+           padding: 10px 14px; border-radius: 8px; background: rgba(0, 0, 0, .75); color: #fff;
+           font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; pointer-events: none; }
+</style>
+<style>
+  @font-face { font-family: "TwilightName"; src: url(data:font/woff2;base64,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) format("woff2"); font-display: block; }
+  /* Café screen: twilight over Lake Dukan. It is what the TV shows whenever no video is on. */
+  #brand { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; background: #0b1030; }
+  #brand svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  #brand .name { position: absolute; left: 0; right: 0; top: 33%; transform: translateY(-50%); margin: 0;
+                 padding: 0 6vw; text-align: center; font-family: "TwilightName", "Noto Naskh Arabic", "Noto Sans Arabic", Tahoma, sans-serif;
+                 font-weight: 700; font-size: 11vmin; font-size: min(11vmin, 7.6vw); line-height: 1.5; color: #fff1e0;
+                 text-shadow: 0 0 .5em rgba(255, 171, 107, .35), 0 .04em .02em rgba(20, 10, 40, .5); }
+  /* One slow motion: the light behind the mountains and its path on the water breathe together.
+     Only opacity of whole layers changes, so the TV's graphics chip does the work. */
+  #brand .glow { will-change: opacity; animation: breathe 12s ease-in-out infinite alternate; }
+  @keyframes breathe { from { opacity: .68; } to { opacity: 1; } }
+  body.video-on #brand .glow { animation-play-state: paused; }   /* rests while a video covers it */
+  @media (prefers-reduced-motion: reduce) { #brand .glow { animation: none; } }
+</style>
+</head>
+<body>
+<div id="brand" aria-hidden="true">
+  <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0a0e2c"/>
+        <stop offset=".30" stop-color="#171a45"/>
+        <stop offset=".46" stop-color="#33275a"/>
+        <stop offset=".555" stop-color="#6b3c63"/>
+        <stop offset=".615" stop-color="#c4645e"/>
+        <stop offset=".67" stop-color="#f0985c"/>
+        <stop offset="1" stop-color="#f6b06c"/>
+      </linearGradient>
+    </defs>
+    <rect width="1920" height="1080" fill="url(#sky)"/>
+    <g id="stars" fill="#fff6ea"></g>
+  </svg>
+  <svg class="glow" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="sun" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#ffcf8a" stop-opacity=".9"/>
+        <stop offset=".35" stop-color="#f59a62" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#f59a62" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <ellipse cx="980" cy="690" rx="760" ry="230" fill="url(#sun)"/>
+  </svg>
+  <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="far" gradientUnits="userSpaceOnUse" x1="0" y1="500" x2="0" y2="800">
+        <stop offset="0" stop-color="#6e4a78"/>
+        <stop offset="1" stop-color="#3b2a55"/>
+      </linearGradient>
+      <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2a2048"/>
+        <stop offset=".25" stop-color="#17142f"/>
+        <stop offset="1" stop-color="#090818"/>
+      </linearGradient>
+      <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+        <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="shore" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#ffb27a" stop-opacity="0"/>
+        <stop offset=".5" stop-color="#ffc48c" stop-opacity=".75"/>
+        <stop offset="1" stop-color="#ffb27a" stop-opacity="0"/>
+      </linearGradient>
+      <mask id="water"><rect x="0" y="800" width="1920" height="280" fill="url(#fade)"/></mask>
+      <!-- the mountains around the lake: a big massif on the right, a saddle where the light is -->
+      <g id="ridges">
+        <path fill="url(#far)" d="M0 640 L80 612 L150 628 L240 585 L320 602 L410 560 L470 575 L540 548 L610 590 L690 620 L760 650 L840 672 L920 684 L1000 688 L1080 676 L1150 650 L1220 610 L1290 570 L1350 520 L1400 538 L1450 505 L1510 530 L1570 512 L1640 556 L1720 584 L1800 570 L1870 600 L1920 590 L1920 800 L0 800Z"/>
+        <path fill="#2a2046" d="M0 720 L110 700 L210 712 L320 676 L430 704 L540 690 L640 718 L760 736 L880 745 L960 748 L1040 744 L1150 730 L1260 700 L1360 684 L1460 706 L1580 668 L1700 700 L1820 690 L1920 704 L1920 800 L0 800Z"/>
+        <path fill="#141028" d="M0 778 L120 766 L260 780 L400 762 L560 784 L720 774 L880 788 L1040 790 L1200 778 L1360 786 L1500 768 L1660 782 L1800 770 L1920 780 L1920 800 L0 800Z"/>
+      </g>
+    </defs>
+    <use href="#ridges"/>
+    <rect x="0" y="800" width="1920" height="280" fill="url(#lake)"/>
+    <g mask="url(#water)"><use href="#ridges" transform="translate(0 1600) scale(1 -1)" opacity=".55"/></g>
+    <rect x="0" y="799" width="1920" height="2" fill="url(#shore)"/>
+  </svg>
+  <svg class="glow" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="path" cx=".5" cy="0" r="1" gradientTransform="translate(.5 0) scale(.28 1) translate(-.5 0)">
+        <stop offset="0" stop-color="#ffbe80" stop-opacity=".55"/>
+        <stop offset=".5" stop-color="#f0985c" stop-opacity=".18"/>
+        <stop offset="1" stop-color="#f0985c" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect x="560" y="800" width="840" height="280" fill="url(#path)"/>
+    <g fill="#ffd2a6" opacity=".22">
+      <rect x="880" y="826" width="200" height="1.5" rx=".75"/>
+      <rect x="930" y="850" width="120" height="1.5" rx=".75"/>
+      <rect x="840" y="878" width="260" height="1.5" rx=".75"/>
+      <rect x="905" y="912" width="150" height="1.5" rx=".75"/>
+      <rect x="860" y="950" width="230" height="1.5" rx=".75"/>
+      <rect x="920" y="992" width="110" height="1.5" rx=".75"/>
+    </g>
+  </svg>
+  <p class="name" dir="rtl" lang="ckb" id="brandName"></p>
+</div>
+<script>
+  // Stars: spread evenly, fewer towards the horizon, drawn once
+  (function () {
+    var g = document.getElementById("stars"), ns = "http://www.w3.org/2000/svg";
+    for (var i = 1; i <= 42; i++) {
+      var c = document.createElementNS(ns, "circle");
+      c.setAttribute("cx", (((i * 0.7548776662) % 1) * 1920).toFixed(1));
+      c.setAttribute("cy", (24 + Math.pow((i * 0.5698402910) % 1, 1.4) * 480).toFixed(1));
+      c.setAttribute("r", (0.7 + ((i * 7) % 10) / 9).toFixed(2));
+      c.setAttribute("opacity", (0.25 + ((i * 3) % 10) / 14).toFixed(2));
+      g.appendChild(c);
+    }
+  })();
+</script>
+<div id="player"></div>
+<div id="shield"></div>
+<svg id="muted" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill="#fff" d="M3 9v6h4l5 5V4L7 9H3z"/>
+  <path d="M15.5 9.5l5 5m0-5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<div id="vol"></div>
+<div id="note"></div>
+<div id="debug"></div>
+
+<script>
+/* ============================ SETTINGS ============================ */
+// Test mode: add ?debug=1 to the end of the page address to see what is playing,
+// the picture quality YouTube picked, the volume, ads skipped and any problems.
+var SETTINGS = {
+  // Your YouTube playlist link (or just its ID). The playlist must be Public or Unlisted.
+  // Adding ?list=ANOTHER_PLAYLIST_ID to the end of the page address overrides this.
+  playlist: "https://www.youtube.com/playlist?list=PL_6oD4DKbNOvlb8kOY9APBXjC_EtR6eYK",
+
+  // Highest picture quality to ask YouTube for: 2160 = 4K, 1440, or 1080 = Full HD.
+  // 4K needs roughly 20 Mbps of internet per TV. If videos keep buffering, use 1080.
+  quality: 2160,
+
+  // Your café's name on the café screen, shown whenever a video isn't: while a song
+  // loads, between songs, during pauses and instead of ads.
+  brandName: "کافتریا و ڕێستورانتی توایڵایت",
+
+  // Seconds the café screen stays up at the start of each song (and after any pause)
+  // while YouTube's title is on its own screen. The song's sound already plays.
+  // The picture isn't cropped for this. If you still catch the title, raise this to 5.
+  titleSeconds: 4,
+
+  // Seconds at the end of each song when the café screen covers the picture, so
+  // YouTube's end cards never show. The song itself plays to the end. 0 = off.
+  brandEnding: 10,
+
+  // Fade in and fade out between songs, in seconds (0 = no fade).
+  fadeIn: 2,
+  fadeOut: 3,
+
+  // Volume the page plays at (0-100). On each TV, the remote's up/down arrows
+  // turn the song that is playing up or down, and that TV remembers it.
+  volume: 100,
+
+  // Fixed volumes for particular songs on every TV, by video ID (test mode shows
+  // the ID of the song playing). Example: { "dQw4w9WgXcQ": 60, "kJQP7kiw5Fk": 70 }
+  songVolume: {},
+
+  // Fill the screen when a video has black bars at the top and bottom (wide
+  // "cinema" videos). YouTube publishes three still frames of every video; the
+  // page checks them for black bands and zooms in just enough to cover them, up
+  // to 135%. A zoomed video loses a little on the left and right. false = off.
+  autoZoom: true,
+
+  // Zoom for particular songs on every TV, in percent, by video ID; this beats the
+  // automatic zoom. On each TV, the remote's left/right arrows zoom the song that
+  // is playing in or out, and that TV remembers it. Example: { "dQw4w9WgXcQ": 135 }
+  songZoom: {},
+
+  // Never show or play ads: the café screen stays up, silent, until the song
+  // itself starts; an ad in the middle is covered and muted; and a song that
+  // YouTube puts an ad in front of is skipped (it comes back in a later round).
+  blockAds: true,
+
+  // Keep YouTube's subtitles/captions off. (Lyrics that are part of the video
+  // picture itself, like in karaoke videos, can't be removed.)
+  noSubtitles: true,
+
+  // Seconds to cut off the end of every video, to avoid the clickable end cards
+  // some videos show in their last seconds. 0 = play every song to the end.
+  cutEnding: 0,
+
+  // Every song plays once before anything repeats. When a new shuffled round
+  // starts, songs that just played are kept out of the next this-many spots.
+  noRepeat: 20,
+
+  // Optional, only for very big playlists: without a key, YouTube's player may
+  // only hand over the first ~200 videos. A free YouTube Data API key reads them all.
+  apiKey: "",
+
+  // Reloads itself between two songs after this many hours. Keeps the TV
+  // fresh and picks up songs you add to the playlist.
+  refreshHours: 12
+};
+/* ================================================================== */
+
+(function () {
+  "use strict";
+
+  var S = SETTINGS;
+  var LIST = playlistId(new URLSearchParams(location.search).get("list") || S.playlist);
+  var KEY = "tv-player:" + LIST;
+  var DAY = 24 * 3600e3;
+  var ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3, CUED = 5;   // YouTube player states
+
+  var player = null, ready = false;
+  var allIds = [];          // every video in the playlist
+  var queue = [];           // shuffled order for the rest of this round
+  var current = null;       // the song on screen now
+  var started = false;      // the song's own picture has started moving
+  var guarded = false;      // loading or an ad: picture off (and, with blockAds, sound off)
+  var fadingOut = false;    // the song is fading out at its end
+  var muted = false;        // the TV's browser refuses sound until someone taps
+  var autoplayDead = false; // the browser blocks even silent video until someone taps
+  var level = 0, levelTimer = null;     // sound fade level, 0 = silent, 1 = full
+  var showAt = Infinity, needHold = false, pictureMode = "", fadeStartedAt = 0;
+  var picEnding = false, picFadeSecs = 0;   // café screen over the song's last seconds
+  var lastState = -1, leftPlayingAt = 0, lastSentMute = null, lastSentVol = -1, resyncAt = 0;
+  var adSince = 0, adSkips = 0, adsSkipped = 0, adPauseUntil = 0, soundTriedAt = 0, volTimer = null;
+  var reloading = false, noteShown = false;
+  var loadedAt = Date.now(), lastSwitch = 0, lastMove = Date.now(), lastTime = -1, lastKick = 0;
+  var strikes = 0, oddErrors = 0, skipTimer = null, lastW = -1, lastH = -1;
+  var DEBUG = /[?&]debug=1(&|$)/.test(location.search);
+  var source = "", quality = "", skipped = [], renderW = 0, renderH = 0;   // for test mode
+  var BAR_CHECK = 1;        // version of the black-bar check; a new one looks at every song again
+  var state = load();
+  document.getElementById("brandName").textContent = S.brandName || "";
+
+  if (!LIST || /PASTE_/.test(LIST)) {
+    note("Add your YouTube playlist link in SETTINGS at the top of this file,<br>" +
+         "or add ?list=YOUR_PLAYLIST_ID to the end of the page address.");
+    return;
+  }
+
+  /* ---------- memory (survives reloads, separate for each TV) ---------- */
+
+  function load() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    s = s || {};
+    return {
+      played: s.played instanceof Array ? s.played : [],   // played in this round
+      recent: s.recent instanceof Array ? s.recent : [],   // last songs played, newest last
+      bad: s.bad && typeof s.bad === "object" ? s.bad : {}, // videos that refuse to play
+      vol: s.vol && typeof s.vol === "object" ? s.vol : {}, // song volumes set with the remote
+      zoom: s.zoom && typeof s.zoom === "object" ? s.zoom : {}, // song zooms set with the remote
+      auto: s.barCheck === BAR_CHECK && s.auto && typeof s.auto === "object" ? s.auto : {}, // zooms found automatically
+      barCheck: BAR_CHECK,
+      ids: s.ids instanceof Array ? s.ids : []             // last known playlist
+    };
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  /* ---------- shuffle with no recent repeats ---------- */
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function toMap(a) {
+    var m = {};
+    for (var i = 0; i < a.length; i++) m[a[i]] = true;
+    return m;
+  }
+
+  function buildQueue() {
+    var now = Date.now();
+    for (var id in state.bad) if (now - state.bad[id] > DAY) delete state.bad[id];
+
+    var usable = allIds.filter(function (v) { return !state.bad[v]; });
+    if (!usable.length) return false;
+
+    var played = toMap(state.played);
+    var rest = usable.filter(function (v) { return !played[v]; });
+    if (!rest.length) {               // everything has played: start a new round
+      state.played = [];
+      rest = usable.slice();
+    }
+    queue = shuffle(rest);
+    keepRecentAway(queue, usable.length);
+    save();
+    return true;
+  }
+
+  // Songs that just played can't sit at the front of the new order
+  function keepRecentAway(q, total) {
+    var gap = Math.min(Number(S.noRepeat) || 0, Math.floor(total / 3));
+    if (total >= 2) gap = Math.max(gap, 1);
+    if (gap < 1) return;
+    var recent = toMap(state.recent.slice(-gap));
+    var free = [], i, j, t;
+    for (j = gap; j < q.length; j++) if (!recent[q[j]]) free.push(j);
+    for (i = 0; i < gap && i < q.length; i++) {
+      if (!recent[q[i]] || !free.length) continue;
+      j = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      t = q[i]; q[i] = q[j]; q[j] = t;
+    }
+  }
+
+  function next() {
+    if (reloading) return;
+    clearTimeout(skipTimer);
+    if (S.refreshHours > 0 && Date.now() - loadedAt > S.refreshHours * 3600e3) return refresh();
+    if (!queue.length && !buildQueue()) {        // nothing playable right now
+      state.bad = {};
+      save();
+      return reloadSoon(10 * 60e3);
+    }
+    current = queue.shift();
+    state.played.push(current);
+    state.recent.push(current);
+    if (state.recent.length > 300) state.recent = state.recent.slice(-300);
+    save();
+
+    lastSwitch = lastMove = Date.now();
+    lastTime = -1;
+    started = false;
+    fadingOut = false;
+    picEnding = false;
+    needHold = false;
+    showAt = Infinity;
+    adSince = 0;
+    if (muted && Date.now() - soundTriedAt > 10 * 60e3) {
+      soundTriedAt = Date.now();                 // every 10 minutes, try sound again
+      setMuted(false);
+    }
+    setLevel(0);                                 // silent until the song itself starts...
+    guard(true);                                 // ...with the café screen up
+    layout();                                    // this song's zoom, while it's hidden
+    player.loadVideoById(current);
+    syncSound(true);
+    findBars(current);                           // black bars? (each song is checked once per TV)
+    if (queue.length) findBars(queue[0]);        // ...and the next one, so it's ready in time
+  }
+
+  /* ---------- reading the playlist ---------- */
+
+  function playlistId(s) {
+    s = String(s || "").trim();
+    var m = s.match(/[?&]list=([\w-]+)/);
+    return m ? m[1] : s;
+  }
+
+  function unique(a) {
+    var seen = {}, out = [];
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] && !seen[a[i]]) { seen[a[i]] = true; out.push(a[i]); }
+    }
+    return out;
+  }
+
+  function getIds() {
+    return S.apiKey ? idsFromApi().catch(idsFromPlayer) : idsFromPlayer();
+  }
+
+  // Let YouTube's own player open the playlist, then read the video list from it
+  function idsFromPlayer() {
+    return new Promise(function (resolve, reject) {
+      player.cuePlaylist({ listType: "playlist", list: LIST });
+      var tries = 0;
+      var t = setInterval(function () {
+        var ids = player.getPlaylist && player.getPlaylist();
+        if (ids && ids.length) { clearInterval(t); source = "read by the YouTube player"; resolve(ids.slice()); }
+        else if (++tries > 80) { clearInterval(t); reject(new Error("playlist did not load")); }
+      }, 250);
+    });
+  }
+
+  // Read the whole playlist (any size) with a YouTube Data API key
+  function idsFromApi() {
+    var ids = [];
+    function page(token) {
+      var url = "https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=50" +
+        "&playlistId=" + encodeURIComponent(LIST) + "&key=" + encodeURIComponent(S.apiKey) +
+        (token ? "&pageToken=" + encodeURIComponent(token) : "");
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error("YouTube API " + r.status);
+        return r.json();
+      }).then(function (j) {
+        (j.items || []).forEach(function (it) {
+          if (it.contentDetails && it.contentDetails.videoId) ids.push(it.contentDetails.videoId);
+        });
+        if (j.nextPageToken) return page(j.nextPageToken);
+        source = "read with the API key";
+        return ids;
+      });
+    }
+    return page("");
+  }
+
+  /* ---------- player events ---------- */
+
+  function onReady() {
+    ready = true;
+    layout();
+    getIds().then(function (ids) {
+      allIds = unique(ids);
+      state.ids = allIds;
+      save();
+    }).catch(function () {
+      allIds = state.ids;                        // fall back to the last list we saw
+      source = "last saved list (YouTube didn't answer)";
+    }).then(function () {
+      if (!allIds.length) {
+        if (!noteShown) note("Couldn't open the playlist. Check that it is Public or Unlisted.");
+        return reloadSoon(60e3);
+      }
+      next();
+    });
+  }
+
+  function onStateChange(e) {
+    if (!current) return;                        // still opening the playlist
+    var st = e.data;
+    if (st !== PLAYING && lastState === PLAYING) leftPlayingAt = Date.now();
+    lastState = st;
+    if (st === PLAYING) {
+      if (!autoplayDead) hideNote();
+      if (!adBlocking() && !started) songStarted(player.getVideoData ? player.getVideoData() : {});
+    }
+    else if (st === ENDED) { if (Date.now() - lastSwitch > 2000) return next(); }
+    else if (st === PAUSED || st === CUED) { if (st === PAUSED) needHold = true; kick(); }
+    syncPicture();                               // paused: café screen at once
+  }
+
+  function onError(e) {
+    var code = e.data;
+    if (code === 153) note("YouTube error 153: open this page from a web address (https://...), not as a file.");
+    if (!current) return;
+    setLevel(0);
+    guard(true);                                 // never show YouTube's error screen
+    skipped.push(current + " (error " + code + ")");
+    if (skipped.length > 6) skipped.shift();
+    if (code === 100 || code === 101 || code === 150) {
+      state.bad[current] = Date.now();           // removed, private or not embeddable: skip it for a day
+      save();
+    } else if (++oddErrors >= 5) {
+      return reloadSoon(30e3);
+    }
+    clearTimeout(skipTimer);
+    skipTimer = setTimeout(next, 1500);
+  }
+
+  function onAutoplayBlocked() {
+    if (muted || level <= 0.001 || (guarded && adBlocking())) {   // even silent play is blocked
+      autoplayDead = true;
+      note("This screen's browser blocks video until someone taps it.<br>" +
+           "Tap the screen once, or turn on \"Simulate touch after load\" in OptiSigns.");
+      return;
+    }
+    setMuted(true);                              // sound refused without a tap: play muted for now
+    soundTriedAt = Date.now();
+    syncSound(true);
+    player.playVideo();
+  }
+
+  function onApiChange() {                       // YouTube loaded a module, e.g. captions
+    noCaptions();
+  }
+
+  function kick() {                              // anything paused it: play again
+    var now = Date.now();
+    if (now - lastKick < 1000) return;
+    lastKick = now;
+    player.playVideo();
+  }
+
+  function adBlocking() {
+    return S.blockAds && Date.now() >= adPauseUntil;
+  }
+
+  /* ---------- the song really started ---------- */
+
+  function songStarted(vd) {
+    started = true;
+    adSkips = 0;
+    needHold = false;
+    var paid = (vd && vd.paidContentOverlayDurationMs) || 0;   // "Includes paid promotion" label
+    var hold = Math.max(Number(S.titleSeconds) || 0, paid ? paid / 1000 + 0.5 : 0);
+    showAt = Date.now() + hold * 1000;
+    guard(false);
+    fadeLevel(1, S.fadeIn);
+    noCaptions();
+    askQuality();
+  }
+
+  // Subtitles off: YouTube's captions module is switched off and unloaded
+  function noCaptions() {
+    if (!S.noSubtitles || !player) return;
+    try { if (player.setOption) player.setOption("captions", "track", {}); } catch (e) {}
+    try { if (player.unloadModule) { player.unloadModule("captions"); player.unloadModule("cc"); } } catch (e) {}
+  }
+
+  // YouTube's documented API ignores quality requests, so the main lever is the
+  // player size in layout(). This also asks for the top stream directly, in case
+  // the embedded player still honours it.
+  var HEIGHTS = { highres: 4320, hd2880: 2880, hd2160: 2160, hd1440: 1440, hd1080: 1080, hd720: 720,
+                  large: 480, medium: 360, small: 240, tiny: 144 };
+
+  function askQuality() {
+    try {
+      var levels = (player.getAvailableQualityLevels && player.getAvailableQualityLevels()) || [];
+      var cap = Math.max(Number(S.quality) || 2160, 1080), best = null;
+      for (var i = 0; i < levels.length && !best; i++) {
+        if (HEIGHTS[levels[i]] && HEIGHTS[levels[i]] <= cap) best = levels[i];
+      }
+      if (!best) return;
+      if (player.setPlaybackQualityRange) player.setPlaybackQualityRange(best, best);
+      if (player.setPlaybackQuality) player.setPlaybackQuality(best);
+    } catch (e) {}
+  }
+
+  /* ---------- watchdog: picture, ads, fades, stalls (4 times a second) ---------- */
+
+  setInterval(function () {
+    if (window.innerWidth !== lastW || window.innerHeight !== lastH) layout();
+    if (!ready || !current || reloading) return;
+    var now = Date.now();
+    var st = player.getPlayerState();
+    var t = player.getCurrentTime() || 0;
+    var d = player.getDuration() || 0;
+    var vd = (player.getVideoData && player.getVideoData()) || {};
+    var forward = lastTime >= 0 && t > lastTime;  // the song's own clock moved on
+    if (t !== lastTime) { lastTime = t; lastMove = now; }
+    if (st !== PLAYING && lastState === PLAYING) leftPlayingAt = now;
+    if (st === PAUSED) needHold = true;
+    lastState = st;
+    var blocking = adBlocking();
+    var otherVideo = blocking && !!vd.video_id && vd.video_id !== current && now - lastSwitch > 1500;  // ads are videos too
+
+    if (st === PLAYING && forward && !otherVideo) {
+      strikes = 0;
+      oddErrors = 0;
+      adSince = 0;
+      if (!started) { if (t > 0.3) songStarted(vd); }
+      else if (guarded) {                        // back to the song after a mid-song ad
+        guard(false);
+        showAt = Math.max(showAt, now + (Number(S.titleSeconds) || 0) * 1000);
+        fadeLevel(1, 1);
+      } else if (needHold) {                     // back from a pause: YouTube shows the title again
+        needHold = false;
+        showAt = Math.max(showAt, now + (Number(S.titleSeconds) || 0) * 1000);
+      }
+    } else if (blocking && !fadingOut && !picEnding) {
+      var frozen = st === PLAYING && now - lastMove > 2500;           // "playing", but the song's clock stands still
+      var late = !started && st !== BUFFERING && !autoplayDead && now - lastSwitch > 6000;
+      if (otherVideo || frozen || late) {
+        if (!adSince) adSince = now;
+        if (!guarded) { setLevel(0); guard(true); }   // covered and silent at once
+        if (late || now - adSince > 6000) return skipAd();
+      }
+    }
+
+    if (started && d > 5) {
+      var fo = Math.min(Number(S.fadeOut) || 0, d / 4);
+      var be = Math.min(Number(S.brandEnding) || 0, d / 4);
+      var tail = Math.min(Number(S.cutEnding) || 0, d / 4) + 0.6;    // stop before YouTube's end screen
+      var left = d - t, settled = now - lastSwitch > 3000;
+      if (!picEnding && st === PLAYING && left < tail + Math.max(fo, be) && settled) {
+        picEnding = true;                        // café screen over the last seconds: no end cards
+        picFadeSecs = be > fo ? 2 : Math.max(fo, 0.3);
+      }
+      if (!fadingOut && st === PLAYING && left < tail + fo && settled) startFadeOut(fo);
+      if (fadingOut && (left < tail || now - fadeStartedAt > (fo + 3) * 1000)) return next();
+    }
+    if (st === PAUSED || st === CUED) kick();
+    else if (st === ENDED && now - lastSwitch > 2000) return next();
+
+    if (now - resyncAt > 2000) { resyncAt = now; syncSound(true); }
+    syncPicture();
+
+    if (now - lastMove > 90e3) {                 // stuck for 90 seconds
+      lastMove = now;
+      if (++strikes >= 3) return reloadSoon(0);
+      next();
+    }
+  }, 250);
+
+  function skipAd() {
+    adsSkipped++;
+    skipped.push(current + " (ad)");
+    if (skipped.length > 6) skipped.shift();
+    if (++adSkips >= 6) {                        // 6 in a row: let music play for 30 minutes, then block again
+      adSkips = 0;
+      adPauseUntil = Date.now() + 30 * 60e3;
+    }
+    next();
+  }
+
+  function startFadeOut(secs) {
+    fadingOut = true;
+    fadeStartedAt = Date.now();
+    if (!picEnding) { picEnding = true; picFadeSecs = Math.max(secs, 0.3); }
+    fadeLevel(0, secs);
+    syncPicture();
+  }
+
+  /* ---------- picture ---------- */
+
+  // The video shows only while the song plays cleanly. The rest of the time
+  // (loading, paused, stalled, ads, YouTube's title, the last seconds) the café
+  // screen underneath is what's on the TV.
+  function syncPicture() {
+    var now = Date.now(), mode = "off";
+    if (picEnding || fadingOut) mode = "fadeout";
+    else if (started && !guarded && now >= showAt &&
+             (lastState === PLAYING || (lastState === BUFFERING && now - leftPlayingAt < 700))) mode = "show";
+    setPicture(mode);
+  }
+
+  function setPicture(mode) {
+    if (mode === pictureMode) return;
+    pictureMode = mode;
+    var el = document.getElementById("player");
+    if (!el) return;
+    var fin = Math.min(Math.max(Number(S.fadeIn) || 0, 0.3), 2);
+    if (mode === "show") { el.style.transition = "opacity " + fin + "s ease-in, transform .4s ease"; el.style.opacity = "1"; }
+    else if (mode === "fadeout") { el.style.transition = "opacity " + picFadeSecs + "s ease-out"; el.style.opacity = "0"; }
+    else { el.style.transition = "none"; el.style.opacity = "0"; }
+    el.className = mode;
+    document.body.classList.toggle("video-on", mode === "show");   // café screen rests behind the video
+  }
+
+  function guard(on) {
+    guarded = on;
+    syncSound();
+    syncPicture();
+  }
+
+  // YouTube picks the stream from the player's size, so the player is drawn at
+  // the chosen quality (4K by default) and shrunk to fit the screen exactly,
+  // then zoomed for this song if it has black bars (remote left/right).
+  function layout() {
+    var el = document.getElementById("player");
+    lastW = window.innerWidth;
+    lastH = window.innerHeight;
+    if (!el || !lastW || !lastH) return;
+    var dpr = window.devicePixelRatio || 1;
+    var fitH = Math.min(lastH, lastW * 9 / 16);                    // biggest 16:9 area on screen
+    var h = Math.max(Number(S.quality) || 2160, fitH * dpr) / dpr; // player size in CSS pixels
+    var w = h * 16 / 9;
+    var s = fitH / h * songZoom() / 100;
+    renderW = Math.round(w * dpr);
+    renderH = Math.round(h * dpr);
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    el.style.transform = "translate(" + (lastW - w * s) / 2 + "px, " + (lastH - h * s) / 2 + "px) scale(" + s + ")";
+  }
+
+  /* ---------- sound ---------- */
+
+  function songVolume() {
+    var v = S.volume;
+    if (current && S.songVolume && S.songVolume[current] != null) v = S.songVolume[current];
+    if (current && state.vol[current] != null) v = state.vol[current];
+    v = Number(v);
+    return isNaN(v) ? 100 : Math.max(0, Math.min(100, v));
+  }
+
+  // Applies mute / volume: silent while loading or covering an ad, faded
+  // with the fade level (on a natural-sounding curve), at the song's volume.
+  function syncSound(force) {
+    if (!player || !ready) return;
+    var silent = muted || level <= 0.001 || (guarded && adBlocking());
+    var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * Math.pow(10, (level - 1) * 1.5)));
+    if (force || silent !== lastSentMute) {
+      if (silent) player.mute(); else player.unMute();
+      lastSentMute = silent;
+    }
+    if (!silent && (force || vol !== lastSentVol)) { player.setVolume(vol); lastSentVol = vol; }
+  }
+
+  function setLevel(v) {
+    clearInterval(levelTimer);
+    level = v;
+    syncSound();
+  }
+
+  function fadeLevel(to, seconds) {
+    clearInterval(levelTimer);
+    var from = level, steps = Math.round((Number(seconds) || 0) * 10), i = 0;
+    if (steps < 2) { level = to; syncSound(); return; }
+    levelTimer = setInterval(function () {
+      level = from + (to - from) * (++i / steps);
+      syncSound();
+      if (i >= steps) clearInterval(levelTimer);
+    }, 100);
+  }
+
+  function setMuted(m) {
+    muted = m;
+    document.getElementById("muted").style.display = m ? "block" : "none";
+  }
+
+  // Remote up/down arrows (or + / - on a keyboard): this song louder or quieter,
+  // remembered on this TV.
+  function changeSongVolume(delta) {
+    if (!current) return;
+    var v = Math.max(10, Math.min(100, Math.round((songVolume() + delta) / 10) * 10));
+    state.vol[current] = v;
+    save();
+    syncSound();
+    toast("♪ " + v + "%");
+  }
+
+  /* ---------- zoom (black bars) ---------- */
+
+  // Steps for the remote's left/right arrows. 105 fills the screen for 1.85:1
+  // videos, 113 for 2:1, 124 for 2.2:1 and 135 for 2.39:1 "cinema" videos (and for
+  // old 4:3 uploads with a 16:9 picture inside, which have bars on all four sides).
+  var ZOOMS = [100, 105, 113, 124, 135];
+  var FRAMES = "https://i.ytimg.com/vi/";   // YouTube's still frames of each video
+  var barsBusy = {}, barsFails = 0, barsOffUntil = 0;
+
+  // This song's zoom: set with the remote on this TV, else in SETTINGS, else found
+  // automatically, else none
+  function songZoom() {
+    var z = 100;
+    if (current) {
+      if (S.autoZoom !== false && state.auto[current] != null) z = state.auto[current];
+      if (S.songZoom && S.songZoom[current] != null) z = S.songZoom[current];
+      if (state.zoom[current] != null) z = state.zoom[current];
+    }
+    z = Number(z);
+    return isNaN(z) ? 100 : Math.max(100, Math.min(200, z));
+  }
+
+  // Remote left/right arrows: zoom this song in or out, remembered on this TV.
+  // The automatic and SETTINGS zooms are steps too, so you can always go back to them.
+  function changeSongZoom(dir) {
+    if (!current) return;
+    var z = songZoom(), to = z, steps = ZOOMS.slice();
+    [S.autoZoom !== false && state.auto[current], S.songZoom && S.songZoom[current]].forEach(function (v) {
+      v = Number(v);
+      if (v >= 100 && v <= 200 && steps.indexOf(v) < 0) steps.push(v);
+    });
+    steps.sort(function (a, b) { return a - b; });
+    for (var i = 0; i < steps.length; i++) {
+      if (dir > 0 && steps[i] > z) { to = steps[i]; break; }
+      if (dir < 0 && steps[i] < z) to = steps[i];
+    }
+    state.zoom[current] = to;
+    save();
+    layout();
+    toast("Zoom " + to + "%");
+  }
+
+  // Looks for black bars in a song, once per TV. YouTube publishes three still
+  // frames of every video (from about a quarter, half and three quarters of the
+  // way in). Black bands of the same height at the top and bottom of them are
+  // the video's bars; the song is then zoomed just enough to cover them. Anything
+  // unclear (dark frames, black backgrounds, text in the bars) stays at 100%.
+  function findBars(id) {
+    if (S.autoZoom === false || !id || state.auto[id] != null || barsBusy[id] || Date.now() < barsOffUntil) return;
+    barsBusy[id] = true;
+    var frames = [], read = 0, left = 3;
+    for (var n = 1; n <= 3; n++) loadFrame(id, n, function (ok, f) {
+      if (ok) read++;
+      if (f) frames.push(f);
+      if (--left) return;
+      delete barsBusy[id];
+      if (!read && ++barsFails >= 3) {           // YouTube's frames can't be read right now:
+        barsFails = 0;                           // try again in an hour
+        barsOffUntil = Date.now() + 3600e3;
+      }
+      if (read < 2) return;                      // not now; again the next time this song comes up
+      barsFails = 0;
+      state.auto[id] = zoomFor(frames);
+      save();
+      if (id === current) layout();              // zooms smoothly if the song is already on
+    });
+  }
+
+  // One still frame: the medium one (320x180), else the bigger 4:3 one, else the
+  // small one. done(read, bars): read = the picture could be read at all.
+  function loadFrame(id, n, done) {
+    var kinds = [["mq", 320], ["hq", 480], ["", 120]], k = 0;
+    (function attempt() {
+      if (k >= kinds.length) return done(false, null);
+      var kind = kinds[k++], img = new Image(), over = false;
+      var timer = setTimeout(function () { finish(false); }, 15e3);
+      function finish(loaded) {
+        if (over) return;
+        over = true;
+        clearTimeout(timer);
+        img.onload = img.onerror = null;
+        if (!loaded || img.naturalWidth !== kind[1]) return attempt();   // not there (YouTube's grey stand-in is 120 wide)
+        var bars = null;
+        try {
+          var w = img.naturalWidth, h = img.naturalHeight, c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          var g = c.getContext("2d");
+          g.drawImage(img, 0, 0);
+          bars = barsIn(g.getImageData(0, 0, w, h).data, w, h);
+        } catch (e) { return done(false, null); }   // the browser won't let the page read it
+        done(true, bars);
+      }
+      img.crossOrigin = "anonymous";
+      img.onload = function () { finish(true); };
+      img.onerror = function () { finish(false); };
+      img.src = FRAMES + encodeURIComponent(id) + "/" + kind[0] + n + ".jpg";
+    })();
+  }
+
+  // Black rows at the top and bottom of one frame, as a share of the video's
+  // height. YouTube's 4:3 stills show a 16:9 video as a band across the middle.
+  function barsIn(px, w, h) {
+    var frameH = h, off = 0;
+    if (Math.abs(w / h - 4 / 3) < 0.05) { frameH = w * 9 / 16; off = (h - frameH) / 2; }
+    else if (Math.abs(w / h - 16 / 9) > 0.05) return null;
+    var lit = [], bright = 0, y, i, end, n;
+    for (y = 0; y < h; y++) {
+      for (n = 0, i = y * w * 4, end = i + w * 4; i < end; i += 4) {
+        if (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114 > 40) n++;   // not black
+      }
+      lit.push(n / w);
+      if (n / w > 0.2) bright++;
+    }
+    if (bright < h * 0.15) return null;          // a dark frame tells nothing
+    var top = 0, bottom = 0;
+    while (top < h && lit[top] <= 0.03) top++;   // a tiny logo in a bar is allowed
+    while (bottom < h && lit[h - 1 - bottom] <= 0.03) bottom++;
+    return {
+      top: (top - off) / frameH,
+      bottom: (bottom - off) / frameH,
+      // how much picture starts right after each bar (real bars end in a sharp edge)
+      edgeTop: Math.max(lit[top] || 0, lit[top + 1] || 0),
+      edgeBottom: Math.max(lit[h - 1 - bottom] || 0, lit[h - 2 - bottom] || 0)
+    };
+  }
+
+  // The zoom for a song from its frames' bars, in percent (100 = leave it)
+  function zoomFor(frames) {
+    if (frames.length < 2) return 100;           // not enough clear frames to be sure
+    var top = 1, bottom = 1, tol = 0.012;
+    frames.forEach(function (f) { top = Math.min(top, f.top); bottom = Math.min(bottom, f.bottom); });
+    var atTop = frames.filter(function (f) { return f.top <= top + tol; });
+    var atBottom = frames.filter(function (f) { return f.bottom <= bottom + tol; });
+    var edge = function (list, key) { return Math.max.apply(null, list.map(function (f) { return f[key]; })); };
+    var bar = Math.max(top, bottom);             // cover both bars fully
+    if (Math.min(top, bottom) < 0.015) return 100;   // no bars
+    if (atTop.length < 2 || atBottom.length < 2 ||      // bars stay put in every frame...
+        Math.abs(top - bottom) > 0.025 ||        // ...are the same at the top and bottom...
+        bar > 0.2 ||                             // ...and no bigger than a wide film's
+        edge(atTop, "edgeTop") < 0.3 || edge(atBottom, "edgeBottom") < 0.3) return 100;
+    return Math.min(135, Math.ceil(101 / (1 - 2 * bar)));   // 1% extra hides a soft edge
+  }
+
+  // For test mode: where this song's zoom comes from
+  function zoomNote() {
+    if (!current) return "";
+    if (state.zoom[current] != null) return "set with the remote";
+    if (S.songZoom && S.songZoom[current] != null) return "from SETTINGS";
+    if (S.autoZoom === false) return "automatic zoom off";
+    if (state.auto[current] != null) return state.auto[current] > 100 ? "bars found automatically" : "no bars found";
+    if (barsBusy[current]) return "looking for bars";
+    if (Date.now() < barsOffUntil) return "can't read YouTube's still frames right now";
+    return "not checked yet";
+  }
+
+  // A small message in the corner for a moment (volume and zoom changes)
+  function toast(text) {
+    var box = document.getElementById("vol");
+    box.textContent = text;
+    box.style.display = "block";
+    clearTimeout(volTimer);
+    volTimer = setTimeout(function () { box.style.display = "none"; }, 2500);
+  }
+
+  /* ---------- full screen, taps and keys, staying awake ---------- */
+
+  // Browsers only allow full screen after a tap or key press, unless the device
+  // (OptiSigns, kiosk mode) already shows the page full screen.
+  function goFullscreen() {
+    var d = document, el = d.documentElement;
+    if (d.fullscreenElement || d.webkitFullscreenElement) return;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try {
+      var p = req.call(el, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+
+  function keepAwake() {
+    try {
+      if (navigator.wakeLock && !document.hidden) navigator.wakeLock.request("screen").catch(function () {});
+    } catch (e) {}
+  }
+
+  // Any tap, click or remote button press: full screen, and sound on if it was blocked
+  function onUserAction() {
+    goFullscreen();
+    if (!ready || !current) return;
+    if (autoplayDead) { autoplayDead = false; hideNote(); }
+    if (muted) { setMuted(false); syncSound(true); }
+    player.playVideo();
+  }
+  ["pointerdown", "pointerup", "touchend", "mousedown", "click", "keydown"].forEach(function (ev) {
+    document.addEventListener(ev, onUserAction, { capture: true, passive: true });
+  });
+  document.addEventListener("keydown", function (e) {
+    var up = e.key === "ArrowUp" || e.key === "+" || e.key === "=";
+    var down = e.key === "ArrowDown" || e.key === "-";
+    if (up || down) changeSongVolume(up ? 10 : -10);
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") changeSongZoom(e.key === "ArrowRight" ? 1 : -1);
+  }, true);
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    keepAwake();
+    if (ready && current) kick();
+  });
+
+  /* ---------- helpers ---------- */
+
+  // Setup problems only: a short message on the screen
+  function note(html) {
+    var n = document.getElementById("note");
+    n.innerHTML = html;
+    n.style.display = "block";
+    noteShown = true;
+  }
+
+  function hideNote() {
+    if (!noteShown) return;
+    document.getElementById("note").style.display = "none";
+    noteShown = false;
+  }
+
+  // Planned reload between two songs. If the page's address doesn't answer,
+  // keep playing and try again in 15 minutes.
+  function refresh() {
+    reloading = true;
+    fetch(location.href, { cache: "no-store" })
+      .then(function (r) { if (r.ok) location.reload(); else throw new Error(); })
+      .catch(function () {
+        reloading = false;
+        loadedAt = Date.now() - S.refreshHours * 3600e3 + 15 * 60e3;
+        next();
+      });
+  }
+
+  // Recovery reload. Waits until the page's address answers, so an internet
+  // drop never leaves the TV stuck on a "no connection" screen.
+  function reloadSoon(ms) {
+    if (reloading) return;
+    reloading = true;
+    setTimeout(function attempt() {
+      if (!/^https?:$/.test(location.protocol)) return location.reload();
+      fetch(location.href, { cache: "no-store" })
+        .then(function (r) { if (r.ok) location.reload(); else throw new Error(); })
+        .catch(function () { setTimeout(attempt, 30e3); });
+    }, ms || 0);
+  }
+
+  /* ---------- test mode (?debug=1) ---------- */
+
+  var NAMES = { "-1": "starting", "0": "ended", "1": "playing", "2": "paused", "3": "loading", "5": "ready" };
+  var QUALITY = { tiny: "144p", small: "240p", medium: "360p", large: "480p", hd720: "720p", hd1080: "1080p",
+                  hd1440: "1440p", hd2160: "2160p (4K)", hd2880: "2880p", highres: "above 1080p (1440p / 4K)" };
+
+  function mmss(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
+  }
+
+  function debugInfo() {
+    var fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    var lines = ["Playlist " + LIST];
+    if (!ready) lines.push("Waiting for YouTube...");
+    else if (!current) lines.push("Reading the playlist...");
+    else {
+      var good = allIds.filter(function (v) { return !state.bad[v]; }).length;
+      var done = state.played.filter(function (v) { return !state.bad[v]; }).length;
+      var vd = (player.getVideoData && player.getVideoData()) || {};
+      lines.push(allIds.length + " videos, " + source);
+      lines.push("This round: song " + done + " of " + good);
+      lines.push("Now: " + (vd.title || "") + "  [" + current + "]");
+      lines.push((NAMES[player.getPlayerState()] || "?") + "  " + mmss(player.getCurrentTime()) + " / " +
+                 mmss(player.getDuration()) + "   picture " + (pictureMode || "off"));
+      lines.push("Zoom " + songZoom() + "% (" + zoomNote() + "; remote left/right to change)");
+      lines.push("Sound " + (muted ? "OFF (tap the screen or press OK)" : lastSentMute ? "held (loading / ad / fade)" : "on at " + lastSentVol + "%") +
+                 ", this song's volume " + songVolume() + "% (remote up/down to change)");
+      lines.push("Quality: " + (QUALITY[quality] || quality || "not reported yet") +
+                 "   (player drawn at " + renderW + "x" + renderH + ")");
+      lines.push("Ad blocking " + (!S.blockAds ? "off" : adBlocking() ? "on" : "paused for a while (6 skips in a row)") +
+                 ": " + adsSkipped + " ads skipped   subtitles " + (S.noSubtitles ? "off" : "allowed") +
+                 "   fade in " + (Number(S.fadeIn) || 0) + "s / out " + (Number(S.fadeOut) || 0) + "s, title hidden " +
+                 (Number(S.titleSeconds) || 0) + "s");
+    }
+    lines.push("Screen " + window.innerWidth + "x" + window.innerHeight + ", full screen " + (fs ? "yes" : "no"));
+    if (skipped.length) lines.push("Skipped: " + skipped.join(", "));
+    var box = document.getElementById("debug");
+    box.textContent = lines.join("\n");
+    box.style.display = "block";
+  }
+  if (DEBUG) setInterval(debugInfo, 1000);
+
+  /* ---------- start ---------- */
+
+  window.onYouTubeIframeAPIReady = function () {
+    var vars = { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, iv_load_policy: 3, playsinline: 1 };
+    if (S.noSubtitles) vars.cc_load_policy = 0;
+    if (/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+    player = new YT.Player("player", {
+      width: 3840,
+      height: 2160,
+      playerVars: vars,
+      events: {
+        onReady: onReady,
+        onStateChange: onStateChange,
+        onError: onError,
+        onAutoplayBlocked: onAutoplayBlocked,
+        onApiChange: onApiChange,
+        onPlaybackQualityChange: function (e) { quality = e.data; }
+      }
+    });
+    layout();
+  };
+
+  var tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  tag.onerror = function () { reloadSoon(30e3); };
+  document.head.appendChild(tag);
+  setTimeout(function () { if (!ready) reloadSoon(0); }, 60e3);
+  goFullscreen();      // only works where the device allows it without a tap
+  keepAwake();
+})();
+</script>
+</body>
+</html>

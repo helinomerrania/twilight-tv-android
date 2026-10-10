@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Each build on GitHub gets a higher version number, so a new APK installs over the old
+// one (and each TV keeps what it remembers: song volumes, zooms, the shuffle).
+def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+
+android {
+    namespace 'com.twilightcafe.tvplayer'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.twilightcafe.tvplayer'
+        minSdk 21
+        targetSdk 35
+        versionCode buildNumber
+        versionName "1.${buildNumber}"
+    }
+
+    // The same key signs every build; Android only updates an app signed with the same key.
+    signingConfigs {
+        release {
+            storeFile file('twilight-tv.keystore')
+            storeType 'pkcs12'
+            storePassword 'twilight-tv-key'
+            keyAlias 'twilight-tv'
+            keyPassword 'twilight-tv-key'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

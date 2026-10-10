@@ -1,0 +1,45 @@
+name: Build the TV app
+
+# Runs every time something in the project changes (or by hand from the Actions tab),
+# and publishes twilight-tv.apk as the latest release.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04   # a fixed build machine, so GitHub updates don't change the build
+    steps:
+      - name: Get the project
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build the APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
+
+      - name: Keep the APK with this build
+        uses: actions/upload-artifact@v4
+        with:
+          name: twilight-tv
+          path: twilight-tv.apk
+
+      - name: Publish it as the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}-${{ github.run_attempt }}" twilight-tv.apk \
+            --target "${{ github.sha }}" \
+            --title "Twilight TV, build ${{ github.run_number }}" \
+            --notes "Install twilight-tv.apk on the TVs. It installs over the previous build." \
+            --latest

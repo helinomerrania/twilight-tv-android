@@ -60,6 +60,10 @@
   .step { width: 48px; height: 48px; border-radius: 14px; background: var(--plum); border: 1px solid var(--line); font-size: 1.5rem; line-height: 1; }
   .wide { width: 100%; min-height: 52px; border-radius: 14px; background: transparent; border: 1px solid var(--line); font-size: .98rem; }
   .update { border-color: rgba(255, 207, 138, .55); }
+  .steps { margin: 10px 0 12px; padding-left: 1.3em; }
+  .steps li { padding: 4px 0; border: 0; }
+  .steps li b { display: inline; font-weight: 700; }
+  #qualityOn { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
   .update .wide { background: var(--sun); color: #2a1406; border: 0; font-weight: 650; margin-top: 12px; }
   ul { list-style: none; margin: 8px 0 0; padding: 0; }
   li { padding: 10px 0; border-top: 1px solid var(--line); }
@@ -188,6 +192,24 @@
         <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
         <div class="val" id="tvvol">–</div>
         <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
+      </div>
+    </section>
+
+    <section class="card" id="qualityCard">
+      <p class="label">Picture quality</p>
+      <p class="title" id="qualityNow">–</p>
+      <div id="qualityIdle">
+        <p class="label" style="margin-top:8px">YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on the TV. YouTube then remembers it on that TV for weeks.</p>
+        <button class="wide" data-cmd="qualitysetup" type="button" style="margin-top:8px">Choose the highest quality on the TV</button>
+      </div>
+      <div id="qualityOn" hidden>
+        <ol class="steps">
+          <li>YouTube's own controls are now on the TV screen.</li>
+          <li>With the remote's mouse button (or a USB mouse), click the gear ⚙ at the bottom right of the video.</li>
+          <li>Choose <b>Quality</b>, then the highest number.</li>
+        </ol>
+        <button class="wide" data-cmd="qualitydone" type="button">Done</button>
+        <p class="label" style="margin-top:8px">Pressing Back on the TV remote also finishes. It ends by itself after 10 minutes.</p>
       </div>
     </section>
 
@@ -330,7 +352,7 @@
     if (!p) text = "";
     else if (st === "closed") { closed = off = true; text = "Music off: outside opening hours (" + p.openHours + ")"; }
     else if (p.holdUntil) { paused = off = true; text = "Paused from a phone. It starts again by itself at " + clock(p.holdUntil) + "."; }
-    else if (st === "playing") text = "Playing" + (p.quality ? ", picture " + p.quality : "") + (p.scheduleVolume < 100 ? ", volume schedule " + p.scheduleVolume + "%" : "");
+    else if (st === "playing") text = "Playing" + (p.scheduleVolume < 100 ? ", volume schedule " + p.scheduleVolume + "%" : "");
     else if (st === "loading" || st === "starting" || st === "ready") text = "Loading the next song…";
     else text = st.charAt(0).toUpperCase() + st.slice(1);
     $("state").textContent = text;
@@ -346,6 +368,11 @@
     var fixed = s.tvVolumeFixed || s.tvVolumeMax == null;
     $("tvRow").hidden = !!fixed;
     if (!fixed) $("tvvol").textContent = s.tvVolume + "/" + s.tvVolumeMax;
+
+    $("qualityNow").textContent = s.qualitySetup ? "Quality setup is on the TV" :
+      p && p.quality ? "Now playing in " + p.quality : "Not reported by YouTube yet";
+    $("qualityIdle").hidden = !!s.qualitySetup;
+    $("qualityOn").hidden = !s.qualitySetup;
 
     $("update").hidden = !s.updateReady;
     if (s.updateReady) $("updateTitle").textContent = "Version 1." + s.updateReady + " is ready";

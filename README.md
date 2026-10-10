@@ -53,6 +53,18 @@ The page has:
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours.
 
+## Highest picture quality
+
+YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on each TV. YouTube remembers the choice on that TV for weeks.
+
+1. On the phone page, Control tab, press **Choose the highest quality on the TV**.
+2. On the TV, YouTube's own controls appear. With the remote's mouse button (or a USB mouse plugged into the box), click the gear ⚙ at the bottom right of the video. Choose **Quality**, then the highest number.
+3. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
+
+The Control tab shows the quality YouTube is actually playing.
+- **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.
+- **If the quality drops back after some weeks:** YouTube has forgotten the choice. Do the setup again.
+
 ## Settings on the phone
 
 On the phone page, open the **Settings** tab. Every setting is there, grouped:

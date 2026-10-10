@@ -99,6 +99,7 @@ public class MainActivity extends Activity {
     private volatile long lastAlive = 0;                 // the page's last "I'm alive"
     private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
     private int reloadsInRow = 0, tvVolumeSetting = 0;
+    private long qualitySetupUntil = 0;                  // YouTube's own controls on screen until then
     private String restartDoneDay = "", openingDoneDay = "";
 
     @Override
@@ -200,7 +201,24 @@ public class MainActivity extends Activity {
         if (web == null) return;
         pageOpenedAt = lastAlive = System.currentTimeMillis();
         web.onResume();
-        web.loadUrl(testMode ? PAGE + "?debug=1" : PAGE);
+        String query = (testMode ? "&debug=1" : "") + (inQualitySetup() ? "&setup=quality" : "");
+        web.loadUrl(query.isEmpty() ? PAGE : PAGE + "?" + query.substring(1));
+    }
+
+    /* ---------- quality setup: YouTube's own controls, to pick the highest quality by hand ---------- */
+
+    private boolean inQualitySetup() {
+        return System.currentTimeMillis() < qualitySetupUntil;
+    }
+
+    private void startQualitySetup() {
+        qualitySetupUntil = System.currentTimeMillis() + 10 * 60000L;   // ends by itself after 10 minutes
+        open();
+    }
+
+    private void endQualitySetup() {
+        qualitySetupUntil = 0;
+        open();
     }
 
     // A fresh web engine: every night, and when the page froze and reloading didn't help
@@ -256,7 +274,11 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
         // Back does nothing, so the music can't be stopped by accident. Home leaves the app.
-        if (key == KeyEvent.KEYCODE_BACK) return true;
+        // During quality setup, Back ends the setup.
+        if (key == KeyEvent.KEYCODE_BACK) {
+            if (inQualitySetup() && event.getAction() == KeyEvent.ACTION_UP) endQualitySetup();
+            return true;
+        }
         // Hold OK for 3 seconds: test mode (the page's details, and the app's: phone address and PIN)
         if ((key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER)
                 && event.getAction() == KeyEvent.ACTION_UP && event.getEventTime() - event.getDownTime() >= 3000) {
@@ -301,6 +323,7 @@ public class MainActivity extends Activity {
         public void run() {
             long now = System.currentTimeMillis();
             refreshNetwork(false);
+            if (qualitySetupUntil > 0 && now >= qualitySetupUntil) endQualitySetup();
             if (now - lastSettingsCheck > 30 * 60000L) {                 // settings.json every 30 minutes
                 lastSettingsCheck = now;
                 work.execute(new Runnable() {
@@ -603,6 +626,7 @@ public class MainActivity extends Activity {
             o.put("tv", tvName);
             o.put("build", BuildConfig.VERSION_NAME);
             o.put("onScreen", visible);
+            o.put("qualitySetup", inQualitySetup());
             String page = callPage("window.TwilightTV ? TwilightTV.status() : null");
             o.put("page", page == null || page.equals("null") ? JSONObject.NULL : new JSONObject(page));
             if (audio != null) {
@@ -662,6 +686,16 @@ public class MainActivity extends Activity {
                 notice = message[0] == null ? "" : message[0];
                 noticeAt = System.currentTimeMillis();
                 return message[0] != null;
+            case "qualitysetup":
+            case "qualitydone":
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (what.equals("qualitysetup")) startQualitySetup();
+                        else endQualitySetup();
+                    }
+                });
+                return true;
             case "testmode":
                 handler.post(new Runnable() {
                     @Override

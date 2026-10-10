@@ -41,10 +41,15 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -93,7 +98,7 @@ public class MainActivity extends Activity {
 
     private volatile long lastAlive = 0;                 // the page's last "I'm alive"
     private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
-    private int reloadsInRow = 0;
+    private int reloadsInRow = 0, tvVolumeSetting = 0;
     private String restartDoneDay = "", openingDoneDay = "";
 
     @Override
@@ -119,6 +124,7 @@ public class MainActivity extends Activity {
         }
         pin = choosePin();
         leveller.apply(settings.flag("levelSound", true));
+        tvVolumeSetting = settings.number("tvVolume", 0);
         applyTvVolume();
 
         overlay = new TextView(this);
@@ -136,7 +142,7 @@ public class MainActivity extends Activity {
         makeWebView();
         server = new ControlServer(phone);
         server.start();
-        refreshNetwork();
+        refreshNetwork(false);
         askToStartWithTv();
         handler.postDelayed(maintenance, 3000);
     }
@@ -254,13 +260,17 @@ public class MainActivity extends Activity {
         // Hold OK for 3 seconds: test mode (the page's details, and the app's: phone address and PIN)
         if ((key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER)
                 && event.getAction() == KeyEvent.ACTION_UP && event.getEventTime() - event.getDownTime() >= 3000) {
-            testMode = !testMode;
-            overlay.setVisibility(testMode ? View.VISIBLE : View.GONE);
-            if (testMode) handler.post(overlayTick);
-            open();
+            toggleTestMode();
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private void toggleTestMode() {
+        testMode = !testMode;
+        overlay.setVisibility(testMode ? View.VISIBLE : View.GONE);
+        if (testMode) handler.post(overlayTick);
+        open();
     }
 
     @SuppressLint("MissingSuperCall")
@@ -290,7 +300,7 @@ public class MainActivity extends Activity {
         @Override
         public void run() {
             long now = System.currentTimeMillis();
-            refreshNetwork();
+            refreshNetwork(false);
             if (now - lastSettingsCheck > 30 * 60000L) {                 // settings.json every 30 minutes
                 lastSettingsCheck = now;
                 work.execute(new Runnable() {
@@ -348,8 +358,13 @@ public class MainActivity extends Activity {
     private void settingsChanged() {
         pin = choosePin();
         leveller.apply(settings.flag("levelSound", true));
-        applyTvVolume();
-        // the page itself restarts between two songs when it sees the new settings
+        int v = settings.number("tvVolume", 0);
+        if (v != tvVolumeSetting) {                  // only when that setting itself changed
+            tvVolumeSetting = v;
+            applyTvVolume();
+        }
+        refreshNetwork(true);                        // the TV's name may have changed
+        // the page sees the new settings by itself and uses them at once
     }
 
     // "9:30" -> "09:30"; anything unreadable -> null
@@ -393,15 +408,23 @@ public class MainActivity extends Activity {
         return own;
     }
 
-    // The network address can arrive late (Wi-Fi after power-on) or change
-    private void refreshNetwork() {
+    // The network address can arrive late (Wi-Fi after power-on) or change, and the
+    // TV's name can be changed on the phone page
+    private void refreshNetwork(boolean force) {
         String now = Net.localIp();
-        if (now.equals(ip) && finder != null) return;
+        String own = settings.text("tvName", "");
+        String name = own.isEmpty() ? autoName(now) : own;
+        if (!force && now.equals(ip) && name.equals(tvName) && finder != null) return;
         ip = now;
-        tvName = ip.isEmpty() ? "TV" : "TV " + ip.substring(ip.lastIndexOf('.') + 1);
+        tvName = name;
         if (finder != null) finder.stop();
         finder = new TvFinder(this, tvName);
         if (!ip.isEmpty() && server != null) finder.start(server.port());
+    }
+
+    // "TV 23" from 192.168.1.23
+    private static String autoName(String address) {
+        return address.isEmpty() ? "TV" : "TV " + address.substring(address.lastIndexOf('.') + 1);
     }
 
     /* ---------- test mode: the app's own details on screen ---------- */
@@ -463,7 +486,116 @@ public class MainActivity extends Activity {
         public boolean command(String what) {
             return runCommand(what);
         }
+
+        @Override
+        public String settings() {
+            return settingsJson();
+        }
+
+        @Override
+        public String saveSettings(String body, boolean all) {
+            return saveFromPhone(body, all);
+        }
     };
+
+    // For the phone's Settings screen: built-in values, settings.json, and this TV's own
+    private String settingsJson() {
+        try {
+            String d = callPage("window.TwilightTV && TwilightTV.settingsInfo ? TwilightTV.settingsInfo().defaults : null");
+            if (d != null && !d.equals("null")) settings.savePageDefaults(d);
+            JSONObject defaults = new JSONObject(settings.pageDefaults());
+            defaults.put("tvName", "");
+            defaults.put("tvVolume", 0);
+            defaults.put("controlPin", "");
+            defaults.put("levelSound", true);
+            defaults.put("restartAt", "05:00");
+            defaults.put("updates", true);
+            JSONObject o = new JSONObject();
+            o.put("tv", tvName);
+            o.put("autoName", autoName(ip));
+            o.put("defaults", defaults);
+            o.put("file", settings.fromFile());
+            o.put("local", settings.local());
+            JSONArray others = new JSONArray();
+            List<String[]> list = finder == null ? null : finder.others();
+            if (list != null) {
+                for (String[] t : list) others.put(t[0]);
+            }
+            o.put("others", others);
+            return o.toString();
+        } catch (Exception e) {
+            return "{\"error\":" + JSONObject.quote(e.toString()) + "}";
+        }
+    }
+
+    // This TV's own settings from the phone; with "all", the same on the other TVs too
+    private String saveFromPhone(String body, boolean all) {
+        JSONObject clean = new JSONObject();
+        try {
+            JSONObject mine = new JSONObject(body).optJSONObject("local");
+            if (mine == null) return null;
+            for (Iterator<String> it = mine.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (k.matches("[A-Za-z][A-Za-z0-9]{0,40}")) clean.put(k, mine.get(k));
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        String oldPin = pin;
+        settings.setLocal(clean);
+        runOnMain(new Runnable() {
+            @Override
+            public void run() {
+                settingsChanged();
+            }
+        });
+        try {
+            JSONObject result = new JSONObject();
+            result.put("ok", true);
+            result.put("pin", pin);                        // it may have just changed
+            result.put("tv", tvName);
+            JSONArray done = new JSONArray();
+            if (all && finder != null) {
+                JSONObject forOthers = new JSONObject(clean.toString());
+                forOthers.remove("tvName");                // each TV keeps its own name
+                String payload = new JSONObject().put("local", forOthers).toString();
+                for (String[] t : finder.others()) {
+                    done.put(new JSONObject().put("name", t[0]).put("result", forward(t[1], oldPin, payload)));
+                }
+            }
+            result.put("others", done);
+            return result.toString();
+        } catch (Exception e) {
+            return "{\"ok\":true}";
+        }
+    }
+
+    // Saves the same settings on another TV, through its own phone page
+    private static String forward(String base, String pin, String payload) {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(base + "api/settings?all=0&pin=" + URLEncoder.encode(pin, "UTF-8")).openConnection();
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(8000);
+            c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            byte[] b = payload.getBytes("UTF-8");
+            c.setFixedLengthStreamingMode(b.length);
+            OutputStream o = c.getOutputStream();
+            o.write(b);
+            o.close();
+            int code = c.getResponseCode();
+            if (code == 200) return "saved";
+            if (code == 401) return "has a different PIN, so it wasn't changed";
+            if (code == 429) return "is locked for a few minutes (too many wrong PINs)";
+            return "couldn't save (" + code + ")";
+        } catch (Exception e) {
+            return "couldn't be reached";
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
 
     private String statusJson() {
         try {
@@ -530,6 +662,24 @@ public class MainActivity extends Activity {
                 notice = message[0] == null ? "" : message[0];
                 noticeAt = System.currentTimeMillis();
                 return message[0] != null;
+            case "testmode":
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        toggleTestMode();
+                    }
+                });
+                return true;
+            case "restart":
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        restartWebView();
+                    }
+                });
+                return true;
+            case "forget":
+                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command('forget') : false"));
             case "checkupdate":
                 work.execute(new Runnable() {
                     @Override

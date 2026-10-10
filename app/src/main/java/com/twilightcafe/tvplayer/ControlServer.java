@@ -21,7 +21,10 @@ import java.util.concurrent.RejectedExecutionException;
  *
  *   GET  /                          the control page
  *   GET  /api/status?pin=1234       what the TV is doing (JSON)
- *   POST /api/cmd?pin=1234&do=next  next, pause, resume, vol+, vol-, zoom+, zoom-, tvvol+, tvvol-, identify, update
+ *   POST /api/cmd?pin=1234&do=next  next, pause, resume, vol+, vol-, zoom+, zoom-, tvvol+, tvvol-, identify, update,
+ *                                   testmode, restart, forget, checkupdate
+ *   GET  /api/settings?pin=1234     the settings: built-in, from settings.json, and this TV's own
+ *   POST /api/settings?pin=1234     this TV's own settings (JSON body); &all=1 also on the other TVs
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
  * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in.
@@ -34,7 +37,12 @@ final class ControlServer {
         byte[] page();
         String status();
         boolean command(String what);
+        String settings();
+        /** Saves this TV's own settings from the phone (JSON body); null when the body is wrong. */
+        String saveSettings(String body, boolean all);
     }
+
+    static final int MAX_BODY = 64 * 1024;
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
@@ -123,9 +131,29 @@ final class ControlServer {
             OutputStream out = c.getOutputStream();
             String request = readLine(in);
             if (request == null || request.isEmpty()) return;
-            for (int i = 0; i < 100; i++) {                    // headers: not needed
+            int length = 0;
+            for (int i = 0; i < 100; i++) {                    // headers: only the body's length matters
                 String h = readLine(in);
                 if (h == null || h.isEmpty()) break;
+                int colon = h.indexOf(':');
+                if (colon > 0 && h.substring(0, colon).trim().equalsIgnoreCase("Content-Length")) {
+                    try {
+                        length = Integer.parseInt(h.substring(colon + 1).trim());
+                    } catch (NumberFormatException e) {
+                        length = -1;
+                    }
+                }
+            }
+            if (length < 0 || length > MAX_BODY) {
+                send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
+                return;
+            }
+            byte[] body = new byte[length];
+            int got = 0;
+            while (got < length) {
+                int n = in.read(body, got, length - got);
+                if (n < 0) break;
+                got += n;
             }
             String[] parts = request.split(" ");
             if (parts.length < 2) {
@@ -138,7 +166,7 @@ final class ControlServer {
                 path = target.substring(0, q);
                 query = target.substring(q + 1);
             }
-            respond(out, method, path, parseQuery(query), c.getInetAddress().getHostAddress());
+            respond(out, method, path, parseQuery(query), c.getInetAddress().getHostAddress(), new String(body, 0, got, UTF8));
         } catch (IOException | RuntimeException e) {
             // the phone went away
         } finally {
@@ -150,7 +178,7 @@ final class ControlServer {
         }
     }
 
-    void respond(OutputStream out, String method, String path, Map<String, String> params, String ip) throws IOException {
+    void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
         if (path.equals("/") || path.equals("/index.html")) {
             send(out, 200, "text/html; charset=utf-8", tv.page());
             return;
@@ -181,6 +209,17 @@ final class ControlServer {
             String what = params.get("do");
             boolean ok = what != null && tv.command(what);
             json(out, ok ? 200 : 400, "{\"ok\":" + ok + "}");
+        } else if (path.equals("/api/settings")) {
+            if (method.equals("GET")) {
+                String s = tv.settings();
+                json(out, 200, s == null ? "{}" : s);
+            } else if (method.equals("POST")) {
+                String r = tv.saveSettings(body, "1".equals(params.get("all")));
+                if (r == null) json(out, 400, "{\"error\":\"settings\",\"message\":\"Those settings couldn't be read.\"}");
+                else json(out, 200, r);
+            } else {
+                json(out, 405, "{\"error\":\"use GET or POST\"}");
+            }
         } else {
             json(out, 404, "{\"error\":\"not found\"}");
         }
@@ -234,6 +273,7 @@ final class ControlServer {
             case 401: return "Unauthorized";
             case 404: return "Not Found";
             case 405: return "Method Not Allowed";
+            case 413: return "Payload Too Large";
             case 429: return "Too Many Requests";
             default: return "Error";
         }

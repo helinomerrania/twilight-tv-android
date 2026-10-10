@@ -238,17 +238,28 @@ var SETTINGS = {
 (function () {
   "use strict";
 
-  // Inside the Android app, settings.json from GitHub overrides SETTINGS above
-  var APP = null, appSettingsVersion = 0;
+  // Inside the Android app, settings.json from GitHub and the settings made on the
+  // phone page override SETTINGS above. The built-in values are kept as defaults.
+  var DEFAULTS = JSON.parse(JSON.stringify(SETTINGS));
+  var APP = null, appSettingsVersion = 0, pendingRestart = false, settingsCheckAt = 0;
   try { APP = window.TwilightApp || null; } catch (e) {}
+
+  function applySettings(extra) {
+    var k;
+    for (k in SETTINGS) if (Object.prototype.hasOwnProperty.call(SETTINGS, k)) delete SETTINGS[k];
+    for (k in DEFAULTS) SETTINGS[k] = JSON.parse(JSON.stringify(DEFAULTS[k]));
+    for (k in extra) {
+      if (Object.prototype.hasOwnProperty.call(extra, k) && k.charAt(0) !== "_") SETTINGS[k] = extra[k];
+    }
+  }
+
+  function appSettings() {
+    try { return JSON.parse(APP.settings() || "{}") || {}; } catch (e) { return {}; }
+  }
+
   if (APP) {
-    try {
-      var extra = JSON.parse(APP.settings() || "{}");
-      for (var k in extra) {
-        if (Object.prototype.hasOwnProperty.call(extra, k) && k.charAt(0) !== "_") SETTINGS[k] = extra[k];
-      }
-      appSettingsVersion = Number(APP.settingsVersion()) || 0;
-    } catch (e) {}
+    applySettings(appSettings());
+    try { appSettingsVersion = Number(APP.settingsVersion()) || 0; } catch (e) {}
   }
 
   var S = SETTINGS;
@@ -365,7 +376,10 @@ var SETTINGS = {
     if (reloading || quiet) return;
     clearTimeout(skipTimer);
     if (S.refreshHours > 0 && Date.now() - loadedAt > S.refreshHours * 3600e3) return refresh();
-    if (appSettingsChanged()) return refresh();  // new settings.json: start fresh between two songs
+    if (pendingRestart) {                        // a new playlist: start fresh between two songs
+      pendingRestart = false;
+      return refresh();
+    }
     if (!queue.length && !buildQueue()) {        // nothing playable right now
       state.bad = {};
       save();
@@ -587,6 +601,7 @@ var SETTINGS = {
       aliveAt = now;
       try { APP.alive(); } catch (e) {}
     }
+    if (APP && now - settingsCheckAt > 2000) { settingsCheckAt = now; checkAppSettings(); }
     if (!ready || !current || reloading) return;
     if (now - scheduleAt > 10000) { scheduleAt = now; checkHours(); }
     if (quiet) {                                 // music off on purpose: café screen, silent, nothing to watch
@@ -1046,14 +1061,21 @@ var SETTINGS = {
     save();
   }
 
-  // True once per change of settings.json (so a failed reload doesn't retry in a loop)
-  function appSettingsChanged() {
-    if (!APP) return false;
+  // New settings (settings.json, or saved on the phone page) take effect at once.
+  // A different playlist or API key starts fresh with the next song.
+  function checkAppSettings() {
     var v = appSettingsVersion;
     try { v = Number(APP.settingsVersion()) || 0; } catch (e) {}
-    if (v === appSettingsVersion) return false;
+    if (v === appSettingsVersion) return;
     appSettingsVersion = v;
-    return true;
+    var oldList = S.playlist, oldKey = S.apiKey;
+    applySettings(appSettings());
+    if (S.playlist !== oldList || S.apiKey !== oldKey) pendingRestart = true;
+    document.getElementById("brandName").textContent = S.brandName || "";
+    layout();
+    syncSound(true);
+    noCaptions();
+    scheduleAt = 0;                              // opening hours checked on the next tick
   }
 
   /* ---------- for the Android app: status and commands (phone control) ---------- */
@@ -1090,9 +1112,21 @@ var SETTINGS = {
         problems: problems
       };
     },
-    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload
+    // The page's built-in settings (for the phone page's Settings screen) and the ones in use
+    settingsInfo: function () {
+      return { defaults: DEFAULTS, current: S };
+    },
+    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload, forget
     command: function (what) {
       what = String(what || "");
+      if (what === "forget") {                   // this TV's memory: shuffle history, song volumes, zooms, problem list
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        state = load();
+        reloading = false;
+        refresh();
+        return true;
+      }
+      if (what === "reload") { reloading = false; refresh(); return true; }
       if (!ready || !current) return false;
       if (what === "next") {
         if (quiet === "paused") { quietSince = 0; resume(); return true; }
@@ -1109,7 +1143,6 @@ var SETTINGS = {
       else if (what === "vol+" || what === "vol-") changeSongVolume(what === "vol+" ? 10 : -10);
       else if (what === "zoom+" || what === "zoom-") changeSongZoom(what === "zoom+" ? 1 : -1);
       else if (what.indexOf("identify:") === 0) toast(what.slice(9), 6000);
-      else if (what === "reload") refresh();
       else return false;
       return true;
     }

@@ -3,6 +3,7 @@
 Your café TV page as an Android app for the TV boxes. It plays full screen, starts the music with sound by itself, keeps the screen awake, and opens by itself when the box turns on. On top of that:
 
 - **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom.
+- **Settings on the phone:** every setting, on one TV or all of them at once, used straight away.
 - **One settings file:** `settings.json` in this repository reaches every TV, with no reinstalling.
 - **Schedules:** opening hours, a volume schedule, and the box's own volume reset at opening time.
 - **Updates:** new versions download by themselves; staff install them from the phone page.
@@ -52,11 +53,31 @@ The page has:
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours.
 
+## Settings on the phone
+
+On the phone page, open the **Settings** tab. Every setting is there, grouped:
+- **Music:** playlist, volume, volume by time of day, opening hours, repeats.
+- **Between songs:** fades, café screen at the start and end, cut endings.
+- **Picture and YouTube:** quality, automatic zoom, ads, subtitles, café name.
+- **This TV box:** its name, its own volume, sound levelling, nightly restart, updates, the PIN.
+- **Advanced:** reload interval, YouTube API key.
+
+Change what you like and press **Save on this TV**. Tick **Also on the other TVs** first to save the same settings on every TV the phone page lists (each TV keeps its own name). Changes are used straight away; a new playlist starts with the next song.
+
+Each setting shows where its value comes from:
+- **built-in:** the app's own value.
+- **settings.json:** the shared file on GitHub (see below).
+- **this TV:** saved from the phone. **Use the shared value** removes it again.
+
+The **Tools** at the bottom show or hide test mode on the TV, restart the app, look for a new version, and clear the TV's memory (shuffle history, song volumes, zooms, the list of songs that won't play).
+
 Each TV has its own PIN unless you set one PIN for all of them with `controlPin` (see below). Ten wrong PINs lock that phone out for 10 minutes, so customers on the Wi-Fi can't guess their way in.
 
 ## Settings for every TV: `settings.json`
 
-Open `settings.json` in this repository, click the pencil (Edit), change a value and click **Commit changes**. Every TV reads it within 30 minutes and starts using it after the current song. No new build or reinstall is needed.
+The shared starting point for every TV. Settings saved on a TV from the phone page win over this file on that TV.
+
+Open `settings.json` in this repository, click the pencil (Edit), change a value and click **Commit changes**. Every TV reads it within 30 minutes and uses it straight away. No new build or reinstall is needed.
 
 | Setting | What it does | Example |
 | --- | --- | --- |

@@ -21,13 +21,17 @@
     padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
   }
   main { max-width: 34rem; margin: 0 auto; }
-  header { padding: 8px 2px 18px; }
+  header { padding: 8px 2px 14px; }
   .cafe { margin: 0; font-size: 1.5rem; line-height: 1.6; font-weight: 700; text-align: center;
           text-shadow: 0 0 .6em rgba(255, 171, 107, .35); }
   .tvs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
   .tvs a, .tvs span { padding: 5px 12px; border-radius: 999px; font-size: .9rem; text-decoration: none; color: var(--cream);
                       border: 1px solid var(--line); }
   .tvs span { background: var(--glow); border-color: var(--glow); color: #2a1406; font-weight: 650; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 16px; border-radius: 14px;
+          background: rgba(11, 16, 48, .6); border: 1px solid var(--line); }
+  .tabs button { min-height: 42px; border-radius: 10px; background: transparent; color: var(--soft); font-weight: 600; }
+  .tabs button[aria-selected="true"] { background: var(--plum); color: var(--cream); }
   .card { background: rgba(21, 25, 66, .82); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 14px;
           backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .label { margin: 0 0 4px; color: var(--soft); font-size: .9rem; }
@@ -39,7 +43,7 @@
   .state.off { color: var(--sun); }
   .big { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   button { font: inherit; color: inherit; cursor: pointer; border: 0; -webkit-tap-highlight-color: transparent; }
-  button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   .big button { min-height: 76px; border-radius: 18px; font-size: 1.05rem; font-weight: 650; background: var(--plum);
                 border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
   .big button.main { background: linear-gradient(160deg, #f6b06c, #e0784e); color: #2a1406; border-color: transparent; }
@@ -68,6 +72,55 @@
   .banner { border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; background: rgba(255, 143, 122, .16);
             border: 1px solid rgba(255, 143, 122, .5); }
   .notice { background: rgba(255, 207, 138, .14); border-color: rgba(255, 207, 138, .5); }
+
+  /* Settings */
+  .intro { color: var(--soft); font-size: .9rem; margin: 0 4px 14px; }
+  .group { margin: 22px 4px 8px; font-size: 1.05rem; font-weight: 650; color: var(--sun); }
+  .field { padding: 14px 0; border-top: 1px solid var(--line); }
+  .field:first-child { border-top: 0; padding-top: 0; }
+  .field:last-child { padding-bottom: 0; }
+  .fhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .fhead label { font-weight: 600; flex: 1 1 auto; }
+  .src { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--soft); white-space: nowrap; }
+  .src.mine { background: rgba(240, 152, 92, .2); border-color: rgba(240, 152, 92, .6); color: var(--sun); }
+  .reset { background: none; color: var(--sun); font-size: .8rem; text-decoration: underline; padding: 2px 0; }
+  .hint { margin: 6px 0 0; color: var(--soft); font-size: .8rem; }
+  .err { margin: 6px 0 0; color: var(--alert); font-size: .85rem; }
+  input[type=text], input[type=time], input[type=tel], select {
+    width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--dusk); color: var(--cream); font: inherit; }
+  input[type=time] { width: auto; min-width: 8rem; color-scheme: dark; }
+  input[type=range] { width: 100%; accent-color: var(--glow); }
+  .rangebox { display: grid; grid-template-columns: 1fr 3.6rem; gap: 12px; align-items: center; }
+  .rangebox output { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stepper { display: inline-grid; grid-template-columns: auto 5rem auto; align-items: center; gap: 8px; }
+  .stepper output { text-align: center; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stepper .step { width: 44px; height: 44px; font-size: 1.3rem; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .switch input { appearance: none; -webkit-appearance: none; width: 52px; height: 30px; border-radius: 999px; background: var(--plum);
+                  border: 1px solid var(--line); position: relative; flex: none; cursor: pointer; transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+                         background: var(--cream); transition: transform .2s; }
+  .switch input:checked { background: var(--glow); }
+  .switch input:checked::after { transform: translateX(22px); }
+  .switch span { color: var(--soft); font-size: .9rem; }
+  .sched { display: grid; gap: 8px; }
+  .sched .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sched .line .x { background: none; color: var(--soft); font-size: 1.4rem; padding: 0 6px; }
+  .add { background: none; color: var(--sun); padding: 6px 0; text-decoration: underline; }
+  .timeoff { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .savebar { position: sticky; bottom: 0; margin: 18px -16px 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+             background: rgba(11, 16, 48, .94); border-top: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .savebar .primary { width: 100%; min-height: 52px; border-radius: 14px; background: linear-gradient(160deg, #f6b06c, #e0784e);
+                      color: #2a1406; font-weight: 700; }
+  .savebar label { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; font-size: .95rem; }
+  .savebar input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--glow); }
+  #saveMsg { margin: 10px 0 0; font-size: .9rem; }
+  #saveMsg.bad { color: var(--alert); }
+  .tools button { margin-top: 10px; }
+  .tools button:first-child { margin-top: 0; }
+  .danger { color: var(--alert); border-color: rgba(255, 143, 122, .45) !important; }
+
   [hidden] { display: none !important; }
   #pin { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(11, 16, 48, .96); z-index: 5; }
   #pin form { width: 100%; max-width: 22rem; text-align: center; }
@@ -78,7 +131,7 @@
   #pin button { width: 100%; min-height: 54px; margin-top: 12px; border-radius: 14px; background: linear-gradient(160deg, #f6b06c, #e0784e);
                 color: #2a1406; font-weight: 700; }
   #pinErr { color: var(--alert); min-height: 1.4em; margin: 10px 0 0; }
-  @media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } .switch input, .switch input::after { transition: none; } }
 </style>
 </head>
 <body>
@@ -88,65 +141,93 @@
     <nav class="tvs" id="tvs" aria-label="TVs"></nav>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabControl" aria-selected="true" aria-controls="controlView">Control</button>
+    <button type="button" role="tab" id="tabSettings" aria-selected="false" aria-controls="settingsView">Settings</button>
+  </div>
+
   <div class="banner" id="offline" hidden>Can't reach this TV. Check that your phone is on the café Wi-Fi.</div>
   <div class="banner" id="notOn" hidden>The Twilight TV app isn't on screen on this TV. Open it with the TV remote.</div>
   <div class="banner notice" id="notice" hidden></div>
 
-  <section class="card" aria-live="polite">
-    <p class="label">Now playing</p>
-    <p class="title" id="song">–</p>
-    <div class="bar"><i id="progress"></i></div>
-    <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
-    <p class="state" id="state"></p>
-  </section>
+  <div id="controlView" role="tabpanel">
+    <section class="card" aria-live="polite">
+      <p class="label">Now playing</p>
+      <p class="title" id="song">–</p>
+      <div class="bar"><i id="progress"></i></div>
+      <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+      <p class="state" id="state"></p>
+    </section>
 
-  <div class="big">
-    <button id="pause" class="main" data-cmd="pause" type="button">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path id="pauseIcon" fill="currentColor" d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
-      <span id="pauseText">Pause music</span>
-    </button>
-    <button id="next" data-cmd="next" type="button">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5.5v13l9-6.5zM16 5h2.5v14H16z"/></svg>
-      <span>Next song</span>
-    </button>
+    <div class="big">
+      <button id="pause" class="main" data-cmd="pause" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="pauseIcon" fill="currentColor" d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+        <span id="pauseText">Pause music</span>
+      </button>
+      <button id="next" data-cmd="next" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5.5v13l9-6.5zM16 5h2.5v14H16z"/></svg>
+        <span>Next song</span>
+      </button>
+    </div>
+
+    <section class="card">
+      <div class="row">
+        <div class="what">This song's volume<small>Remembered on this TV</small></div>
+        <button class="step" data-cmd="vol-" type="button" aria-label="Song quieter">−</button>
+        <div class="val" id="vol">–</div>
+        <button class="step" data-cmd="vol+" type="button" aria-label="Song louder">+</button>
+      </div>
+      <div class="row">
+        <div class="what">Zoom<small>For black bars, this song</small></div>
+        <button class="step" data-cmd="zoom-" type="button" aria-label="Zoom out">−</button>
+        <div class="val" id="zoom">–</div>
+        <button class="step" data-cmd="zoom+" type="button" aria-label="Zoom in">+</button>
+      </div>
+      <div class="row" id="tvRow">
+        <div class="what">TV volume<small>The box's own volume</small></div>
+        <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
+        <div class="val" id="tvvol">–</div>
+        <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
+      </div>
+    </section>
+
+    <section class="card update" id="update" hidden>
+      <p class="title" id="updateTitle">A new version is ready</p>
+      <p class="label" style="margin-top:6px">After you press the button, look at the TV and press Install with the remote. Music stops for about a minute.</p>
+      <button class="wide" data-cmd="update" type="button">Install update</button>
+    </section>
+
+    <button class="wide" data-cmd="identify" type="button" style="margin-bottom:14px">Show this TV's name on its screen</button>
+
+    <section class="card" id="problems" hidden>
+      <p class="title" id="problemsTitle">Songs that won't play</p>
+      <p class="label" style="margin-top:4px">They're skipped automatically. Check them on YouTube, or remove them from the playlist.</p>
+      <ul id="problemList"></ul>
+    </section>
+
+    <div class="facts" id="facts"></div>
   </div>
 
-  <section class="card">
-    <div class="row">
-      <div class="what">This song's volume<small>Remembered on this TV</small></div>
-      <button class="step" data-cmd="vol-" type="button" aria-label="Song quieter">−</button>
-      <div class="val" id="vol">–</div>
-      <button class="step" data-cmd="vol+" type="button" aria-label="Song louder">+</button>
+  <div id="settingsView" role="tabpanel" hidden>
+    <p class="intro">Changes are saved on this TV and used straight away. Each setting shows where its value comes from:
+      <b>built-in</b>, <b>settings.json</b> (shared by every TV, on GitHub) or <b>this TV</b>.</p>
+    <div id="form"><p class="intro">Loading the settings…</p></div>
+
+    <p class="group">Tools</p>
+    <section class="card tools">
+      <button class="wide" type="button" data-tool="testmode">Show or hide details on the TV (test mode)</button>
+      <button class="wide" type="button" data-tool="restart">Restart the app on the TV</button>
+      <button class="wide" type="button" data-tool="checkupdate">Look for a new version now</button>
+      <button class="wide danger" type="button" data-tool="forget">Forget this TV's memory</button>
+      <p class="hint" id="toolMsg"></p>
+    </section>
+
+    <div class="savebar">
+      <label id="allBox" hidden><input type="checkbox" id="saveAll"> <span id="allText">Also on the other TVs</span></label>
+      <button class="primary" type="button" id="save">Save on this TV</button>
+      <p id="saveMsg" role="status"></p>
     </div>
-    <div class="row">
-      <div class="what">Zoom<small>For black bars, this song</small></div>
-      <button class="step" data-cmd="zoom-" type="button" aria-label="Zoom out">−</button>
-      <div class="val" id="zoom">–</div>
-      <button class="step" data-cmd="zoom+" type="button" aria-label="Zoom in">+</button>
-    </div>
-    <div class="row" id="tvRow">
-      <div class="what">TV volume<small>The box's own volume</small></div>
-      <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
-      <div class="val" id="tvvol">–</div>
-      <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
-    </div>
-  </section>
-
-  <section class="card update" id="update" hidden>
-    <p class="title" id="updateTitle">A new version is ready</p>
-    <p class="label" style="margin-top:6px">After you press the button, look at the TV and press Install with the remote. Music stops for about a minute.</p>
-    <button class="wide" data-cmd="update" type="button">Install update</button>
-  </section>
-
-  <button class="wide" data-cmd="identify" type="button" style="margin-bottom:14px">Show this TV's name on its screen</button>
-
-  <section class="card" id="problems" hidden>
-    <p class="title" id="problemsTitle">Songs that won't play</p>
-    <p class="label" style="margin-top:4px">They're skipped automatically. Check them on YouTube, or remove them from the playlist.</p>
-    <ul id="problemList"></ul>
-  </section>
-
-  <div class="facts" id="facts"></div>
+  </div>
 </main>
 
 <div id="pin" hidden>
@@ -162,12 +243,18 @@
 <script>
 (function () {
   "use strict";
-  var KEY = "twilight-tv-pin", pin = "", timer = null, last = null, busy = false;
+  var KEY = "twilight-tv-pin", pin = "", timer = null, busy = false, view = "control";
   try { pin = localStorage.getItem(KEY) || ""; } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
 
   function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
   function clock(ms) { var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
 
   function askPin(msg) {
     clearTimeout(timer);
@@ -183,11 +270,14 @@
     try { localStorage.setItem(KEY, pin); } catch (err) {}
     $("pin").hidden = true;
     poll();
+    if (view === "settings") loadSettings();
   });
 
-  function api(path, method) {
+  function api(path, method, body) {
     var sep = path.indexOf("?") < 0 ? "?" : "&";
-    return fetch(path + sep + "pin=" + encodeURIComponent(pin), { method: method || "GET", cache: "no-store" })
+    var opts = { method: method || "GET", cache: "no-store" };
+    if (body != null) { opts.body = JSON.stringify(body); opts.headers = { "Content-Type": "application/json" }; }
+    return fetch(path + sep + "pin=" + encodeURIComponent(pin), opts)
       .then(function (r) {
         if (r.status === 401) { try { localStorage.removeItem(KEY); } catch (e) {} askPin(pin ? "That PIN didn't work. Try again." : ""); throw new Error("pin"); }
         if (r.status === 429) { askPin("Too many wrong PINs. Wait 10 minutes, then try again."); throw new Error("locked"); }
@@ -195,12 +285,13 @@
       });
   }
 
+  /* ---------- Control ---------- */
+
   function poll() {
     clearTimeout(timer);
     if (!pin) return askPin("");
     api("/api/status").then(function (s) {
       $("offline").hidden = true;
-      last = s;
       render(s);
       schedule();
     }).catch(function (e) {
@@ -223,10 +314,10 @@
     document.title = (s.tv || "TV") + " · Twilight";
 
     var nav = $("tvs"); nav.innerHTML = "";
-    var me = document.createElement("span"); me.textContent = s.tv || "This TV"; nav.appendChild(me);
-    (s.others || []).forEach(function (o) {
-      var a = document.createElement("a"); a.href = o.url; a.textContent = o.name; nav.appendChild(a);
-    });
+    nav.appendChild(el("span", {}, s.tv || "This TV"));
+    (s.others || []).forEach(function (o) { nav.appendChild(el("a", { href: o.url }, o.name)); });
+    others = (s.others || []).map(function (o) { return o.name; });
+    updateAllBox();
 
     var song = p && p.song;
     $("song").textContent = song ? (song.title || "Song " + song.id) : (s.onScreen ? "Starting…" : "–");
@@ -266,13 +357,11 @@
     $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
     var ul = $("problemList"); ul.innerHTML = "";
     probs.slice(0, 30).forEach(function (x) {
-      var li = document.createElement("li"), b = document.createElement("b"), sp = document.createElement("span"), a = document.createElement("a");
-      b.textContent = x.title || x.id;
-      sp.textContent = x.what + (x.count > 1 ? ", " + x.count + " times" : "") + ". ";
-      a.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(x.id);
-      a.target = "_blank"; a.rel = "noopener";
-      a.textContent = "Open on YouTube";
-      li.appendChild(b); li.appendChild(sp); li.appendChild(a); ul.appendChild(li);
+      var li = el("li"), a = el("a", { href: "https://www.youtube.com/watch?v=" + encodeURIComponent(x.id), target: "_blank", rel: "noopener" }, "Open on YouTube");
+      li.appendChild(el("b", {}, x.title || x.id));
+      li.appendChild(el("span", {}, x.what + (x.count > 1 ? ", " + x.count + " times" : "") + ". "));
+      li.appendChild(a);
+      ul.appendChild(li);
     });
 
     var facts = [];
@@ -283,7 +372,7 @@
     if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
     facts.push("App version " + (s.build || "?") + ".");
     $("facts").innerHTML = "";
-    facts.forEach(function (f) { var el = document.createElement("p"); el.textContent = f; $("facts").appendChild(el); });
+    facts.forEach(function (f) { $("facts").appendChild(el("p", {}, f)); });
   }
 
   function cmd(what, button) {
@@ -300,6 +389,321 @@
   document.addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("button[data-cmd]") : null;
     if (b) cmd(b.dataset.cmd, b);
+  });
+
+  /* ---------- Tabs ---------- */
+
+  function show(which) {
+    view = which;
+    $("controlView").hidden = which !== "control";
+    $("settingsView").hidden = which !== "settings";
+    $("tabControl").setAttribute("aria-selected", String(which === "control"));
+    $("tabSettings").setAttribute("aria-selected", String(which === "settings"));
+    if (which === "settings") loadSettings();
+  }
+  $("tabControl").addEventListener("click", function () { show("control"); });
+  $("tabSettings").addEventListener("click", function () { show("settings"); });
+
+  /* ---------- Settings ---------- */
+
+  // Built-in values, used when the TV hasn't reported its own yet
+  var FALLBACK = {
+    playlist: "", volume: 100, volumeSchedule: {}, openHours: "", noRepeat: 20,
+    fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
+    quality: 2160, autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
+    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "",
+    refreshHours: 12, apiKey: ""
+  };
+  var FIELDS = [
+    { group: "Music" },
+    { key: "playlist", label: "YouTube playlist", type: "text", hint: "The playlist link, or just its ID. It must be Public or Unlisted. A new playlist starts with the next song." },
+    { key: "volume", label: "Normal volume", type: "range", min: 0, max: 100, step: 5, unit: "%" },
+    { key: "volumeSchedule", label: "Volume by time of day", type: "schedule", hint: "From each time on, this percent of the normal volume. Before the first time, the last one still holds." },
+    { key: "openHours", label: "Opening hours", type: "text", placeholder: "10:00-02:00", check: "hours",
+      hint: "Music only during these hours, the café screen otherwise. Empty means always on. Two periods: 10:00-14:00, 17:00-01:00" },
+    { key: "noRepeat", label: "Songs before one can come back", type: "number", min: 0, max: 300, step: 5, hint: "When a new round starts, the songs that just played are kept out of this many spots." },
+    { group: "Between songs" },
+    { key: "fadeIn", label: "Fade in", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
+    { key: "fadeOut", label: "Fade out", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
+    { key: "titleSeconds", label: "Café screen at the start of each song", type: "number", min: 0, max: 15, step: 1, unit: "s", hint: "Covers YouTube's title. The sound already plays." },
+    { key: "brandEnding", label: "Café screen over the end of each song", type: "number", min: 0, max: 30, step: 1, unit: "s", hint: "Covers YouTube's end cards. 0 = off." },
+    { key: "cutEnding", label: "Cut off the end of each song", type: "number", min: 0, max: 60, step: 1, unit: "s", hint: "0 = every song plays to the end." },
+    { group: "Picture and YouTube" },
+    { key: "quality", label: "Highest picture quality", type: "select", options: [[2160, "4K"], [1440, "1440p"], [1080, "1080p (for slow internet)"]] },
+    { key: "autoZoom", label: "Zoom away black bars automatically", type: "toggle" },
+    { key: "blockAds", label: "Cover and skip YouTube ads", type: "toggle" },
+    { key: "noSubtitles", label: "Keep subtitles off", type: "toggle" },
+    { key: "brandName", label: "Café name on the café screen", type: "text", rtl: true },
+    { group: "This TV box" },
+    { key: "tvName", label: "Name of this TV", type: "text", only: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
+    { key: "tvVolume", label: "Box volume at opening time", type: "range", min: 0, max: 100, step: 5, unit: "%", hint: "Set at opening time and every night. 0 = leave it as it is." },
+    { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle" },
+    { key: "restartAt", label: "Fresh start every night at", type: "time" },
+    { key: "updates", label: "Download new versions by themselves", type: "toggle" },
+    { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
+    { group: "Advanced" },
+    { key: "refreshHours", label: "Reload the page every", type: "number", min: 0, max: 48, step: 1, unit: " h", hint: "Keeps the TV fresh and picks up new songs. 0 = never." },
+    { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." }
+  ];
+
+  var data = null, local = {}, base = {}, others = [];
+
+  function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function copy(v) { return v === undefined ? v : JSON.parse(JSON.stringify(v)); }
+  function value(key) { return key in local ? local[key] : base[key]; }
+  function sourceOf(key) {
+    if (key in local) return "this TV";
+    if (data && data.file && key in data.file) return "settings.json";
+    return "built-in";
+  }
+
+  function updateAllBox() {
+    $("allBox").hidden = !others.length;
+    $("allText").textContent = "Also on the other TVs (" + others.join(", ") + ")";
+  }
+
+  function loadSettings() {
+    if (!pin) return askPin("");
+    $("form").innerHTML = "";
+    $("form").appendChild(el("p", { class: "intro" }, "Loading the settings…"));
+    api("/api/settings").then(function (d) {
+      data = d;
+      var defaults = d.defaults || {};
+      base = {};
+      FIELDS.forEach(function (f) {
+        if (!f.key) return;
+        var v = f.key in defaults ? defaults[f.key] : FALLBACK[f.key];
+        if (d.file && f.key in d.file) v = d.file[f.key];
+        base[f.key] = copy(v);
+      });
+      local = copy(d.local || {});
+      others = d.others || [];
+      updateAllBox();
+      buildForm();
+    }).catch(function (e) {
+      if (e.message === "pin" || e.message === "locked") return;
+      $("form").innerHTML = "";
+      $("form").appendChild(el("p", { class: "intro" }, "Couldn't load the settings. Check the Wi-Fi and try again."));
+    });
+  }
+
+  // A change on the phone: kept as this TV's own unless it equals the shared value
+  function setValue(key, v) {
+    if (same(v, base[key])) delete local[key];
+    else local[key] = v;
+    var f = document.querySelector('.field[data-key="' + key + '"]');
+    if (f) refreshSource(f, key);
+    $("saveMsg").textContent = "";
+  }
+
+  function refreshSource(f, key) {
+    var src = f.querySelector(".src"), reset = f.querySelector(".reset");
+    src.textContent = sourceOf(key);
+    src.className = "src" + (key in local ? " mine" : "");
+    reset.hidden = !(key in local);
+  }
+
+  function buildForm() {
+    var form = $("form");
+    form.innerHTML = "";
+    var card = null;
+    FIELDS.forEach(function (f) {
+      if (f.group) {
+        form.appendChild(el("p", { class: "group" }, f.group));
+        card = el("section", { class: "card" });
+        form.appendChild(card);
+        return;
+      }
+      card.appendChild(buildField(f));
+    });
+  }
+
+  function buildField(f) {
+    var box = el("div", { class: "field", "data-key": f.key });
+    var head = el("div", { class: "fhead" });
+    var id = "f-" + f.key;
+    head.appendChild(el("label", { for: id }, f.label));
+    head.appendChild(el("span", { class: "src" }));
+    var reset = el("button", { type: "button", class: "reset" }, f.only ? "Clear" : "Use the shared value");
+    reset.addEventListener("click", function () {
+      delete local[f.key];
+      box.parentNode.replaceChild(buildField(f), box);
+    });
+    head.appendChild(reset);
+    box.appendChild(head);
+    box.appendChild(control(f, id));
+    if (f.hint) box.appendChild(el("p", { class: "hint" }, f.hint));
+    box.appendChild(el("p", { class: "err", hidden: "" }));
+    refreshSource(box, f.key);
+    return box;
+  }
+
+  function control(f, id) {
+    var v = value(f.key), wrap;
+    if (f.type === "text" || f.type === "pin") {
+      var t = el("input", { id: id, type: f.type === "pin" ? "tel" : "text", autocomplete: "off", spellcheck: "false" });
+      if (f.placeholder) t.placeholder = f.placeholder;
+      if (f.type === "pin") { t.inputMode = "numeric"; t.maxLength = 8; t.placeholder = "own PIN"; }
+      if (f.rtl) t.dir = "auto";
+      t.value = v == null ? "" : String(v);
+      t.addEventListener("input", function () { setValue(f.key, f.type === "pin" ? t.value.replace(/\D/g, "") : t.value); });
+      return t;
+    }
+    if (f.type === "range") {
+      wrap = el("div", { class: "rangebox" });
+      var r = el("input", { id: id, type: "range", min: f.min, max: f.max, step: f.step });
+      var out = el("output", { for: id });
+      r.value = Number(v) || 0;
+      out.textContent = r.value + (f.unit || "");
+      r.addEventListener("input", function () { out.textContent = r.value + (f.unit || ""); setValue(f.key, Number(r.value)); });
+      wrap.appendChild(r); wrap.appendChild(out);
+      return wrap;
+    }
+    if (f.type === "number") return stepper(f, id, Number(v) || 0, function (n) { setValue(f.key, n); });
+    if (f.type === "toggle") {
+      wrap = el("div", { class: "switch" });
+      var c = el("input", { id: id, type: "checkbox", role: "switch" });
+      var word = el("span", {}, v ? "On" : "Off");
+      c.checked = !!v;
+      c.addEventListener("change", function () { word.textContent = c.checked ? "On" : "Off"; setValue(f.key, c.checked); });
+      wrap.appendChild(word); wrap.appendChild(c);
+      return wrap;
+    }
+    if (f.type === "select") {
+      var s = el("select", { id: id });
+      f.options.forEach(function (o) { var op = el("option", { value: o[0] }, o[1]); s.appendChild(op); });
+      s.value = String(v);
+      s.addEventListener("change", function () { setValue(f.key, Number(s.value)); });
+      return s;
+    }
+    if (f.type === "time") {
+      wrap = el("div", { class: "timeoff" });
+      var tm = el("input", { id: id, type: "time" });
+      var never = el("label", { class: "switch" });
+      var nc = el("input", { type: "checkbox", role: "switch" });
+      never.appendChild(el("span", {}, "Never"));
+      never.appendChild(nc);
+      tm.value = v || "05:00";
+      nc.checked = !v;
+      tm.disabled = !v;
+      tm.addEventListener("input", function () { setValue(f.key, tm.value); });
+      nc.addEventListener("change", function () { tm.disabled = nc.checked; setValue(f.key, nc.checked ? "" : tm.value || "05:00"); });
+      wrap.appendChild(tm); wrap.appendChild(never);
+      return wrap;
+    }
+    if (f.type === "schedule") return scheduleControl(f, id, v);
+    return el("span", {}, String(v));
+  }
+
+  function stepper(f, id, start, onChange) {
+    var wrap = el("div", { class: "stepper", id: id });
+    var minus = el("button", { type: "button", class: "step", "aria-label": "Less" }, "−");
+    var plus = el("button", { type: "button", class: "step", "aria-label": "More" }, "+");
+    var out = el("output", {});
+    var n = start;
+    function show() { out.textContent = n + (f.unit || ""); }
+    function move(d) {
+      n = Math.round((n + d * f.step) / f.step) * f.step;
+      n = Math.max(f.min, Math.min(f.max, Number(n.toFixed(2))));
+      show();
+      onChange(n);
+    }
+    minus.addEventListener("click", function () { move(-1); });
+    plus.addEventListener("click", function () { move(1); });
+    show();
+    wrap.appendChild(minus); wrap.appendChild(out); wrap.appendChild(plus);
+    return wrap;
+  }
+
+  function scheduleControl(f, id, v) {
+    var wrap = el("div", { class: "sched", id: id });
+    var rows = [];
+    var obj = v && typeof v === "object" ? v : {};
+    Object.keys(obj).sort().forEach(function (t) { rows.push({ t: t, p: Number(obj[t]) || 0 }); });
+    function emit() {
+      var o = {};
+      rows.forEach(function (r) { if (/^\d{1,2}:\d{2}$/.test(r.t)) o[r.t] = r.p; });
+      setValue(f.key, o);
+    }
+    function draw() {
+      wrap.innerHTML = "";
+      rows.forEach(function (r, i) {
+        var line = el("div", { class: "line" });
+        var tm = el("input", { type: "time", "aria-label": "From" });
+        tm.value = r.t.length === 4 ? "0" + r.t : r.t;
+        tm.addEventListener("input", function () { r.t = tm.value; emit(); });
+        line.appendChild(tm);
+        line.appendChild(stepper({ step: 5, min: 0, max: 100, unit: "%" }, "", r.p, function (n) { r.p = n; emit(); }));
+        var x = el("button", { type: "button", class: "x", "aria-label": "Remove" }, "×");
+        x.addEventListener("click", function () { rows.splice(i, 1); draw(); emit(); });
+        line.appendChild(x);
+        wrap.appendChild(line);
+      });
+      var add = el("button", { type: "button", class: "add" }, rows.length ? "Add another time" : "Add a time");
+      add.addEventListener("click", function () { rows.push({ t: rows.length ? "18:00" : "10:00", p: rows.length ? 100 : 60 }); draw(); emit(); });
+      wrap.appendChild(add);
+    }
+    draw();
+    return wrap;
+  }
+
+  function problems() {
+    var bad = [];
+    document.querySelectorAll(".field .err").forEach(function (e) { e.hidden = true; });
+    function flag(key, msg) {
+      var e = document.querySelector('.field[data-key="' + key + '"] .err');
+      if (e) { e.textContent = msg; e.hidden = false; }
+      bad.push(msg);
+    }
+    var hours = String(value("openHours") || "").trim();
+    if (hours && !/^\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2}(\s*,\s*\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2})*$/.test(hours)) {
+      flag("openHours", "Write it like 10:00-02:00, or leave it empty.");
+    }
+    var p = String(value("controlPin") || "");
+    if (p && !/^\d{4,8}$/.test(p)) flag("controlPin", "Use 4 to 8 digits, or leave it empty.");
+    if (!String(value("playlist") || "").trim()) flag("playlist", "The TV needs a playlist.");
+    return bad;
+  }
+
+  $("saveAll").addEventListener("change", function () {
+    $("save").textContent = $("saveAll").checked ? "Save on every TV" : "Save on this TV";
+  });
+
+  $("save").addEventListener("click", function () {
+    if (!data) return;
+    if (problems().length) { $("saveMsg").textContent = "Fix the marked settings first."; $("saveMsg").className = "bad"; return; }
+    var all = !$("allBox").hidden && $("saveAll").checked;
+    $("save").disabled = true;
+    $("saveMsg").className = "";
+    $("saveMsg").textContent = all ? "Saving on every TV…" : "Saving…";
+    api("/api/settings?all=" + (all ? 1 : 0), "POST", { local: local }).then(function (r) {
+      if (r.pin && r.pin !== pin) {                 // this TV's PIN just changed: keep using it
+        pin = r.pin;
+        try { localStorage.setItem(KEY, pin); } catch (e) {}
+      }
+      var msg = "Saved on " + (r.tv || "this TV") + ".";
+      (r.others || []).forEach(function (o) { msg += " " + o.name + ": " + o.result + "."; });
+      $("saveMsg").textContent = msg;
+      loadSettings();
+      setTimeout(poll, 400);
+    }).catch(function (e) {
+      if (e.message !== "pin" && e.message !== "locked") { $("saveMsg").textContent = "Couldn't save. Check the Wi-Fi and try again."; $("saveMsg").className = "bad"; }
+    }).then(function () { $("save").disabled = false; });
+  });
+
+  document.querySelectorAll("[data-tool]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var what = b.getAttribute("data-tool");
+      if (what === "forget" && !window.confirm("This clears the shuffle history, the song volumes, the zooms and the list of songs that won't play on this TV. Settings stay. Continue?")) return;
+      b.disabled = true;
+      api("/api/cmd?do=" + what, "POST").then(function (r) {
+        $("toolMsg").textContent = !r.ok ? "The TV couldn't do that right now." :
+          what === "testmode" ? "Done: look at the TV." :
+          what === "restart" ? "The app is restarting on the TV." :
+          what === "checkupdate" ? "Looking for a new version. If there is one, Install update appears on the Control tab within a minute." :
+          "This TV's memory is cleared. The music starts again.";
+      }).catch(function () {}).then(function () { b.disabled = false; });
+    });
   });
 
   poll();

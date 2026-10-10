@@ -22,7 +22,7 @@
   /* Setup problems only, on top of the café screen */
   /* Quality setup's instructions: top left, clear of YouTube's controls (bottom, and the top right corner),
      and inside the part of the picture every TV shows */
-  #setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 3; display: none; width: min(54vw, 46rem);
+  #setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 3; display: none; width: 54vw; width: min(54vw, 46rem);
                padding: 1.1em 1.4em; border-radius: .8em; background: rgba(10, 14, 44, .88); color: #fff1e0; pointer-events: none;
                font: 500 2.4vmin/1.5 system-ui, sans-serif; text-shadow: none; }
   #setupNote b { color: #ffcf8a; }
@@ -636,7 +636,7 @@ var SETTINGS = {
       // What YouTube is doing, so staff can see the choice worked (and what to tell for help)
       document.getElementById("setupStatus").textContent = "Now: " +
         (/Android/.test(navigator.userAgent) ? "app" : "computer") + " version of YouTube's player, video " + (NAMES[sst] || "starting") +
-        ", picture " + (QUALITY[sq] || QUALITY[quality] || "not reported yet");
+        ", picture " + (QUALITY[sq] || QUALITY[quality] || "not reported yet") + ". Web engine: " + engine() + ".";
       if (!setupPaused && sst === PLAYING && (player.getCurrentTime() || 0) > 1.5) {
         setupPaused = true;                      // paused once, so YouTube keeps its controls (and gear) on screen
         player.pauseVideo();
@@ -1283,6 +1283,11 @@ var SETTINGS = {
 
   /* ---------- test mode (?debug=1) ---------- */
 
+  // The web engine's version (Android System WebView): an old one plays YouTube but doesn't draw its controls
+  function engine() {
+    var m = /Chrome\/(\d+)/.exec(navigator.userAgent);
+    return m ? "Chrome " + m[1] + (+m[1] < 110 ? " (old)" : "") : "unknown";
+  }
   var NAMES = { "-1": "starting", "0": "ended", "1": "playing", "2": "paused", "3": "loading", "5": "ready" };
   var QUALITY = { tiny: "144p", small: "240p", medium: "360p", large: "480p", hd720: "720p", hd1080: "1080p",
                   hd1440: "1440p", hd2160: "2160p (4K)", hd2880: "2880p", highres: "above 1080p (1440p / 4K)" };
@@ -1321,7 +1326,7 @@ var SETTINGS = {
                  "   fade in " + (Number(S.fadeIn) || 0) + "s / out " + (Number(S.fadeOut) || 0) + "s, title hidden " +
                  (Number(S.titleSeconds) || 0) + "s");
     }
-    lines.push("Screen " + window.innerWidth + "x" + window.innerHeight + ", full screen " + (fs ? "yes" : "no"));
+    lines.push("Screen " + window.innerWidth + "x" + window.innerHeight + ", full screen " + (fs ? "yes" : "no") + ", web engine " + engine());
     if (skipped.length) lines.push("Skipped: " + skipped.join(", "));
     var box = document.getElementById("debug");
     box.textContent = lines.join("\n");

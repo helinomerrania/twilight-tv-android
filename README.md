@@ -24,7 +24,7 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 - On Android 9 and older, the app opens by itself whenever the box turns on, with nothing to set up.
 - On Android 10 and newer, it asks once whether to **start with the TV**. Choose **Open settings**, pick **Twilight TV** and switch it on.
 
-**If videos won't play or look wrong,** update **Android System WebView** from Google Play on the box, if it's offered there. YouTube's player needs a recent one.
+**If videos won't play or look wrong,** update **Android System WebView** from Google Play on the box, if it's offered there. YouTube's player needs a recent one. On an old one, videos play but YouTube's own controls don't appear, so the quality setup can't work. The phone page says when the box's web engine is old, and test mode shows its version.
 
 ## The remote
 

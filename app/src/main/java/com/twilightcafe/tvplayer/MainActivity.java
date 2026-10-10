@@ -28,6 +28,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.content.pm.PackageInfo;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
@@ -110,6 +111,8 @@ public class MainActivity extends Activity {
     private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
     private int reloadsInRow = 0, tvVolumeSetting = 0;
     private long qualitySetupUntil = 0;                  // YouTube's own controls on screen until then
+    private String engineName = "";                      // Android's web engine, which draws the page and YouTube's player
+    private int engineMajor = 0;                         // its Chrome version
     private String restartDoneDay = "", openingDoneDay = "";
 
     @Override
@@ -156,6 +159,7 @@ public class MainActivity extends Activity {
         root.addView(pointer, new FrameLayout.LayoutParams((int) (36 * density), (int) (46 * density)));
 
         makeWebView();
+        readEngine();
         server = new ControlServer(phone);
         server.start();
         refreshNetwork(false);
@@ -234,16 +238,29 @@ public class MainActivity extends Activity {
             s.setUserAgentString(null);                  // Android's own
             return;
         }
-        String chrome = "120";
+        s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
+                + (engineMajor > 0 ? engineMajor : 120) + ".0.0.0 Safari/537.36");
+    }
+
+    // Which web engine Android gives the app ("Android System WebView", updated through Google Play).
+    // An old one plays YouTube's videos but doesn't draw YouTube's controls.
+    private void readEngine() {
         try {
             Matcher m = Pattern.compile("Chrome/(\\d+)").matcher(WebSettings.getDefaultUserAgent(this));
-            if (m.find()) chrome = m.group(1);
+            if (m.find()) engineMajor = Integer.parseInt(m.group(1));
         } catch (RuntimeException e) {
-            // keep the fallback version
+            engineMajor = 0;
         }
-        s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
-                + chrome + ".0.0.0 Safari/537.36");
+        String name = "Android System WebView";
+        if (Build.VERSION.SDK_INT >= 26) {
+            PackageInfo p = WebView.getCurrentWebViewPackage();
+            if (p != null) name = p.packageName + " " + p.versionName;
+        }
+        engineName = name + (engineMajor > 0 ? " (Chrome " + engineMajor + ")" : "");
     }
+
+    // Older than this, YouTube's own controls may not appear (the phone page says to update it)
+    static final int ENGINE_OLD_BELOW = 110;
 
     // What the app draws over the page: the setup pointer, or test mode's details (never both)
     private void syncOverlays() {
@@ -659,6 +676,8 @@ public class MainActivity extends Activity {
         }
         b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
         b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
+        b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
+        if (engineMajor > 0 && engineMajor < ENGINE_OLD_BELOW) b.append("  OLD: update Android System WebView from Google Play");
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
         return b.toString();
     }
@@ -802,6 +821,9 @@ public class MainActivity extends Activity {
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("build", BuildConfig.VERSION_NAME);
+            o.put("engine", engineName);
+            o.put("engineMajor", engineMajor);
+            o.put("engineOld", engineMajor > 0 && engineMajor < ENGINE_OLD_BELOW);
             o.put("onScreen", visible);
             o.put("qualitySetup", inQualitySetup());
             String page = callPage("window.TwilightTV ? TwilightTV.status() : null");

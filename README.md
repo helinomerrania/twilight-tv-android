@@ -1,97 +1,100 @@
 # Twilight TV app
 
-Your café TV page as an Android app for the TVs. It plays full screen, starts the music with sound by itself, keeps the screen awake, and can open by itself when the TV turns on. YouTube's player inside it is left exactly as YouTube sends it.
+Your café TV page as an Android app for the TV boxes. It plays full screen, starts the music with sound by itself, keeps the screen awake, and opens by itself when the box turns on. On top of that:
 
-## 1. Let GitHub build the app (free, about 10 minutes)
+- **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom.
+- **One settings file:** `settings.json` in this repository reaches every TV, with no reinstalling.
+- **Schedules:** opening hours, a volume schedule, and the box's own volume reset at opening time.
+- **Updates:** new versions download by themselves; staff install them from the phone page.
+- **Runs by itself:** sound levelling, Wi-Fi at full power, a restart if the page freezes, and a fresh start every night.
 
-1. Go to **github.com** and sign in, or create a free account.
-2. Click **+** (top right), then **New repository**. Name it `twilight-tv`, choose **Public**, and click **Create repository**. Public lets the TVs download the app straight from a link; see "Good to know" if you'd rather keep it private.
-3. On the next page, click **uploading an existing file**. Unzip `twilight-tv-app.zip`, open the `twilight-tv-app` folder, select everything inside it and drag it onto the page. Click **Commit changes**.
-4. Check that the file list now shows a folder named **.github**. If it's missing (Macs hide folders whose names start with a dot), click **Add file**, then **Create new file**. Type `.github/workflows/build.yml` as the name, paste in the text from the end of this guide, and click **Commit changes**.
-5. Open the **Actions** tab. "Build the TV app" starts by itself and takes about 5 minutes. A green tick means it worked. A red cross means it didn't: open the run, copy the red error text and send it to Claude.
-6. Go back to the main page of the repository. Under **Releases** on the right, open the newest "Twilight TV, build …" and you'll find **twilight-tv.apk**.
+YouTube's player inside it is left exactly as YouTube sends it.
 
-## 2. Install it on each TV
+## Install it on each TV
 
-The easiest way is the **Downloader** app:
-
-1. On the TV, open Google Play and install **Downloader** (by AFTVnews).
+1. On the TV box, open Google Play and install **Downloader** (by AFTVnews).
 2. Open Downloader and type this address:
    `https://github.com/helinomerrania/twilight-tv-android/releases/latest/download/twilight-tv.apk`
-3. When the TV asks, allow Downloader to install apps. Then choose **Install**, then **Open**.
-   - On Google TV there may be no such question. Turn on Developer options first (Settings > System > About, then click "Android TV OS build" 7 times), then allow Downloader under Settings > Apps > Security & restrictions > Unknown sources. Menu names vary between TVs.
+3. When the box asks, allow Downloader to install apps. Then choose **Install**, then **Open**.
 
-You can also copy `twilight-tv.apk` to a USB stick and open it with the TV's file manager.
+You can also copy `twilight-tv.apk` to a USB stick and open it with the box's file manager.
 
-**First start (Android 10 and newer):** the app asks once whether to **start with the TV**. Choose **Open settings**, pick **Twilight TV** and switch it on. If the TV says the setting isn't available, open the app from the apps row after the TV turns on. Some TV boxes have their own "start-up app" setting you can use instead.
+**First start:**
+- On Android 9 and older, the app opens by itself whenever the box turns on, with nothing to set up.
+- On Android 10 and newer, it asks once whether to **start with the TV**. Choose **Open settings**, pick **Twilight TV** and switch it on.
 
-## Using it
+**If videos won't play or look wrong,** update **Android System WebView** from Google Play on the box, if it's offered there. YouTube's player needs a recent one.
+
+## The remote
 
 | Remote | What it does |
 | --- | --- |
 | Up / down | This song louder or quieter (this TV remembers it) |
 | Left / right | Zoom this song in or out, for black bars (remembered too) |
-| Hold OK for 3 seconds | Test mode on or off: song, picture quality, zoom and sound on screen |
+| Hold OK for 3 seconds | Test mode on or off. The page's details appear at the top; the phone address, the PIN and the app's details at the bottom right |
 | Back | Nothing, so nobody stops the music by accident |
 | Home | Leaves the app. The music stops, and starts again when you open the app |
 
-## Changing the settings (playlist, volume, fades, café name…)
+## Phone control
 
-On GitHub, open `app/src/main/assets/index.html` and click the pencil (Edit). Change the SETTINGS block at the top and click **Commit changes**. GitHub builds a new APK in about 5 minutes. Install it on each TV with the same Downloader link: it installs over the old app, and each TV keeps what it remembers.
+1. On the TV, hold OK for 3 seconds. At the bottom right you'll see something like `Phone control: http://192.168.1.23:8080   PIN 4821`.
+2. On a phone connected to the **café Wi-Fi**, open that address and enter the PIN. The phone remembers it.
+
+The page has:
+- **Pause music** and **Next song**.
+- **Song volume:** this song only, remembered on that TV.
+- **Zoom:** for black bars.
+- **TV volume:** the box's own volume.
+- **Show this TV's name on its screen:** to tell the TVs apart.
+- **Other TVs:** each TV's name at the top opens that TV's page.
+- **Songs that won't play:** each one links to YouTube.
+- **Install update:** appears when a new version is waiting.
+
+A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours.
+
+Each TV has its own PIN unless you set one PIN for all of them with `controlPin` (see below). Ten wrong PINs lock that phone out for 10 minutes, so customers on the Wi-Fi can't guess their way in.
+
+## Settings for every TV: `settings.json`
+
+Open `settings.json` in this repository, click the pencil (Edit), change a value and click **Commit changes**. Every TV reads it within 30 minutes and starts using it after the current song. No new build or reinstall is needed.
+
+| Setting | What it does | Example |
+| --- | --- | --- |
+| `playlist` | The YouTube playlist link | `"https://www.youtube.com/playlist?list=..."` |
+| `volume` | Normal volume of the page, 0-100 | `100` |
+| `volumeSchedule` | Percent of normal from each time of day | `{ "10:00": 60, "18:00": 100 }` |
+| `openHours` | Music only during these hours; café screen otherwise | `"10:00-02:00"` or `"10:00-14:00, 17:00-01:00"` |
+| `tvVolume` | The box's own volume (percent), set at opening time and every night; 0 = leave it | `60` |
+| `controlPin` | One PIN for every TV's phone page (4-8 digits); `""` = each TV has its own | `"2580"` |
+| `levelSound` | Even out loud and quiet songs | `true` |
+| `restartAt` | Time of the nightly fresh start; `""` = never | `"05:00"` |
+| `updates` | Download new versions by themselves | `true` |
+
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`. Their explanations are at the top of `app/src/main/assets/index.html`.
+
+Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
+
+## Updates
+
+When anything in this repository changes on the `main` branch, GitHub builds a new version (about 2 minutes) and publishes it under **Releases**. Every TV checks for new versions every 6 hours and downloads them. Nothing pops up on the TV by itself. When the phone page shows **Install update**:
+
+1. Press it on the phone.
+2. Look at the TV and press **Install** with the remote. The app restarts by itself.
+
+The first time only, Android asks you to allow Twilight TV to install apps. Switch it on, press Back, then press **Install update** again.
+
+## What runs by itself
+
+- **Sound levelling.** Android's own sound compressor makes quiet and loud songs closer in volume. If the box doesn't allow it, test mode says so and nothing changes.
+- **Wi-Fi at full power** while the app is on screen, so 4K streaming doesn't stutter.
+- **A frozen page is reloaded** after 2 minutes. If that happens three times in half an hour, the app starts a whole new web engine.
+- **A fresh start every night** at `restartAt` (05:00 unless you change it).
 
 ## Good to know
 
-- The project includes the app's signing key (`app/twilight-tv.keystore`). That's what lets every new build update the app in place. In a public repository anyone could copy it, but it does nothing to your TVs unless someone installs their own app on them. If you'd rather keep it private, choose **Private** in step 2 and move the APK to the TVs on a USB stick (the Downloader link only works for public repositories).
-- If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. The app keeps the screen awake, but some TVs turn off after hours without a remote press.
+- The repository includes the app's signing key (`app/twilight-tv.keystore`). That's what lets every new build update the app in place. In a public repository anyone could copy it, but it does nothing to your TVs unless someone installs their own app on them.
+- `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi.
+- If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
 - The page is served inside the app at `https://com.twilightcafe.tvplayer/`, the app's own ID. That's how YouTube asks apps to identify themselves when they embed its player.
-
-## The text for step 4 (`.github/workflows/build.yml`)
-
-```yaml
-name: Build the TV app
-
-# Runs every time something in the project changes (or by hand from the Actions tab),
-# and publishes twilight-tv.apk as the latest release.
-on:
-  push:
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-24.04   # a fixed build machine, so GitHub updates don't change the build
-    steps:
-      - name: Get the project
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Build the APK
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
-
-      - name: Keep the APK with this build
-        uses: actions/upload-artifact@v4
-        with:
-          name: twilight-tv
-          path: twilight-tv.apk
-
-      - name: Publish it as the latest release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "build-${{ github.run_number }}-${{ github.run_attempt }}" twilight-tv.apk \
-            --target "${{ github.sha }}" \
-            --title "Twilight TV, build ${{ github.run_number }}" \
-            --notes "Install twilight-tv.apk on the TVs. It installs over the previous build." \
-            --latest
-```
+- Changes on any other branch than `main` are only built as a test. They're never published to the TVs.

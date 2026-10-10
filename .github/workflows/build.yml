@@ -1,7 +1,8 @@
 name: Build the TV app
 
-# Runs every time something in the project changes (or by hand from the Actions tab),
-# and publishes twilight-tv.apk as the latest release.
+# Runs every time something in the project changes (or by hand from the Actions tab).
+# Changes on the main branch are published as the latest release (twilight-tv.apk);
+# other branches are only built, as a test.
 on:
   push:
   workflow_dispatch:
@@ -23,10 +24,23 @@ jobs:
           java-version: '17'
 
       - name: Build the APK
+        shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
+
+      - name: Show what went wrong
+        if: failure()
+        shell: bash
+        run: |
+          # Gradle's own explanation and any compile errors, as notes on the run
+          enc() { sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }'; }
+          wrong=$(grep -A 12 "What went wrong" build.log | head -n 40 | enc)
+          errors=$(grep -E -A 2 "error:|e: |\.java:[0-9]+:" build.log | head -n 60 | enc)
+          [ -n "$wrong" ] && echo "::error title=What went wrong::$wrong"
+          [ -n "$errors" ] && echo "::error title=Compile errors::$errors"
+          true
 
       - name: Keep the APK with this build
         uses: actions/upload-artifact@v4
@@ -35,6 +49,7 @@ jobs:
           path: twilight-tv.apk
 
       - name: Publish it as the latest release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

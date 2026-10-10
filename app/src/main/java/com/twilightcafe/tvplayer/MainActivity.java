@@ -4,20 +4,26 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.media.AudioManager;
 import android.net.Uri;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -26,15 +32,33 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Shows the café TV page full screen, nothing else.
+ * Shows the café TV page full screen, and around it:
+ *  - settings.json from GitHub (no reinstall needed for changes),
+ *  - the phone control page on the café Wi-Fi (with a PIN),
+ *  - the box's own volume at opening time, sound levelling, updates from GitHub,
+ *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night.
  *
  * The page (assets/index.html) is built into the app and served at
  * https://com.twilightcafe.tvplayer/ - the app's own ID - which is how YouTube asks
@@ -48,14 +72,34 @@ public class MainActivity extends Activity {
     static final int NIGHT_BLUE = 0xFF0B1030;            // the café screen's colour, so start-up never flashes white
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService work = Executors.newSingleThreadExecutor();
     private FrameLayout root;
     private WebView web;
-    private boolean visible = false;    // the app is on screen
-    private boolean testMode = false;   // hold OK for 3 seconds to switch it on or off
+    private TextView overlay;                            // test mode: the app's own information
+    private boolean visible = false;                     // the app is on screen
+    private boolean testMode = false;                    // hold OK for 3 seconds to switch it on or off
+
+    private AppSettings settings;
+    private Updater updater;
+    private final Leveller leveller = new Leveller();
+    private ControlServer server;
+    private TvFinder finder;
+    private AudioManager audio;
+    private WifiManager.WifiLock wifiLock;
+    private volatile String pin = "", ip = "", tvName = "TV";
+    private volatile String notice = "";
+    private volatile long noticeAt = 0;
+    private byte[] controlPage;
+
+    private volatile long lastAlive = 0;                 // the page's last "I'm alive"
+    private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
+    private int reloadsInRow = 0;
+    private String restartDoneDay = "", openingDoneDay = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        startedAt = System.currentTimeMillis();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);   // no screensaver, no sleep
         if (Build.VERSION.SDK_INT >= 28) {                                     // phones: use the area around a camera notch too
             WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -65,20 +109,58 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(NIGHT_BLUE);
         setContentView(root);
+
+        settings = new AppSettings(this);
+        updater = new Updater(this, BuildConfig.REPO, BuildConfig.VERSION_CODE);
+        audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifi != null) {
+            wifiLock = makeWifiLock(wifi);
+        }
+        pin = choosePin();
+        leveller.apply(settings.flag("levelSound", true));
+        applyTvVolume();
+
+        overlay = new TextView(this);
+        overlay.setTextColor(0xFFFFF1E0);
+        overlay.setBackgroundColor(0xE60A0E2C);
+        overlay.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        overlay.setLineSpacing(0, 1.15f);
+        int pad = (int) (12 * getResources().getDisplayMetrics().density);
+        overlay.setPadding(pad, pad, pad, pad);
+        overlay.setVisibility(View.GONE);
+        FrameLayout.LayoutParams olp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.END);
+        root.addView(overlay, olp);
+
         makeWebView();
+        server = new ControlServer(phone);
+        server.start();
+        refreshNetwork();
         askToStartWithTv();
+        handler.postDelayed(maintenance, 3000);
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressWarnings("deprecation")
+    private static WifiManager.WifiLock makeWifiLock(WifiManager wifi) {
+        WifiManager.WifiLock lock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "twilight-tv");
+        lock.setReferenceCounted(false);
+        return lock;
+    }
+
+    @SuppressLint({ "SetJavaScriptEnabled", "AddJavascriptInterface" })
     private void makeWebView() {
         try {
             web = new WebView(this);
         } catch (RuntimeException e) {
             // Android's web engine is missing or being updated: try again in 10 seconds
             web = null;
-            handler.postDelayed(() -> {
-                makeWebView();
-                if (visible) open();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    makeWebView();
+                    if (visible) open();
+                }
             }, 10000);
             return;
         }
@@ -91,6 +173,7 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);   // YouTube's player as in a normal browser
+        web.addJavascriptInterface(new Bridge(), "TwilightApp");
         web.setWebViewClient(new PageClient());
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -103,20 +186,33 @@ public class MainActivity extends Activity {
         web.setHorizontalScrollBarEnabled(false);
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
-        root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        root.addView(web, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         web.requestFocus();                             // remote keys go to the page (volume, zoom)
     }
 
     private void open() {
         if (web == null) return;
+        pageOpenedAt = lastAlive = System.currentTimeMillis();
         web.onResume();
         web.loadUrl(testMode ? PAGE + "?debug=1" : PAGE);
+    }
+
+    // A fresh web engine: every night, and when the page froze and reloading didn't help
+    private void restartWebView() {
+        if (web != null) {
+            root.removeView(web);
+            web.destroy();
+            web = null;
+        }
+        makeWebView();
+        if (visible) open();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         visible = true;
+        if (wifiLock != null) wifiLock.acquire();       // Wi-Fi at full power while playing
         open();
         hideSystemBars();
     }
@@ -125,6 +221,7 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         visible = false;
+        if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
         // Left the app (Home, another app, the TV going to sleep): stop the music.
         // The page starts again when the app comes back.
         if (web != null) {
@@ -136,6 +233,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        work.shutdownNow();
+        if (server != null) server.stop();
+        if (finder != null) finder.stop();
+        leveller.release();
+        if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
         if (web != null) {
             root.removeView(web);
             web.destroy();
@@ -149,10 +251,12 @@ public class MainActivity extends Activity {
         int key = event.getKeyCode();
         // Back does nothing, so the music can't be stopped by accident. Home leaves the app.
         if (key == KeyEvent.KEYCODE_BACK) return true;
-        // Hold OK for 3 seconds: test mode (song, picture quality, zoom, volume on screen) on or off
+        // Hold OK for 3 seconds: test mode (the page's details, and the app's: phone address and PIN)
         if ((key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER)
                 && event.getAction() == KeyEvent.ACTION_UP && event.getEventTime() - event.getDownTime() >= 3000) {
             testMode = !testMode;
+            overlay.setVisibility(testMode ? View.VISIBLE : View.GONE);
+            if (testMode) handler.post(overlayTick);
             open();
             return true;
         }
@@ -178,6 +282,347 @@ public class MainActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+    }
+
+    /* ---------- every 30 seconds: settings, updates, frozen page, nightly restart ---------- */
+
+    private final Runnable maintenance = new Runnable() {
+        @Override
+        public void run() {
+            long now = System.currentTimeMillis();
+            refreshNetwork();
+            if (now - lastSettingsCheck > 30 * 60000L) {                 // settings.json every 30 minutes
+                lastSettingsCheck = now;
+                work.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (settings.refresh(BuildConfig.REPO)) {
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    settingsChanged();
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+            if (settings.flag("updates", true) && now - startedAt > 60000L && now - lastUpdateCheck > 6 * 3600000L) {
+                lastUpdateCheck = now;                                    // updates every 6 hours
+                work.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        updater.check();
+                    }
+                });
+            }
+            // The page says "alive" every 5 seconds. Silent for 2 minutes: reload it;
+            // three times within half an hour: a whole new web engine.
+            if (visible && web != null && now - pageOpenedAt > 120000L && now - lastAlive > 120000L) {
+                reloadsInRow = now - lastReload < 30 * 60000L ? reloadsInRow + 1 : 1;
+                lastReload = now;
+                if (reloadsInRow >= 3) {
+                    reloadsInRow = 0;
+                    restartWebView();
+                } else {
+                    open();
+                }
+            }
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
+            String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date(now));
+            String restartAt = clock(settings.text("restartAt", "05:00"));
+            if (visible && time.equals(restartAt) && !today.equals(restartDoneDay)) {
+                restartDoneDay = today;                                   // a fresh start every night
+                restartWebView();
+                applyTvVolume();
+            }
+            String opening = openingTime();
+            if (opening != null && time.equals(opening) && !today.equals(openingDoneDay)) {
+                openingDoneDay = today;                                   // the box's volume back to normal at opening
+                applyTvVolume();
+            }
+            handler.postDelayed(this, 30000);
+        }
+    };
+
+    private void settingsChanged() {
+        pin = choosePin();
+        leveller.apply(settings.flag("levelSound", true));
+        applyTvVolume();
+        // the page itself restarts between two songs when it sees the new settings
+    }
+
+    // "9:30" -> "09:30"; anything unreadable -> null
+    private static String clock(String s) {
+        if (s == null) return null;
+        String[] p = s.trim().split("[:.]");
+        try {
+            int h = Integer.parseInt(p[0].trim()), m = Integer.parseInt(p[1].trim());
+            if (h < 0 || h > 24 || m < 0 || m > 59) return null;
+            return String.format(Locale.US, "%02d:%02d", h % 24, m);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    // The start of the opening hours ("10:00-02:00" -> "10:00")
+    private String openingTime() {
+        String hours = settings.text("openHours", "");
+        if (hours.isEmpty()) return null;
+        return clock(hours.split(",")[0].split("-")[0]);
+    }
+
+    // The box's own media volume, from tvVolume (percent) in settings.json
+    private void applyTvVolume() {
+        int v = settings.number("tvVolume", 0);
+        if (v <= 0 || v > 100 || audio == null || audio.isVolumeFixed()) return;
+        int max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * v / 100f)), 0);
+    }
+
+    // controlPin from settings.json (4 to 8 digits), otherwise this TV's own random PIN
+    private String choosePin() {
+        String fromFile = settings.text("controlPin", "");
+        if (fromFile.matches("\\d{4,8}")) return fromFile;
+        SharedPreferences p = getSharedPreferences("phone", MODE_PRIVATE);
+        String own = p.getString("pin", "");
+        if (!own.matches("\\d{4}")) {
+            own = String.format(Locale.US, "%04d", new SecureRandom().nextInt(10000));
+            p.edit().putString("pin", own).apply();
+        }
+        return own;
+    }
+
+    // The network address can arrive late (Wi-Fi after power-on) or change
+    private void refreshNetwork() {
+        String now = Net.localIp();
+        if (now.equals(ip) && finder != null) return;
+        ip = now;
+        tvName = ip.isEmpty() ? "TV" : "TV " + ip.substring(ip.lastIndexOf('.') + 1);
+        if (finder != null) finder.stop();
+        finder = new TvFinder(this, tvName);
+        if (!ip.isEmpty() && server != null) finder.start(server.port());
+    }
+
+    /* ---------- test mode: the app's own details on screen ---------- */
+
+    private final Runnable overlayTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!testMode) return;
+            overlay.setText(appInfo());
+            handler.postDelayed(this, 2000);
+        }
+    };
+
+    private String appInfo() {
+        StringBuilder b = new StringBuilder();
+        int port = server == null ? 0 : server.port();
+        b.append(port > 0 && !ip.isEmpty() ? "Phone control: http://" + ip + ":" + port + "   PIN " + pin
+                : "Phone control: not ready (no network yet)");
+        StringBuilder others = new StringBuilder();
+        for (String[] t : finder == null ? new java.util.ArrayList<String[]>() : finder.others()) {
+            others.append(others.length() > 0 ? ", " : "").append(t[0]);
+        }
+        b.append("\nThis is ").append(tvName).append(".  Other TVs: ").append(others.length() > 0 ? others : "none found yet");
+        b.append("\nSettings: ").append(settings.status);
+        b.append("\nSound levelling: ").append(leveller.status);
+        if (audio != null) {
+            b.append("\nTV volume: ");
+            if (audio.isVolumeFixed()) b.append("set by the TV itself");
+            else b.append(audio.getStreamVolume(AudioManager.STREAM_MUSIC)).append(" of ")
+                    .append(audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+                    .append(settings.number("tvVolume", 0) > 0 ? "  (set to " + settings.number("tvVolume", 0) + "% at opening time and every night)" : "");
+        }
+        b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
+        b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
+        b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
+        return b.toString();
+    }
+
+    /* ---------- the phone control page ---------- */
+
+    private final ControlServer.Tv phone = new ControlServer.Tv() {
+        @Override
+        public String pin() {
+            return pin;
+        }
+
+        @Override
+        public byte[] page() {
+            if (controlPage == null) controlPage = readAsset("control.html");
+            return controlPage;
+        }
+
+        @Override
+        public String status() {
+            return statusJson();
+        }
+
+        @Override
+        public boolean command(String what) {
+            return runCommand(what);
+        }
+    };
+
+    private String statusJson() {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("tv", tvName);
+            o.put("build", BuildConfig.VERSION_NAME);
+            o.put("onScreen", visible);
+            String page = callPage("window.TwilightTV ? TwilightTV.status() : null");
+            o.put("page", page == null || page.equals("null") ? JSONObject.NULL : new JSONObject(page));
+            if (audio != null) {
+                o.put("tvVolumeFixed", audio.isVolumeFixed());
+                o.put("tvVolume", audio.getStreamVolume(AudioManager.STREAM_MUSIC));
+                o.put("tvVolumeMax", audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+            }
+            o.put("levelling", leveller.status);
+            o.put("settings", settings.status);
+            o.put("updateReady", updater.readyBuild);
+            o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");
+            o.put("notice", System.currentTimeMillis() - noticeAt < 120000L ? notice : "");
+            JSONArray others = new JSONArray();
+            List<String[]> list = finder == null ? null : finder.others();
+            if (list != null) {
+                for (String[] t : list) others.put(new JSONObject().put("name", t[0]).put("url", t[1]));
+            }
+            o.put("others", others);
+            return o.toString();
+        } catch (Exception e) {
+            return "{\"tv\":" + JSONObject.quote(tvName) + ",\"error\":" + JSONObject.quote(e.toString()) + "}";
+        }
+    }
+
+    private boolean runCommand(final String what) {
+        switch (what) {
+            case "next":
+            case "pause":
+            case "resume":
+            case "vol+":
+            case "vol-":
+            case "zoom+":
+            case "zoom-":
+            case "reload":
+                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command(" + JSONObject.quote(what) + ") : false"));
+            case "identify":
+                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command(" + JSONObject.quote("identify:" + tvName) + ") : false"));
+            case "tvvol+":
+            case "tvvol-":
+                if (audio == null || audio.isVolumeFixed()) return false;
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                what.equals("tvvol+") ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
+                    }
+                });
+                return true;
+            case "update":
+                final String[] message = { null };
+                runOnMain(new Runnable() {
+                    @Override
+                    public void run() {
+                        message[0] = updater.install(MainActivity.this);
+                    }
+                });
+                notice = message[0] == null ? "" : message[0];
+                noticeAt = System.currentTimeMillis();
+                return message[0] != null;
+            case "checkupdate":
+                work.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        updater.check();
+                    }
+                });
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // Runs JavaScript in the page and waits (up to 3 seconds) for its answer
+    private String callPage(final String js) {
+        final String[] out = { null };
+        final CountDownLatch done = new CountDownLatch(1);
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (web == null || !visible) {
+                    done.countDown();
+                    return;
+                }
+                web.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(String value) {
+                        out[0] = value;
+                        done.countDown();
+                    }
+                });
+            }
+        });
+        try {
+            done.await(3, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return out[0];
+    }
+
+    private void runOnMain(final Runnable r) {
+        final CountDownLatch done = new CountDownLatch(1);
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    r.run();
+                } finally {
+                    done.countDown();
+                }
+            }
+        });
+        try {
+            done.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private byte[] readAsset(String name) {
+        try {
+            InputStream in = getAssets().open(name);
+            try {
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
+                return b.toByteArray();
+            } finally {
+                in.close();
+            }
+        } catch (IOException e) {
+            return new byte[0];
+        }
+    }
+
+    /** What the page can ask the app. Settings never include the PIN. */
+    private final class Bridge {
+        @JavascriptInterface
+        public String settings() {
+            return settings.forPage();
+        }
+
+        @JavascriptInterface
+        public int settingsVersion() {
+            return settings.version();
+        }
+
+        @JavascriptInterface
+        public void alive() {
+            lastAlive = System.currentTimeMillis();
+        }
     }
 
     /* ---------- starting by itself when the TV turns on ---------- */
@@ -261,9 +706,12 @@ public class MainActivity extends Activity {
             root.removeView(view);
             view.destroy();
             web = null;
-            handler.post(() -> {
-                makeWebView();
-                if (visible) open();
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    makeWebView();
+                    if (visible) open();
+                }
             });
             return true;
         }

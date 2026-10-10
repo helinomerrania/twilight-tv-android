@@ -1,0 +1,14 @@
+{
+  "_about": "Settings for every Twilight TV. Each TV reads this file when the app starts and every 30 minutes; the song that is playing finishes first. README.md explains every setting.",
+
+  "playlist": "https://www.youtube.com/playlist?list=PL_6oD4DKbNOvlb8kOY9APBXjC_EtR6eYK",
+  "volume": 100,
+  "volumeSchedule": {},
+  "openHours": "",
+
+  "tvVolume": 0,
+  "controlPin": "",
+  "levelSound": true,
+  "restartAt": "05:00",
+  "updates": true
+}

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1030">
+<title>Twilight TV</title>
+<style>
+  :root {
+    --night: #0b1030; --dusk: #151942; --plum: #2c2457; --line: rgba(255, 241, 224, .12);
+    --glow: #f0985c; --sun: #ffcf8a; --cream: #fff1e0; --soft: rgba(255, 241, 224, .64); --alert: #ff8f7a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--cream); background: var(--night);
+    background-image: radial-gradient(120% 60% at 50% 115%, rgba(240, 152, 92, .28), transparent 60%),
+                      linear-gradient(#0a0e2c, #171a45 55%, #2a2150);
+    background-attachment: fixed;
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Arabic", sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  }
+  main { max-width: 34rem; margin: 0 auto; }
+  header { padding: 8px 2px 18px; }
+  .cafe { margin: 0; font-size: 1.5rem; line-height: 1.6; font-weight: 700; text-align: center;
+          text-shadow: 0 0 .6em rgba(255, 171, 107, .35); }
+  .tvs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+  .tvs a, .tvs span { padding: 5px 12px; border-radius: 999px; font-size: .9rem; text-decoration: none; color: var(--cream);
+                      border: 1px solid var(--line); }
+  .tvs span { background: var(--glow); border-color: var(--glow); color: #2a1406; font-weight: 650; }
+  .card { background: rgba(21, 25, 66, .82); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 14px;
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .label { margin: 0 0 4px; color: var(--soft); font-size: .9rem; }
+  .title { margin: 0; font-size: 1.25rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+  .bar { height: 6px; border-radius: 3px; background: rgba(255, 241, 224, .12); margin: 14px 0 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--glow), var(--sun)); border-radius: 3px; }
+  .times { display: flex; justify-content: space-between; color: var(--soft); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .state { margin: 12px 0 0; font-size: .95rem; }
+  .state.off { color: var(--sun); }
+  .big { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+  .big button { min-height: 76px; border-radius: 18px; font-size: 1.05rem; font-weight: 650; background: var(--plum);
+                border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .big button.main { background: linear-gradient(160deg, #f6b06c, #e0784e); color: #2a1406; border-color: transparent; }
+  .big svg { width: 26px; height: 26px; }
+  button:disabled { opacity: .45; }
+  button:active:not(:disabled) { transform: scale(.97); }
+  .row { display: grid; grid-template-columns: 1fr auto 4.2rem auto; align-items: center; gap: 10px; padding: 10px 0;
+         border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .row:last-child { padding-bottom: 0; }
+  .row .what { font-size: .98rem; }
+  .row .what small { display: block; color: var(--soft); font-size: .8rem; }
+  .row .val { text-align: center; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .step { width: 48px; height: 48px; border-radius: 14px; background: var(--plum); border: 1px solid var(--line); font-size: 1.5rem; line-height: 1; }
+  .wide { width: 100%; min-height: 52px; border-radius: 14px; background: transparent; border: 1px solid var(--line); font-size: .98rem; }
+  .update { border-color: rgba(255, 207, 138, .55); }
+  .update .wide { background: var(--sun); color: #2a1406; border: 0; font-weight: 650; margin-top: 12px; }
+  ul { list-style: none; margin: 8px 0 0; padding: 0; }
+  li { padding: 10px 0; border-top: 1px solid var(--line); }
+  li:first-child { border-top: 0; }
+  li b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  li span { color: var(--soft); font-size: .85rem; }
+  li a { color: var(--sun); font-size: .85rem; }
+  .facts { color: var(--soft); font-size: .8rem; margin: 18px 4px 0; }
+  .facts p { margin: 0 0 4px; }
+  .banner { border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; background: rgba(255, 143, 122, .16);
+            border: 1px solid rgba(255, 143, 122, .5); }
+  .notice { background: rgba(255, 207, 138, .14); border-color: rgba(255, 207, 138, .5); }
+  [hidden] { display: none !important; }
+  #pin { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(11, 16, 48, .96); z-index: 5; }
+  #pin form { width: 100%; max-width: 22rem; text-align: center; }
+  #pin h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #pin p { color: var(--soft); margin: 0 0 18px; font-size: .95rem; }
+  #pin input { width: 100%; font: 700 2rem/1 system-ui, sans-serif; letter-spacing: .4em; text-align: center; padding: 14px 0 14px .4em;
+               border-radius: 14px; border: 1px solid var(--line); background: var(--dusk); color: var(--cream); }
+  #pin button { width: 100%; min-height: 54px; margin-top: 12px; border-radius: 14px; background: linear-gradient(160deg, #f6b06c, #e0784e);
+                color: #2a1406; font-weight: 700; }
+  #pinErr { color: var(--alert); min-height: 1.4em; margin: 10px 0 0; }
+  @media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="cafe" id="cafe" dir="auto">Twilight TV</p>
+    <nav class="tvs" id="tvs" aria-label="TVs"></nav>
+  </header>
+
+  <div class="banner" id="offline" hidden>Can't reach this TV. Check that your phone is on the café Wi-Fi.</div>
+  <div class="banner" id="notOn" hidden>The Twilight TV app isn't on screen on this TV. Open it with the TV remote.</div>
+  <div class="banner notice" id="notice" hidden></div>
+
+  <section class="card" aria-live="polite">
+    <p class="label">Now playing</p>
+    <p class="title" id="song">–</p>
+    <div class="bar"><i id="progress"></i></div>
+    <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+    <p class="state" id="state"></p>
+  </section>
+
+  <div class="big">
+    <button id="pause" class="main" data-cmd="pause" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path id="pauseIcon" fill="currentColor" d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+      <span id="pauseText">Pause music</span>
+    </button>
+    <button id="next" data-cmd="next" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5.5v13l9-6.5zM16 5h2.5v14H16z"/></svg>
+      <span>Next song</span>
+    </button>
+  </div>
+
+  <section class="card">
+    <div class="row">
+      <div class="what">This song's volume<small>Remembered on this TV</small></div>
+      <button class="step" data-cmd="vol-" type="button" aria-label="Song quieter">−</button>
+      <div class="val" id="vol">–</div>
+      <button class="step" data-cmd="vol+" type="button" aria-label="Song louder">+</button>
+    </div>
+    <div class="row">
+      <div class="what">Zoom<small>For black bars, this song</small></div>
+      <button class="step" data-cmd="zoom-" type="button" aria-label="Zoom out">−</button>
+      <div class="val" id="zoom">–</div>
+      <button class="step" data-cmd="zoom+" type="button" aria-label="Zoom in">+</button>
+    </div>
+    <div class="row" id="tvRow">
+      <div class="what">TV volume<small>The box's own volume</small></div>
+      <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
+      <div class="val" id="tvvol">–</div>
+      <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
+    </div>
+  </section>
+
+  <section class="card update" id="update" hidden>
+    <p class="title" id="updateTitle">A new version is ready</p>
+    <p class="label" style="margin-top:6px">After you press the button, look at the TV and press Install with the remote. Music stops for about a minute.</p>
+    <button class="wide" data-cmd="update" type="button">Install update</button>
+  </section>
+
+  <button class="wide" data-cmd="identify" type="button" style="margin-bottom:14px">Show this TV's name on its screen</button>
+
+  <section class="card" id="problems" hidden>
+    <p class="title" id="problemsTitle">Songs that won't play</p>
+    <p class="label" style="margin-top:4px">They're skipped automatically. Check them on YouTube, or remove them from the playlist.</p>
+    <ul id="problemList"></ul>
+  </section>
+
+  <div class="facts" id="facts"></div>
+</main>
+
+<div id="pin" hidden>
+  <form id="pinForm" autocomplete="off">
+    <h2>Enter this TV's PIN</h2>
+    <p>On the TV remote, hold OK for 3 seconds. The PIN is shown at the bottom right of the screen.</p>
+    <input id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="8" aria-label="PIN">
+    <button type="submit">Open</button>
+    <p id="pinErr" role="alert"></p>
+  </form>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "twilight-tv-pin", pin = "", timer = null, last = null, busy = false;
+  try { pin = localStorage.getItem(KEY) || ""; } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+
+  function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+  function clock(ms) { var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+
+  function askPin(msg) {
+    clearTimeout(timer);
+    $("pin").hidden = false;
+    $("pinErr").textContent = msg || "";
+    $("pinInput").value = "";
+    setTimeout(function () { $("pinInput").focus(); }, 50);
+  }
+
+  $("pinForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    pin = $("pinInput").value.replace(/\D/g, "");
+    try { localStorage.setItem(KEY, pin); } catch (err) {}
+    $("pin").hidden = true;
+    poll();
+  });
+
+  function api(path, method) {
+    var sep = path.indexOf("?") < 0 ? "?" : "&";
+    return fetch(path + sep + "pin=" + encodeURIComponent(pin), { method: method || "GET", cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 401) { try { localStorage.removeItem(KEY); } catch (e) {} askPin(pin ? "That PIN didn't work. Try again." : ""); throw new Error("pin"); }
+        if (r.status === 429) { askPin("Too many wrong PINs. Wait 10 minutes, then try again."); throw new Error("locked"); }
+        return r.json();
+      });
+  }
+
+  function poll() {
+    clearTimeout(timer);
+    if (!pin) return askPin("");
+    api("/api/status").then(function (s) {
+      $("offline").hidden = true;
+      last = s;
+      render(s);
+      schedule();
+    }).catch(function (e) {
+      if (e.message === "pin" || e.message === "locked") return;
+      $("offline").hidden = false;
+      schedule();
+    });
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    if (document.visibilityState !== "hidden") timer = setTimeout(poll, 2000);
+  }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") poll(); });
+
+  function render(s) {
+    var p = s.page || null;
+    $("notOn").hidden = !!s.onScreen;
+    if (p && p.name) $("cafe").textContent = p.name;
+    document.title = (s.tv || "TV") + " · Twilight";
+
+    var nav = $("tvs"); nav.innerHTML = "";
+    var me = document.createElement("span"); me.textContent = s.tv || "This TV"; nav.appendChild(me);
+    (s.others || []).forEach(function (o) {
+      var a = document.createElement("a"); a.href = o.url; a.textContent = o.name; nav.appendChild(a);
+    });
+
+    var song = p && p.song;
+    $("song").textContent = song ? (song.title || "Song " + song.id) : (s.onScreen ? "Starting…" : "–");
+    var pos = song ? song.position : 0, dur = song ? song.duration : 0;
+    $("progress").style.width = dur > 0 ? Math.min(100, pos / dur * 100) + "%" : "0";
+    $("pos").textContent = mmss(pos);
+    $("dur").textContent = mmss(dur);
+
+    var st = p ? p.state : "", text = "", off = false, paused = false, closed = false;
+    if (!p) text = "";
+    else if (st === "closed") { closed = off = true; text = "Music off: outside opening hours (" + p.openHours + ")"; }
+    else if (p.holdUntil) { paused = off = true; text = "Paused from a phone. It starts again by itself at " + clock(p.holdUntil) + "."; }
+    else if (st === "playing") text = "Playing" + (p.quality ? ", picture " + p.quality : "") + (p.scheduleVolume < 100 ? ", volume schedule " + p.scheduleVolume + "%" : "");
+    else if (st === "loading" || st === "starting" || st === "ready") text = "Loading the next song…";
+    else text = st.charAt(0).toUpperCase() + st.slice(1);
+    $("state").textContent = text;
+    $("state").className = "state" + (off ? " off" : "");
+
+    $("pauseText").textContent = closed ? "Play anyway" : paused ? "Resume music" : "Pause music";
+    $("pauseIcon").setAttribute("d", closed || paused ? "M7 4.5v15l12-7.5z" : "M7 5h3.5v14H7zm6.5 0H17v14h-3.5z");
+    $("pause").dataset.cmd = closed || paused ? "resume" : "pause";
+    $("next").disabled = closed;
+
+    $("vol").textContent = p ? p.volume + "%" : "–";
+    $("zoom").textContent = p ? p.zoom + "%" : "–";
+    var fixed = s.tvVolumeFixed || s.tvVolumeMax == null;
+    $("tvRow").hidden = !!fixed;
+    if (!fixed) $("tvvol").textContent = s.tvVolume + "/" + s.tvVolumeMax;
+
+    $("update").hidden = !s.updateReady;
+    if (s.updateReady) $("updateTitle").textContent = "Version 1." + s.updateReady + " is ready";
+    $("notice").hidden = !s.notice;
+    $("notice").textContent = s.notice || "";
+
+    var probs = (p && p.problems) || [];
+    $("problems").hidden = !probs.length;
+    $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
+    var ul = $("problemList"); ul.innerHTML = "";
+    probs.slice(0, 30).forEach(function (x) {
+      var li = document.createElement("li"), b = document.createElement("b"), sp = document.createElement("span"), a = document.createElement("a");
+      b.textContent = x.title || x.id;
+      sp.textContent = x.what + (x.count > 1 ? ", " + x.count + " times" : "") + ". ";
+      a.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(x.id);
+      a.target = "_blank"; a.rel = "noopener";
+      a.textContent = "Open on YouTube";
+      li.appendChild(b); li.appendChild(sp); li.appendChild(a); ul.appendChild(li);
+    });
+
+    var facts = [];
+    if (p) facts.push("Playlist: " + p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round. " + p.adsSkipped + " ads skipped.");
+    if (p && p.openHours) facts.push("Opening hours: " + p.openHours + ".");
+    if (s.levelling) facts.push("Sound levelling: " + s.levelling + ".");
+    if (s.settings) facts.push("Settings: " + s.settings + ".");
+    if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
+    facts.push("App version " + (s.build || "?") + ".");
+    $("facts").innerHTML = "";
+    facts.forEach(function (f) { var el = document.createElement("p"); el.textContent = f; $("facts").appendChild(el); });
+  }
+
+  function cmd(what, button) {
+    if (!what || busy) return;
+    busy = true;
+    if (button) button.disabled = true;
+    api("/api/cmd?do=" + encodeURIComponent(what), "POST").catch(function () {}).then(function () {
+      busy = false;
+      if (button) button.disabled = false;
+      setTimeout(poll, what === "next" ? 1200 : 300);
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("button[data-cmd]") : null;
+    if (b) cmd(b.dataset.cmd, b);
+  });
+
+  poll();
+})();
+</script>
+</body>
+</html>

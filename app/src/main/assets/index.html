@@ -219,6 +219,16 @@ var SETTINGS = {
   // only hand over the first ~200 videos. A free YouTube Data API key reads them all.
   apiKey: "",
 
+  // Opening hours, e.g. "10:00-02:00" (or "10:00-14:00, 17:00-01:00"). Outside them
+  // the music stops and the café screen stays up; it starts again at opening time.
+  // "" = always on.
+  openHours: "",
+
+  // Quieter or louder at times of day, in percent of normal, from each time on.
+  // Example: { "10:00": 60, "18:00": 100 } = 60% from 10 in the morning, full
+  // volume from 6 in the evening. {} = always normal.
+  volumeSchedule: {},
+
   // Reloads itself between two songs after this many hours. Keeps the TV
   // fresh and picks up songs you add to the playlist.
   refreshHours: 12
@@ -227,6 +237,19 @@ var SETTINGS = {
 
 (function () {
   "use strict";
+
+  // Inside the Android app, settings.json from GitHub overrides SETTINGS above
+  var APP = null, appSettingsVersion = 0;
+  try { APP = window.TwilightApp || null; } catch (e) {}
+  if (APP) {
+    try {
+      var extra = JSON.parse(APP.settings() || "{}");
+      for (var k in extra) {
+        if (Object.prototype.hasOwnProperty.call(extra, k) && k.charAt(0) !== "_") SETTINGS[k] = extra[k];
+      }
+      appSettingsVersion = Number(APP.settingsVersion()) || 0;
+    } catch (e) {}
+  }
 
   var S = SETTINGS;
   var LIST = playlistId(new URLSearchParams(location.search).get("list") || S.playlist);
@@ -254,6 +277,8 @@ var SETTINGS = {
   var DEBUG = /[?&]debug=1(&|$)/.test(location.search);
   var source = "", quality = "", skipped = [], renderW = 0, renderH = 0;   // for test mode
   var BAR_CHECK = 1;        // version of the black-bar check; a new one looks at every song again
+  var quiet = "";           // "" = music on, "closed" = outside opening hours, "paused" = paused from the phone
+  var quietSince = 0, holdUntil = 0, openAnywayUntil = 0, scheduleAt = 0, aliveAt = 0;
   var state = load();
   document.getElementById("brandName").textContent = S.brandName || "";
 
@@ -277,6 +302,7 @@ var SETTINGS = {
       zoom: s.zoom && typeof s.zoom === "object" ? s.zoom : {}, // song zooms set with the remote
       auto: s.barCheck === BAR_CHECK && s.auto && typeof s.auto === "object" ? s.auto : {}, // zooms found automatically
       barCheck: BAR_CHECK,
+      problems: s.problems && typeof s.problems === "object" ? s.problems : {}, // songs that keep failing
       ids: s.ids instanceof Array ? s.ids : []             // last known playlist
     };
   }
@@ -336,9 +362,10 @@ var SETTINGS = {
   }
 
   function next() {
-    if (reloading) return;
+    if (reloading || quiet) return;
     clearTimeout(skipTimer);
     if (S.refreshHours > 0 && Date.now() - loadedAt > S.refreshHours * 3600e3) return refresh();
+    if (appSettingsChanged()) return refresh();  // new settings.json: start fresh between two songs
     if (!queue.length && !buildQueue()) {        // nothing playable right now
       state.bad = {};
       save();
@@ -448,7 +475,7 @@ var SETTINGS = {
   }
 
   function onStateChange(e) {
-    if (!current) return;                        // still opening the playlist
+    if (!current || quiet) return;               // still opening the playlist, or the music is off on purpose
     var st = e.data;
     if (st !== PLAYING && lastState === PLAYING) leftPlayingAt = Date.now();
     lastState = st;
@@ -464,11 +491,13 @@ var SETTINGS = {
   function onError(e) {
     var code = e.data;
     if (code === 153) note("YouTube error 153: open this page from a web address (https://...), not as a file.");
-    if (!current) return;
+    if (!current || quiet) return;
     setLevel(0);
     guard(true);                                 // never show YouTube's error screen
     skipped.push(current + " (error " + code + ")");
     if (skipped.length > 6) skipped.shift();
+    problem(current, "YouTube error " + code + (code === 150 || code === 101 ? " (the owner doesn't allow it on other sites)" :
+                                                code === 100 ? " (removed or private)" : ""));
     if (code === 100 || code === 101 || code === 150) {
       state.bad[current] = Date.now();           // removed, private or not embeddable: skip it for a day
       save();
@@ -513,6 +542,7 @@ var SETTINGS = {
     started = true;
     adSkips = 0;
     needHold = false;
+    if (state.problems[current]) { delete state.problems[current]; save(); }   // it plays fine now
     var paid = (vd && vd.paidContentOverlayDurationMs) || 0;   // "Includes paid promotion" label
     var hold = Math.max(Number(S.titleSeconds) || 0, paid ? paid / 1000 + 0.5 : 0);
     showAt = Date.now() + hold * 1000;
@@ -552,8 +582,17 @@ var SETTINGS = {
 
   setInterval(function () {
     if (window.innerWidth !== lastW || window.innerHeight !== lastH) layout();
-    if (!ready || !current || reloading) return;
     var now = Date.now();
+    if (APP && now - aliveAt > 5000) {           // tell the app the page is alive (it restarts a frozen page)
+      aliveAt = now;
+      try { APP.alive(); } catch (e) {}
+    }
+    if (!ready || !current || reloading) return;
+    if (now - scheduleAt > 10000) { scheduleAt = now; checkHours(); }
+    if (quiet) {                                 // music off on purpose: café screen, silent, nothing to watch
+      if (quiet === "paused" && now > holdUntil) resume();
+      return;
+    }
     var st = player.getPlayerState();
     var t = player.getCurrentTime() || 0;
     var d = player.getDuration() || 0;
@@ -609,6 +648,7 @@ var SETTINGS = {
 
     if (now - lastMove > 90e3) {                 // stuck for 90 seconds
       lastMove = now;
+      if (!started) problem(current, "never started (stuck loading)");
       if (++strikes >= 3) return reloadSoon(0);
       next();
     }
@@ -700,7 +740,7 @@ var SETTINGS = {
   function syncSound(force) {
     if (!player || !ready) return;
     var silent = muted || level <= 0.001 || (guarded && adBlocking());
-    var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * Math.pow(10, (level - 1) * 1.5)));
+    var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * scheduleVolume() / 100 * Math.pow(10, (level - 1) * 1.5)));
     if (force || silent !== lastSentMute) {
       if (silent) player.mute(); else player.unMute();
       lastSentMute = silent;
@@ -898,13 +938,182 @@ var SETTINGS = {
   }
 
   // A small message in the corner for a moment (volume and zoom changes)
-  function toast(text) {
+  function toast(text, ms) {
     var box = document.getElementById("vol");
     box.textContent = text;
     box.style.display = "block";
     clearTimeout(volTimer);
-    volTimer = setTimeout(function () { box.style.display = "none"; }, 2500);
+    volTimer = setTimeout(function () { box.style.display = "none"; }, ms || 2500);
   }
+
+  /* ---------- opening hours, volume schedule, music off on purpose ---------- */
+
+  function minutesOf(s) {
+    var m = /^\s*(\d{1,2})[:.](\d{2})\s*$/.exec(String(s));
+    return m && +m[1] < 25 && +m[2] < 60 ? (+m[1] % 24) * 60 + +m[2] : null;
+  }
+
+  function nowMinutes() {
+    var d = new Date(Date.now());
+    return d.getHours() * 60 + d.getMinutes();
+  }
+
+  // Opening hours like "10:00-02:00" or "10:00-14:00, 17:00-01:00". Empty = always open.
+  function isOpen() {
+    var spec = String(S.openHours || "").trim();
+    if (!spec) return true;
+    var now = nowMinutes(), parts = spec.split(","), valid = false;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].split("-"), a = minutesOf(p[0]), b = minutesOf(p[1]);
+      if (p.length !== 2 || a == null || b == null) continue;
+      valid = true;
+      if (a === b) return true;                  // "00:00-00:00": open all day
+      if (a < b ? now >= a && now < b : now >= a || now < b) return true;
+    }
+    return !valid;                               // nothing readable: always open
+  }
+
+  // Percent of normal volume right now, from volumeSchedule like { "10:00": 60, "18:00": 100 }
+  function scheduleVolume() {
+    var sch = S.volumeSchedule, list = [], k;
+    if (sch instanceof Array) {
+      for (k = 0; k < sch.length; k++) if (sch[k]) list.push([minutesOf(sch[k].from), Number(sch[k].volume)]);
+    } else if (sch && typeof sch === "object") {
+      for (k in sch) if (Object.prototype.hasOwnProperty.call(sch, k)) list.push([minutesOf(k), Number(sch[k])]);
+    }
+    list = list.filter(function (e) { return e[0] != null && !isNaN(e[1]); })
+               .sort(function (a, b) { return a[0] - b[0]; });
+    if (!list.length) return 100;
+    var now = nowMinutes(), v = list[list.length - 1][1];   // before the day's first time, the last one still holds
+    for (var i = 0; i < list.length; i++) if (list[i][0] <= now) v = list[i][1];
+    return Math.max(0, Math.min(100, v));
+  }
+
+  function checkHours() {
+    var open = isOpen() || Date.now() < openAnywayUntil;
+    if (!open && quiet !== "closed") goQuiet("closed");
+    else if (open && quiet === "closed") resume();
+  }
+
+  // Music off on purpose (closing time, or paused from the phone): the song fades
+  // out, the café screen stays up and the video is paused
+  function goQuiet(why) {
+    if (!quiet) quietSince = Date.now();
+    quiet = why;
+    clearTimeout(skipTimer);
+    picEnding = true;
+    picFadeSecs = 1.5;
+    setPicture("fadeout");
+    fadeLevel(0, 1.5);
+    skipTimer = setTimeout(function () {
+      if (quiet && player) { try { player.pauseVideo(); } catch (e) {} }
+    }, 1600);
+  }
+
+  // Music back on: the same song if it was a short pause, otherwise the next one
+  function resume() {
+    if (!quiet) return;
+    var shortPause = quiet === "paused" && Date.now() - quietSince < 10 * 60e3 && started;
+    quiet = "";
+    holdUntil = 0;
+    clearTimeout(skipTimer);
+    lastMove = Date.now();
+    strikes = 0;
+    if (!shortPause) return next();
+    picEnding = false;
+    fadingOut = false;
+    needHold = true;                             // YouTube shows the title again after a pause
+    showAt = Math.max(showAt, Date.now() + (Number(S.titleSeconds) || 0) * 1000);
+    player.playVideo();
+    fadeLevel(1, S.fadeIn);
+  }
+
+  // A song that won't play: kept on a list (test mode and the phone page) until it plays fine
+  function problem(id, what) {
+    if (!id) return;
+    var vd = (player && player.getVideoData && player.getVideoData()) || {};
+    var p = state.problems[id] || { n: 0 };
+    p.n++;
+    p.what = what;
+    p.t = Date.now();
+    if (vd.video_id === id && vd.title) p.title = vd.title;
+    state.problems[id] = p;
+    var ids = Object.keys(state.problems);
+    if (ids.length > 60) {                       // keep the 60 most recent
+      ids.sort(function (a, b) { return state.problems[a].t - state.problems[b].t; });
+      for (var i = 0; i < ids.length - 60; i++) delete state.problems[ids[i]];
+    }
+    save();
+  }
+
+  // True once per change of settings.json (so a failed reload doesn't retry in a loop)
+  function appSettingsChanged() {
+    if (!APP) return false;
+    var v = appSettingsVersion;
+    try { v = Number(APP.settingsVersion()) || 0; } catch (e) {}
+    if (v === appSettingsVersion) return false;
+    appSettingsVersion = v;
+    return true;
+  }
+
+  /* ---------- for the Android app: status and commands (phone control) ---------- */
+
+  window.TwilightTV = {
+    status: function () {
+      var vd = (player && player.getVideoData && player.getVideoData()) || {};
+      var good = allIds.filter(function (v) { return !state.bad[v]; }).length;
+      var done = state.played.filter(function (v) { return !state.bad[v]; }).length;
+      var problems = Object.keys(state.problems).map(function (id) {
+        var p = state.problems[id];
+        return { id: id, title: p.title || "", what: p.what || "", count: p.n || 1, last: p.t || 0 };
+      }).sort(function (a, b) { return b.last - a.last; });
+      return {
+        name: S.brandName || "",
+        playlist: LIST,
+        songs: allIds.length,
+        round: { done: done, total: good },
+        song: current ? { id: current, title: vd.video_id === current ? vd.title || "" : "",
+                          position: ready ? player.getCurrentTime() || 0 : 0,
+                          duration: ready ? player.getDuration() || 0 : 0 } : null,
+        state: !ready ? "starting" : quiet || (NAMES[player.getPlayerState()] || "?"),
+        picture: pictureMode || "off",
+        volume: current ? songVolume() : S.volume,
+        scheduleVolume: scheduleVolume(),
+        zoom: current ? songZoom() : 100,
+        zoomNote: zoomNote(),
+        muted: muted,
+        quality: QUALITY[quality] || quality || "",
+        openHours: String(S.openHours || ""),
+        open: isOpen(),
+        holdUntil: quiet === "paused" ? holdUntil : 0,
+        adsSkipped: adsSkipped,
+        problems: problems
+      };
+    },
+    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload
+    command: function (what) {
+      what = String(what || "");
+      if (!ready || !current) return false;
+      if (what === "next") {
+        if (quiet === "paused") { quietSince = 0; resume(); return true; }
+        if (quiet) return false;
+        startFadeOut(0.8);
+        clearTimeout(skipTimer);
+        skipTimer = setTimeout(next, 900);
+      }
+      else if (what === "pause") { if (quiet !== "closed") { goQuiet("paused"); holdUntil = Date.now() + 3 * 3600e3; } }
+      else if (what === "resume") {
+        if (quiet === "closed") { openAnywayUntil = Date.now() + 3 * 3600e3; resume(); }
+        else resume();
+      }
+      else if (what === "vol+" || what === "vol-") changeSongVolume(what === "vol+" ? 10 : -10);
+      else if (what === "zoom+" || what === "zoom-") changeSongZoom(what === "zoom+" ? 1 : -1);
+      else if (what.indexOf("identify:") === 0) toast(what.slice(9), 6000);
+      else if (what === "reload") refresh();
+      else return false;
+      return true;
+    }
+  };
 
   /* ---------- full screen, taps and keys, staying awake ---------- */
 
@@ -1021,6 +1230,11 @@ var SETTINGS = {
       lines.push("Zoom " + songZoom() + "% (" + zoomNote() + "; remote left/right to change)");
       lines.push("Sound " + (muted ? "OFF (tap the screen or press OK)" : lastSentMute ? "held (loading / ad / fade)" : "on at " + lastSentVol + "%") +
                  ", this song's volume " + songVolume() + "% (remote up/down to change)");
+      lines.push("Opening hours " + (S.openHours ? S.openHours + (isOpen() ? " (open now)" : " (closed now)") : "not set") +
+                 ", volume schedule " + scheduleVolume() + "% of normal now" +
+                 (quiet === "closed" ? "   MUSIC OFF: outside opening hours" : quiet === "paused" ? "   MUSIC OFF: paused from the phone" : ""));
+      var pids = Object.keys(state.problems);
+      if (pids.length) lines.push("Songs that won't play: " + pids.length + " (listed on the phone page): " + pids.slice(0, 4).join(", "));
       lines.push("Quality: " + (QUALITY[quality] || quality || "not reported yet") +
                  "   (player drawn at " + renderW + "x" + renderH + ")");
       lines.push("Ad blocking " + (!S.blockAds ? "off" : adBlocking() ? "on" : "paused for a while (6 skips in a row)") +

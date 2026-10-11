@@ -3,8 +3,8 @@ plugins {
 }
 
 // Each build on GitHub gets a higher version number, so a new APK installs over the old
-// one (and each TV keeps its settings and PIN). Since the app brought its own engine
-// (build 16), version numbers start at 100000, above every earlier build.
+// one (and each TV keeps its settings and PIN). Since the app brought its own engine,
+// version numbers start at 100000, above every earlier build.
 def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {

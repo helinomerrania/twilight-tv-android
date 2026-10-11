@@ -136,6 +136,6 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 - If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
 - The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only; phones on the café Wi-Fi only get the phone page. The page checks in with the app every second, which is how settings and the phone's commands reach it.
-- Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when a TV moved to it (build 16).
+- Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when each TV moved to it.
 - After using ADB or Developer options on a box, turn **USB debugging** and any network debugging off again: otherwise anyone on the café Wi-Fi could control the box.
 - Changes on any other branch than `main` are only built as a test. They're never published to the TVs.

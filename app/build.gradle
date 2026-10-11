@@ -3,7 +3,8 @@ plugins {
 }
 
 // Each build on GitHub gets a higher version number, so a new APK installs over the old
-// one (and each TV keeps what it remembers: song volumes, zooms, the shuffle).
+// one (and each TV keeps its settings and PIN). Since the app brought its own engine
+// (build 16), version numbers start at 100000, above every earlier build.
 def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {
@@ -14,39 +15,18 @@ android {
         applicationId 'com.twilightcafe.tvplayer'
         minSdk 21
         targetSdk 35
-        versionCode buildNumber
+        versionCode 100000 + buildNumber
         versionName "1.${buildNumber}"
         // The GitHub repository the app is built from: settings.json and updates come from there
         buildConfigField "String", "REPO", "\"" + (System.getenv('GITHUB_REPOSITORY') ?: '') + "\""
-    }
-
-    // Two versions of the app, built side by side:
-    //  - webview: the normal one, on every TV. Android's own web engine shows the page.
-    //  - gecko:   a test version with Firefox's engine (GeckoView) inside, for TV boxes
-    //             whose own engine is too old for YouTube's controls. Only installed by
-    //             hand; the TVs with the normal version never update to it.
-    flavorDimensions = ['engine']
-    productFlavors {
-        webview {
-            dimension 'engine'
-            buildConfigField "String", "CHANNEL", "\"\""
-        }
-        gecko {
-            dimension 'engine'
-            // Always above the normal version's numbers, so the two never replace each other by themselves
-            versionCode 100000 + buildNumber
-            versionName "1.${buildNumber}-firefox"
-            // Updates for the test version come from the "firefox" release on GitHub
-            buildConfigField "String", "CHANNEL", "\"firefox\""
-            ndk {
-                abiFilters 'armeabi-v7a'           // TV boxes: 32-bit ARM runs on all of them
-            }
+        ndk {
+            abiFilters 'armeabi-v7a'               // Firefox's engine for TV boxes: 32-bit ARM runs on all of them
         }
     }
 
     packaging {
         resources {
-            // the same licence and Java-module files come with several of GeckoView's libraries
+            // the same licence and Java-module files come with several of Firefox's engine's libraries
             excludes += ['META-INF/versions/9/module-info.class', 'META-INF/LICENSE*', 'META-INF/NOTICE*',
                          'META-INF/DEPENDENCIES', 'META-INF/*.kotlin_module']
         }
@@ -86,7 +66,8 @@ android {
 }
 
 dependencies {
-    // Firefox's engine for the test version. 143 is the newest that builds with this project's
+    // Firefox's engine (GeckoView), inside the app: the TV boxes' own engine is too old for YouTube's
+    // controls, and they won't take a newer one. 143 is the newest that builds with this project's
     // Android tools; it supports Android 5 and newer.
-    geckoImplementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:143.0.20251003115653'
+    implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:143.0.20251003115653'
 }

@@ -1,9 +1,8 @@
 name: Build the TV app
 
 # Runs every time something in the project changes (or by hand from the Actions tab).
-# Changes on the main branch are published as the latest release (twilight-tv.apk), and
-# the test version with Firefox's engine as the "firefox" pre-release (twilight-tv-gecko.apk),
-# which the TVs with the normal version never see. Other branches are only built, as a test.
+# Changes on the main branch are published as the latest release (twilight-tv.apk);
+# other branches are only built, as a test.
 on:
   push:
   workflow_dispatch:
@@ -24,14 +23,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build the APKs
+      - name: Build the APK
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleWebviewRelease assembleGeckoRelease 2>&1 | tee build.log
-          cp app/build/outputs/apk/webview/release/app-webview-release.apk twilight-tv.apk
-          cp app/build/outputs/apk/gecko/release/app-gecko-release.apk twilight-tv-gecko.apk
-          ls -l twilight-tv.apk twilight-tv-gecko.apk
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
+          cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
+          ls -l twilight-tv.apk
 
       - name: Show what went wrong
         if: failure()
@@ -45,34 +43,39 @@ jobs:
           [ -n "$errors" ] && echo "::error title=Compile errors::$errors"
           true
 
-      - name: Keep the APKs with this build
+      - name: Keep the APK with this build
         uses: actions/upload-artifact@v4
         with:
           name: twilight-tv
-          path: |
-            twilight-tv.apk
-            twilight-tv-gecko.apk
+          path: twilight-tv.apk
 
       - name: Publish it as the latest release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "build-${{ github.run_number }}-${{ github.run_attempt }}" twilight-tv.apk \
+          # Tagged with the app's version number, which the TVs compare with their own
+          gh release create "build-$((100000 + ${{ github.run_number }}))-${{ github.run_attempt }}" twilight-tv.apk \
             --target "${{ github.sha }}" \
             --title "Twilight TV, build ${{ github.run_number }}" \
-            --notes "Install twilight-tv.apk on the TVs. It installs over the previous build." \
+            --notes "Install twilight-tv.apk on the TVs. It installs over the previous build, and keeps each TV's settings and PIN." \
             --latest
+          # Only the newest three builds are kept (each is about 85 MB)
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[3:] | .[].tagName' |
+            while read -r old; do gh release delete "$old" --cleanup-tag --yes || true; done
 
-      - name: Publish the test version with Firefox's engine
+      - name: Also as the test version's release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Always the same address: .../releases/download/firefox/twilight-tv-gecko.apk
+          # The TV that tried the test version (build 15) looks for updates here. This brings
+          # it onto the normal releases; the step can go once it has updated.
+          cp twilight-tv.apk twilight-tv-gecko.apk
           gh release delete firefox --cleanup-tag --yes || true
           gh release create firefox twilight-tv-gecko.apk \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "Twilight TV with Firefox's engine (test), build ${{ github.run_number }}" \
-            --notes "A test version with Firefox's engine inside, for TV boxes whose own web engine is too old for YouTube's controls. Install twilight-tv-gecko.apk with Downloader on one TV: it installs over the normal version and keeps its settings. To go back, uninstall Twilight TV and install the normal version again."
+            --notes "The test version is now the normal app. Install twilight-tv.apk from the latest release instead."

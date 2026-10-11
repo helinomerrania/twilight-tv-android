@@ -7,7 +7,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -28,38 +27,36 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.content.pm.PackageInfo;
-import android.webkit.CookieManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.RenderProcessGoneDetail;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import org.mozilla.geckoview.AllowOrDeny;
+import org.mozilla.geckoview.GeckoResult;
+import org.mozilla.geckoview.GeckoRuntime;
+import org.mozilla.geckoview.GeckoRuntimeSettings;
+import org.mozilla.geckoview.GeckoSession;
+import org.mozilla.geckoview.GeckoSessionSettings;
+import org.mozilla.geckoview.GeckoView;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.math.BigInteger;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -74,21 +71,26 @@ import java.util.regex.Pattern;
  *  - the box's own volume at opening time, sound levelling, updates from GitHub,
  *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night.
  *
- * The page (assets/index.html) is built into the app and served at
- * https://com.twilightcafe.tvplayer/ - the app's own ID - which is how YouTube asks
- * apps to identify themselves when they embed its player. YouTube's player itself is
- * left exactly as YouTube sends it.
+ * The page runs in Firefox's engine (GeckoView), which comes inside the app: the TV boxes'
+ * own engine (Android System WebView) is from 2018, too old for YouTube's controls, and they
+ * won't take a newer one. Firefox's engine has no way for the app to hand the page an
+ * object, so the app's small web server serves the page (assets/index.html) at
+ * http://localhost to this box only, with assets/bridge.js put in at the top. The page
+ * checks in every second: what it's doing and that it's alive; the app answers with
+ * settings and the phone's commands. YouTube's player itself is left exactly as YouTube
+ * sends it.
  */
 public class MainActivity extends Activity {
 
-    static final String HOST = "com.twilightcafe.tvplayer";
-    static final String PAGE = "https://" + HOST + "/index.html";
+    private static final Charset UTF8 = Charset.forName("UTF-8");
+    private static GeckoRuntime runtime;                 // Firefox's engine: one for the whole app
     static final int NIGHT_BLUE = 0xFF0B1030;            // the café screen's colour, so start-up never flashes white
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newSingleThreadExecutor();
     private FrameLayout root;
-    private WebView web;
+    private GeckoView web;                               // shows the page
+    private GeckoSession session;                        // the page itself, in Firefox's engine
     private TextView overlay;                            // test mode: the app's own information
     private PointerView pointer;                         // quality setup: a pointer moved with the remote
     private float pointerX, pointerY;
@@ -106,6 +108,13 @@ public class MainActivity extends Activity {
     private volatile String notice = "";
     private volatile long noticeAt = 0;
     private byte[] controlPage;
+    private byte[] tvPageHtml;                           // assets/index.html
+    private String bridgeJs;                             // assets/bridge.js
+    // The link with the page: only the page this app opened knows the key
+    private final String pageKey = new BigInteger(80, new SecureRandom()).toString(36);
+    private volatile String pageStatus;                  // what the page last said it's doing
+    private volatile long pageStatusAt;
+    private final List<Object[]> pageCommands = new ArrayList<>();   // {time, command} for the page's next check-in
 
     private volatile long lastAlive = 0;                 // the page's last "I'm alive"
     private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
@@ -174,13 +183,29 @@ public class MainActivity extends Activity {
         return lock;
     }
 
-    @SuppressLint({ "SetJavaScriptEnabled", "AddJavascriptInterface" })
+    // Firefox's engine starts once for the whole app, and stays
+    private GeckoRuntime runtime() {
+        if (runtime == null) {
+            GeckoRuntimeSettings rs = new GeckoRuntimeSettings.Builder()
+                    .javaScriptEnabled(true)
+                    .consoleOutput(false)
+                    .doubleTapZoomingEnabled(false)
+                    .inputAutoZoomEnabled(false)
+                    .automaticFontSizeAdjustment(false)     // the page sizes its own text for the TV
+                    .build();
+            runtime = GeckoRuntime.create(getApplicationContext(), rs);
+        }
+        return runtime;
+    }
+
     private void makeWebView() {
         try {
-            web = new WebView(this);
+            web = new GeckoView(this);
+            session = newSession();
         } catch (RuntimeException e) {
-            // Android's web engine is missing or being updated: try again in 10 seconds
+            // the engine couldn't start: try again in 10 seconds
             web = null;
+            session = null;
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -191,76 +216,110 @@ public class MainActivity extends Activity {
             return;
         }
         web.setBackgroundColor(NIGHT_BLUE);
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);                   // the page remembers the shuffle, volumes and zooms
-        s.setMediaPlaybackRequiresUserGesture(false);   // music starts with sound, no tap needed
-        s.setSupportZoom(false);
-        s.setBuiltInZoomControls(false);
-        s.setDisplayZoomControls(false);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);   // YouTube's player as in a normal browser
-        web.addJavascriptInterface(new Bridge(), "TwilightApp");
-        web.setWebViewClient(new PageClient());
-        web.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public Bitmap getDefaultVideoPoster() {
-                // Android's grey "play" picture for a video that hasn't started yet: invisible instead
-                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            }
-        });
-        web.setVerticalScrollBarEnabled(false);
-        web.setHorizontalScrollBarEnabled(false);
+        web.coverUntilFirstPaint(NIGHT_BLUE);           // no white flash before the café screen
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
+        web.setSession(session);
         root.addView(web, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         web.requestFocus();                             // remote keys go to the page (volume, zoom)
     }
 
+    private GeckoSession newSession() {
+        GeckoSession s = new GeckoSession(new GeckoSessionSettings.Builder()
+                .usePrivateMode(false)                  // the page remembers the shuffle, volumes and zooms
+                .useTrackingProtection(false)           // YouTube's player as in a normal browser
+                .suspendMediaWhenInactive(false)
+                .userAgentMode(GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
+                .viewportMode(GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
+                .build());
+        s.setPermissionDelegate(new GeckoSession.PermissionDelegate() {
+            @Override
+            public GeckoResult<Integer> onContentPermissionRequest(GeckoSession session, GeckoSession.PermissionDelegate.ContentPermission perm) {
+                // The music starts with sound by itself, no tap needed. Nothing else is allowed.
+                boolean autoplay = perm.permission == PERMISSION_AUTOPLAY_AUDIBLE || perm.permission == PERMISSION_AUTOPLAY_INAUDIBLE;
+                return GeckoResult.fromValue(autoplay ? GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                        : GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+            }
+        });
+        s.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
+            // The TV never leaves the page (YouTube's player inside it loads normally)
+            @Override
+            public GeckoResult<AllowOrDeny> onLoadRequest(GeckoSession session, GeckoSession.NavigationDelegate.LoadRequest request) {
+                return ownPage(request.uri) ? GeckoResult.allow() : GeckoResult.deny();
+            }
+
+            @Override
+            public GeckoResult<GeckoSession> onNewSession(GeckoSession session, String uri) {
+                return null;                            // and opens no new windows
+            }
+        });
+        s.setContentDelegate(new GeckoSession.ContentDelegate() {
+            // The engine crashed or Android closed it to free memory: start the page again
+            @Override
+            public void onCrash(GeckoSession session) {
+                engineGone(session);
+            }
+
+            @Override
+            public void onKill(GeckoSession session) {
+                engineGone(session);
+            }
+        });
+        s.open(runtime());
+        return s;
+    }
+
+    private boolean ownPage(String uri) {
+        return uri != null && (uri.equals("about:blank") || (server != null && uri.startsWith("http://localhost:" + server.port() + "/tv/")));
+    }
+
+    private void engineGone(final GeckoSession gone) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (gone == session) restartWebView();
+            }
+        });
+    }
+
     private void open() {
         syncOverlays();
-        if (web == null) return;
+        if (web == null || session == null) return;
         pageOpenedAt = lastAlive = System.currentTimeMillis();
-        web.onResume();
+        int port = server == null ? 0 : server.port();
+        if (port == 0) return;                          // no web server: the watchdog tries again
+        session.setActive(true);
         boolean setup = inQualitySetup();
         useComputerPlayer(setup);
         // Quality setup leaves test mode's details out: they would cover YouTube's controls
-        web.loadUrl(setup ? PAGE + "?setup=quality" : testMode ? PAGE + "?debug=1" : PAGE);
+        session.loadUri("http://localhost:" + port + "/tv/index.html?k=" + pageKey
+                + (setup ? "&setup=quality" : testMode ? "&debug=1" : ""));
     }
 
     // Quality setup asks YouTube for the version of its player it gives computers, as a browser's
-    // "Desktop site" option does (the same words Chrome on Android then sends). Inside Android's web
-    // engine YouTube showed its player without any controls: a click only paused the video. In the
-    // computer version the controls appear when the pointer moves over the video, and stay while it's
-    // paused.
+    // "Desktop site" option does. Its controls appear when the pointer moves over the video, and
+    // stay while it's paused; the gear is at the bottom right.
     private void useComputerPlayer(boolean on) {
-        WebSettings s = web.getSettings();
-        if (!on) {
-            s.setUserAgentString(null);                  // Android's own
-            return;
-        }
-        s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
-                + (engineMajor > 0 ? engineMajor : 120) + ".0.0.0 Safari/537.36");
+        session.getSettings().setUserAgentMode(on ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+                : GeckoSessionSettings.USER_AGENT_MODE_MOBILE);
     }
 
-    // Which web engine Android gives the app ("Android System WebView", updated through Google Play).
-    // An old one plays YouTube's videos but doesn't draw YouTube's controls.
+    // Firefox's engine comes with the app, so it's as new as the app
     private void readEngine() {
+        String ua = "";
         try {
-            Matcher m = Pattern.compile("Chrome/(\\d+)").matcher(WebSettings.getDefaultUserAgent(this));
-            if (m.find()) engineMajor = Integer.parseInt(m.group(1));
+            ua = GeckoSession.getDefaultUserAgent();
         } catch (RuntimeException e) {
-            engineMajor = 0;
+            // not known
         }
-        String name = "Android System WebView";
-        if (Build.VERSION.SDK_INT >= 26) {
-            PackageInfo p = WebView.getCurrentWebViewPackage();
-            if (p != null) name = p.packageName + " " + p.versionName;
+        Matcher m = Pattern.compile("rv:(\\d+)(\\.\\d+)?").matcher(ua == null ? "" : ua);
+        String version = "";
+        if (m.find()) {
+            engineMajor = Integer.parseInt(m.group(1));
+            version = m.group(1) + (m.group(2) == null ? "" : m.group(2));
         }
-        engineName = name + (engineMajor > 0 ? " (Chrome " + engineMajor + ")" : "");
+        engineName = "Firefox's engine (GeckoView" + (version.isEmpty() ? "" : " " + version) + ", built into this app)";
     }
-
-    // Older than this, YouTube's own controls may not appear (the phone page says to update it)
-    static final int ENGINE_OLD_BELOW = 110;
 
     // What the app draws over the page: the setup pointer, or test mode's details (never both)
     private void syncOverlays() {
@@ -391,13 +450,21 @@ public class MainActivity extends Activity {
 
     // A fresh web engine: every night, and when the page froze and reloading didn't help
     private void restartWebView() {
-        if (web != null) {
-            root.removeView(web);
-            web.destroy();
-            web = null;
-        }
+        closeEngineView();
         makeWebView();
         if (visible) open();
+    }
+
+    private void closeEngineView() {
+        if (web != null) {
+            web.releaseSession();
+            root.removeView(web);
+            web = null;
+        }
+        if (session != null) {
+            session.close();
+            session = null;
+        }
     }
 
     @Override
@@ -416,9 +483,9 @@ public class MainActivity extends Activity {
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
         // Left the app (Home, another app, the TV going to sleep): stop the music.
         // The page starts again when the app comes back.
-        if (web != null) {
-            web.loadUrl("about:blank");
-            web.onPause();
+        if (session != null) {
+            session.loadUri("about:blank");
+            session.setActive(false);
         }
     }
 
@@ -430,11 +497,7 @@ public class MainActivity extends Activity {
         if (finder != null) finder.stop();
         leveller.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
-        if (web != null) {
-            root.removeView(web);
-            web.destroy();
-            web = null;
-        }
+        closeEngineView();
         super.onDestroy();
     }
 
@@ -677,7 +740,6 @@ public class MainActivity extends Activity {
         b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
         b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
         b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
-        if (engineMajor > 0 && engineMajor < ENGINE_OLD_BELOW) b.append("  OLD: update Android System WebView from Google Play");
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
         return b.toString();
     }
@@ -715,13 +777,86 @@ public class MainActivity extends Activity {
         public String saveSettings(String body, boolean all) {
             return saveFromPhone(body, all);
         }
+
+        @Override
+        public byte[] tvPage() {
+            return tvPageWithBridge();
+        }
+
+        @Override
+        public String tvSync(String key, String body) {
+            return pageCheckIn(key, body);
+        }
     };
+
+    /* ---------- the link with the page (Firefox's engine has no other way) ---------- */
+
+    // The page as the box's engine gets it: with assets/bridge.js put in at the top
+    private byte[] tvPageWithBridge() {
+        if (tvPageHtml == null) tvPageHtml = readAsset("index.html");
+        if (bridgeJs == null) bridgeJs = new String(readAsset("bridge.js"), UTF8);
+        try {
+            JSONObject boot = new JSONObject();
+            boot.put("k", pageKey);
+            boot.put("v", settings.version());
+            boot.put("s", settings.forPage());              // settings never include the PIN
+            return TvPage.withBridge(tvPageHtml, bridgeJs, boot.toString());
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    // The page's check-in, every second: what it's doing and that it's alive. The answer
+    // has new settings (when they changed) and the phone's commands.
+    private String pageCheckIn(String key, String body) {
+        if (key == null || !key.equals(pageKey)) return null;
+        try {
+            JSONObject in = new JSONObject(body == null || body.isEmpty() ? "{}" : body);
+            long now = System.currentTimeMillis();
+            if (in.optBoolean("alive")) lastAlive = now;
+            JSONObject st = in.optJSONObject("status");
+            if (st != null) {
+                pageStatus = st.toString();
+                pageStatusAt = now;
+            }
+            JSONObject info = in.optJSONObject("info");
+            if (info != null && info.optJSONObject("defaults") != null) settings.savePageDefaults(info.getJSONObject("defaults").toString());
+            JSONObject out = new JSONObject();
+            int v = settings.version();
+            out.put("v", v);
+            if (in.optInt("v", -1) != v) out.put("s", settings.forPage());
+            JSONArray cmds = new JSONArray();
+            synchronized (pageCommands) {
+                for (Object[] c : pageCommands) {
+                    if (now - (Long) c[0] < 15000L) cmds.put(c[1]);     // older ones were meant for an earlier moment
+                }
+                pageCommands.clear();
+            }
+            out.put("cmds", cmds);
+            return out.toString();
+        } catch (JSONException e) {
+            return "{}";
+        }
+    }
+
+    // For the page's next check-in (within a second)
+    private boolean toPage(String command) {
+        if (!visible || web == null) return false;
+        synchronized (pageCommands) {
+            pageCommands.add(new Object[] { System.currentTimeMillis(), command });
+        }
+        return true;
+    }
+
+    // What the page last said it's doing (nothing if it hasn't checked in for 10 seconds)
+    private String pageNow() {
+        return visible && System.currentTimeMillis() - pageStatusAt < 10000L ? pageStatus : null;
+    }
 
     // For the phone's Settings screen: built-in values, settings.json, and this TV's own
     private String settingsJson() {
         try {
-            String d = callPage("window.TwilightTV && TwilightTV.settingsInfo ? TwilightTV.settingsInfo().defaults : null");
-            if (d != null && !d.equals("null")) settings.savePageDefaults(d);
+            // the page's built-in values arrive with its first check-in
             JSONObject defaults = new JSONObject(settings.pageDefaults());
             defaults.put("tvName", "");
             defaults.put("tvVolume", 0);
@@ -823,11 +958,10 @@ public class MainActivity extends Activity {
             o.put("build", BuildConfig.VERSION_NAME);
             o.put("engine", engineName);
             o.put("engineMajor", engineMajor);
-            o.put("engineOld", engineMajor > 0 && engineMajor < ENGINE_OLD_BELOW);
             o.put("onScreen", visible);
             o.put("qualitySetup", inQualitySetup());
-            String page = callPage("window.TwilightTV ? TwilightTV.status() : null");
-            o.put("page", page == null || page.equals("null") ? JSONObject.NULL : new JSONObject(page));
+            String page = pageNow();
+            o.put("page", page == null ? JSONObject.NULL : new JSONObject(page));
             if (audio != null) {
                 o.put("tvVolumeFixed", audio.isVolumeFixed());
                 o.put("tvVolume", audio.getStreamVolume(AudioManager.STREAM_MUSIC));
@@ -835,7 +969,7 @@ public class MainActivity extends Activity {
             }
             o.put("levelling", leveller.status);
             o.put("settings", settings.status);
-            o.put("updateReady", updater.readyBuild);
+            o.put("updateReady", Updater.shown(updater.readyBuild));
             o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");
             o.put("notice", System.currentTimeMillis() - noticeAt < 120000L ? notice : "");
             JSONArray others = new JSONArray();
@@ -860,9 +994,9 @@ public class MainActivity extends Activity {
             case "zoom+":
             case "zoom-":
             case "reload":
-                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command(" + JSONObject.quote(what) + ") : false"));
+                return toPage(what);
             case "identify":
-                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command(" + JSONObject.quote("identify:" + tvName) + ") : false"));
+                return toPage("identify:" + tvName);
             case "tvvol+":
             case "tvvol-":
                 if (audio == null || audio.isVolumeFixed()) return false;
@@ -912,7 +1046,7 @@ public class MainActivity extends Activity {
                 });
                 return true;
             case "forget":
-                return "true".equals(callPage("window.TwilightTV ? TwilightTV.command('forget') : false"));
+                return toPage("forget");
             case "checkupdate":
                 work.execute(new Runnable() {
                     @Override
@@ -924,34 +1058,6 @@ public class MainActivity extends Activity {
             default:
                 return false;
         }
-    }
-
-    // Runs JavaScript in the page and waits (up to 3 seconds) for its answer
-    private String callPage(final String js) {
-        final String[] out = { null };
-        final CountDownLatch done = new CountDownLatch(1);
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (web == null || !visible) {
-                    done.countDown();
-                    return;
-                }
-                web.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
-                    @Override
-                    public void onReceiveValue(String value) {
-                        out[0] = value;
-                        done.countDown();
-                    }
-                });
-            }
-        });
-        try {
-            done.await(3, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        return out[0];
     }
 
     private void runOnMain(final Runnable r) {
@@ -987,24 +1093,6 @@ public class MainActivity extends Activity {
             }
         } catch (IOException e) {
             return new byte[0];
-        }
-    }
-
-    /** What the page can ask the app. Settings never include the PIN. */
-    private final class Bridge {
-        @JavascriptInterface
-        public String settings() {
-            return settings.forPage();
-        }
-
-        @JavascriptInterface
-        public int settingsVersion() {
-            return settings.version();
-        }
-
-        @JavascriptInterface
-        public void alive() {
-            lastAlive = System.currentTimeMillis();
         }
     }
 
@@ -1047,67 +1135,5 @@ public class MainActivity extends Activity {
                         + "open Twilight TV from the apps row.")
                 .setPositiveButton("OK", null)
                 .show();
-    }
-
-    /* ---------- the page, served from inside the app ---------- */
-
-    private class PageClient extends WebViewClient {
-
-        @Override
-        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            Uri url = request.getUrl();
-            if (!HOST.equals(url.getHost())) return null;          // YouTube and the rest: from the internet as usual
-            String path = url.getPath();
-            if (path == null || path.length() <= 1) path = "/index.html";
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Cache-Control", "no-store");
-            try {
-                InputStream in = getAssets().open(path.substring(1));
-                return new WebResourceResponse(mimeType(path), "utf-8", 200, "OK", headers, in);
-            } catch (IOException e) {
-                return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", headers,
-                        new ByteArrayInputStream(new byte[0]));
-            }
-        }
-
-        // The TV never leaves the page (YouTube's player inside it loads normally)
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            return request.isForMainFrame() && !HOST.equals(request.getUrl().getHost());
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {   // Android 6 and older
-            return !HOST.equals(Uri.parse(url).getHost());
-        }
-
-        // The web engine crashed or Android closed it to free memory: start the page again
-        @Override
-        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-            if (view != web) return true;
-            root.removeView(view);
-            view.destroy();
-            web = null;
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    makeWebView();
-                    if (visible) open();
-                }
-            });
-            return true;
-        }
-    }
-
-    static String mimeType(String path) {
-        if (path.endsWith(".html")) return "text/html";
-        if (path.endsWith(".js")) return "text/javascript";
-        if (path.endsWith(".css")) return "text/css";
-        if (path.endsWith(".png")) return "image/png";
-        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
-        if (path.endsWith(".svg")) return "image/svg+xml";
-        if (path.endsWith(".woff2")) return "font/woff2";
-        return "application/octet-stream";
     }
 }

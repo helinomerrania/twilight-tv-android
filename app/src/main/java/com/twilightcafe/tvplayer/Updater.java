@@ -26,16 +26,15 @@ import java.net.URL;
  * presses "Install update" on the phone page: Android then asks on the TV, and
  * staff press Install with the remote. Nothing ever pops up on its own.
  *
- * The test version with Firefox's engine looks at the "firefox" release instead
- * (a pre-release, which the normal version never sees). Its build numbers start at
- * 100000, so the two versions never replace each other by themselves.
+ * Releases are tagged with the app's version number ("build-100016-1"). Since the app
+ * brought its own engine, those start at 100000; people see the build number (16).
  */
 final class Updater {
 
-    static final int FIREFOX_BUILDS = 100000;
+    static final int ENGINE_BUILDS = 100000;
 
-    private final String apk;
-    private final boolean firefox;                // the test version with Firefox's engine
+    private static final String APK = "twilight-tv.apk";
+
     private final Context ctx;
     private final SharedPreferences prefs;
     private final String repo;
@@ -45,12 +44,6 @@ final class Updater {
     volatile String status = "not checked yet";
 
     Updater(Context c, String repo, int myBuild) {
-        this(c, repo, myBuild, "");
-    }
-
-    Updater(Context c, String repo, int myBuild, String channel) {
-        this.firefox = "firefox".equals(channel);
-        this.apk = firefox ? "twilight-tv-gecko.apk" : "twilight-tv.apk";
         this.ctx = c.getApplicationContext();
         this.prefs = c.getSharedPreferences("update", Context.MODE_PRIVATE);
         this.repo = repo == null ? "" : repo;
@@ -62,9 +55,9 @@ final class Updater {
         }
     }
 
-    // The number people see: the test version's 100015 is its build 15
+    // The number people see: 100016 is build 16
     static int shown(int build) {
-        return build > FIREFOX_BUILDS ? build - FIREFOX_BUILDS : build;
+        return build > ENGINE_BUILDS ? build - ENGINE_BUILDS : build;
     }
 
     /** Looks for a newer build and downloads it (background thread). */
@@ -72,13 +65,13 @@ final class Updater {
         if (repo.isEmpty() || busy) return;
         busy = true;
         try {
-            String body = Net.get("https://api.github.com/repos/" + repo + (firefox ? "/releases/tags/firefox" : "/releases/latest"), 20000);
+            String body = Net.get("https://api.github.com/repos/" + repo + "/releases/latest", 20000);
             if (body == null) {
                 status = "no builds on GitHub yet";
                 return;
             }
             JSONObject release = new JSONObject(body);
-            int build = firefox ? firefoxBuild(release.optString("name")) : buildNumber(release.optString("tag_name"));
+            int build = buildNumber(release.optString("tag_name"));
             if (build <= myBuild) {
                 status = "up to date (build " + shown(myBuild) + ")";
                 return;
@@ -91,7 +84,7 @@ final class Updater {
             JSONArray assets = release.optJSONArray("assets");
             for (int i = 0; assets != null && i < assets.length(); i++) {
                 JSONObject a = assets.optJSONObject(i);
-                if (a != null && apk.equals(a.optString("name"))) url = a.optString("browser_download_url");
+                if (a != null && APK.equals(a.optString("name"))) url = a.optString("browser_download_url");
             }
             if (url == null || url.isEmpty()) {
                 status = "build " + shown(build) + " has no app file";
@@ -109,13 +102,7 @@ final class Updater {
         }
     }
 
-    /** The test version's release, "Twilight TV with Firefox's engine, build 15" -> 100015 */
-    static int firefoxBuild(String name) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("build (\\d+)").matcher(name == null ? "" : name);
-        return m.find() ? FIREFOX_BUILDS + Integer.parseInt(m.group(1)) : 0;
-    }
-
-    /** "build-12-1" -> 12 */
+    /** "build-100016-1" -> 100016 */
     static int buildNumber(String tag) {
         try {
             String[] p = tag.split("-");
@@ -147,7 +134,7 @@ final class Updater {
         try {
             if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
             InputStream in = c.getInputStream();
-            OutputStream out = session.openWrite(apk, 0, -1);
+            OutputStream out = session.openWrite(APK, 0, -1);
             try {
                 byte[] buf = new byte[65536];
                 int n;

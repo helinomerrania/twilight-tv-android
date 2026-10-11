@@ -64,7 +64,6 @@
   .steps li { padding: 4px 0; border: 0; }
   .steps li b { display: inline; font-weight: 700; }
   #qualityOn { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
-  .warn { color: var(--sun); font-size: .9rem; line-height: 1.45; margin: 8px 0 0; }
   .update .wide { background: var(--sun); color: #2a1406; border: 0; font-weight: 650; margin-top: 12px; }
   ul { list-style: none; margin: 8px 0 0; padding: 0; }
   li { padding: 10px 0; border-top: 1px solid var(--line); }
@@ -199,7 +198,6 @@
     <section class="card" id="qualityCard">
       <p class="label">Picture quality</p>
       <p class="title" id="qualityNow">–</p>
-      <p class="warn" id="engineWarn" hidden></p>
       <div id="qualityIdle">
         <p class="label" style="margin-top:8px">YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on the TV. YouTube then remembers it on that TV for weeks.</p>
         <button class="wide" data-cmd="qualitysetup" type="button" style="margin-top:8px">Choose the highest quality on the TV</button>
@@ -373,10 +371,6 @@
 
     $("qualityNow").textContent = s.qualitySetup ? "Quality setup is on the TV" :
       p && p.quality ? "Now playing in " + p.quality : "Not reported by YouTube yet";
-    $("engineWarn").hidden = !s.engineOld;
-    $("engineWarn").textContent = s.engineOld ? "This TV box's web engine is old (Chrome " + s.engineMajor + "). " +
-      "YouTube's own controls may not appear on it, and with them the quality menu. " +
-      "On the box, open Google Play, search for Android System WebView, and update it." : "";
     $("qualityIdle").hidden = !!s.qualitySetup;
     $("qualityOn").hidden = !s.qualitySetup;
 

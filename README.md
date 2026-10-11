@@ -9,7 +9,7 @@ Your café TV page as an Android app for the TV boxes. It plays full screen, sta
 - **Updates:** new versions download by themselves; staff install them from the phone page.
 - **Runs by itself:** sound levelling, Wi-Fi at full power, a restart if the page freezes, and a fresh start every night.
 
-YouTube's player inside it is left exactly as YouTube sends it.
+It brings its own web engine (Firefox's), so it works the same on old boxes. YouTube's player inside it is left exactly as YouTube sends it.
 
 ## Install it on each TV
 
@@ -24,22 +24,7 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 - On Android 9 and older, the app opens by itself whenever the box turns on, with nothing to set up.
 - On Android 10 and newer, it asks once whether to **start with the TV**. Choose **Open settings**, pick **Twilight TV** and switch it on.
 
-**If videos won't play or look wrong,** update **Android System WebView** from Google Play on the box, if it's offered there. YouTube's player needs a recent one. On an old one, videos play but YouTube's own controls don't appear, so the quality setup can't work. The phone page says when the box's web engine is old, and test mode shows its version.
-
-## The test version with Firefox's engine
-
-Some TV boxes come with Android's web engine from years ago (Chrome 66 from 2018 on the Amlogic boxes), and the box won't take a newer one. YouTube still plays on such an engine, but its own controls don't appear, so the quality setup can't work.
-
-The test version brings its own up-to-date engine: Firefox's (GeckoView). It's a bigger app (about 50-60 MB) and is only installed by hand, so the TVs with the normal version never update to it.
-
-**Try it on one TV:**
-1. On that TV, open **Downloader** and type this address:
-   `https://github.com/helinomerrania/twilight-tv-android/releases/download/firefox/twilight-tv-gecko.apk`
-2. Choose **Install**, then **Open**. It installs over the normal version and keeps the TV's settings and PIN.
-
-The phone page then shows **Firefox's engine** under the facts at the bottom, and its app version ends in **-firefox**. It updates itself from the same address, the same way (**Install update** on the phone page). The shuffle and song volumes start fresh, because the new engine keeps its own memory.
-
-**To go back:** uninstall Twilight TV on that TV, then install the normal version as at the top of this page.
+**Firefox's engine comes inside the app,** so the box's own web engine doesn't matter. (On these boxes it's from 2018, too old for YouTube's controls, and they won't take a newer one.) That makes the app about 85 MB. The phone page lists the engine with the facts at the bottom.
 
 ## The remote
 
@@ -80,7 +65,7 @@ YouTube picks the quality itself. To make it use the highest, choose it once in 
 4. Click the gear ⚙ at the bottom right (or top right). Choose **Quality**, then the highest number (2160p on a 4K TV).
 5. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
 
-During setup the app asks YouTube for the version of its player it gives computers, as a browser's "Desktop site" option does. Inside Android apps, YouTube's player showed no controls at all: a click only paused the video. The quality choice is saved in the same place either way, so the music afterwards uses it. A line under the instructions on the TV shows which version is on, whether the video is paused, and the picture quality playing.
+During setup the app asks YouTube for the version of its player it gives computers, as a browser's "Desktop site" option does: its controls appear when the pointer moves over the video. The quality choice is saved in the same place either way, so the music afterwards uses it. A line under the instructions on the TV shows which version is on, whether the video is paused, and the picture quality playing.
 
 The Control tab shows the quality YouTube is actually playing.
 - **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.
@@ -130,7 +115,7 @@ Keep the quotes and commas as they are. If the file ever has a mistake in it, th
 
 ## Updates
 
-When anything in this repository changes on the `main` branch, GitHub builds a new version (about 2 minutes) and publishes it under **Releases**. Every TV checks for new versions every 6 hours and downloads them. Nothing pops up on the TV by itself. When the phone page shows **Install update**:
+When anything in this repository changes on the `main` branch, GitHub builds a new version (about 5 minutes) and publishes it under **Releases**. Every TV checks for new versions every 6 hours and downloads them (about 85 MB, so give it a few minutes). Nothing pops up on the TV by itself. When the phone page shows **Install update**:
 
 1. Press it on the phone.
 2. Look at the TV and press **Install** with the remote. The app restarts by itself.
@@ -150,5 +135,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 - `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi.
 - If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
-- The page is served inside the app at `https://com.twilightcafe.tvplayer/`, the app's own ID. That's how YouTube asks apps to identify themselves when they embed its player.
+- The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only; phones on the café Wi-Fi only get the phone page. The page checks in with the app every second, which is how settings and the phone's commands reach it.
+- Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when a TV moved to it (build 16).
+- After using ADB or Developer options on a box, turn **USB debugging** and any network debugging off again: otherwise anyone on the café Wi-Fi could control the box.
 - Changes on any other branch than `main` are only built as a test. They're never published to the TVs.

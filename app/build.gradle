@@ -20,6 +20,38 @@ android {
         buildConfigField "String", "REPO", "\"" + (System.getenv('GITHUB_REPOSITORY') ?: '') + "\""
     }
 
+    // Two versions of the app, built side by side:
+    //  - webview: the normal one, on every TV. Android's own web engine shows the page.
+    //  - gecko:   a test version with Firefox's engine (GeckoView) inside, for TV boxes
+    //             whose own engine is too old for YouTube's controls. Only installed by
+    //             hand; the TVs with the normal version never update to it.
+    flavorDimensions = ['engine']
+    productFlavors {
+        webview {
+            dimension 'engine'
+            buildConfigField "String", "CHANNEL", "\"\""
+        }
+        gecko {
+            dimension 'engine'
+            // Always above the normal version's numbers, so the two never replace each other by themselves
+            versionCode 100000 + buildNumber
+            versionName "1.${buildNumber}-firefox"
+            // Updates for the test version come from the "firefox" release on GitHub
+            buildConfigField "String", "CHANNEL", "\"firefox\""
+            ndk {
+                abiFilters 'armeabi-v7a'           // TV boxes: 32-bit ARM runs on all of them
+            }
+        }
+    }
+
+    packaging {
+        resources {
+            // the same licence and Java-module files come with several of GeckoView's libraries
+            excludes += ['META-INF/versions/9/module-info.class', 'META-INF/LICENSE*', 'META-INF/NOTICE*',
+                         'META-INF/DEPENDENCIES', 'META-INF/*.kotlin_module']
+        }
+    }
+
     buildFeatures {
         buildConfig true
     }
@@ -51,4 +83,10 @@ android {
         checkReleaseBuilds false
         abortOnError false
     }
+}
+
+dependencies {
+    // Firefox's engine for the test version. 143 is the newest that builds with this project's
+    // Android tools; it supports Android 5 and newer.
+    geckoImplementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:143.0.20251003115653'
 }

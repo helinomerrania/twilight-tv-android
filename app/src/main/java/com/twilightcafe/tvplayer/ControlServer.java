@@ -26,6 +26,11 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /api/settings?pin=1234     the settings: built-in, from settings.json, and this TV's own
  *   POST /api/settings?pin=1234     this TV's own settings (JSON body); &all=1 also on the other TVs
  *
+ * And for the TV box itself only (the version of the app with Firefox's engine shows the
+ * TV page from here, at http://localhost):
+ *   GET  /tv/index.html?k=key       the TV page
+ *   POST /tv/sync?k=key             the TV page's check-in every second (JSON both ways)
+ *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
  * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in.
  * Plain Java only (no Android classes), so it can be tested on a computer.
@@ -40,6 +45,16 @@ final class ControlServer {
         String settings();
         /** Saves this TV's own settings from the phone (JSON body); null when the body is wrong. */
         String saveSettings(String body, boolean all);
+
+        /** The TV page, for the box's own engine to show (null: the app shows it another way). */
+        default byte[] tvPage() {
+            return null;
+        }
+
+        /** The TV page's check-in: what it did, and back what it should do. Null when the key is wrong. */
+        default String tvSync(String key, String body) {
+            return null;
+        }
     }
 
     static final int MAX_BODY = 64 * 1024;
@@ -179,6 +194,10 @@ final class ControlServer {
     }
 
     void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
+        if (path.startsWith("/tv/")) {
+            tvRequest(out, method, path, params, ip, body);
+            return;
+        }
         if (path.equals("/") || path.equals("/index.html")) {
             send(out, 200, "text/html; charset=utf-8", tv.page());
             return;
@@ -225,6 +244,31 @@ final class ControlServer {
         }
     }
 
+    // The TV page and its check-in: only for the box itself, never for the café network
+    private void tvRequest(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
+        if (!isLoopback(ip)) {
+            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            return;
+        }
+        if (path.equals("/tv/index.html") && method.equals("GET")) {
+            byte[] page = tv.tvPage();
+            if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            // YouTube needs to see which page its player is on, so this one does send its address
+            else send(out, 200, "text/html; charset=utf-8", page, "strict-origin-when-cross-origin");
+        } else if (path.equals("/tv/sync") && method.equals("POST")) {
+            String r = tv.tvSync(params.get("k"), body);
+            if (r == null) json(out, 403, "{\"error\":\"key\"}");
+            else json(out, 200, r);
+        } else {
+            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+        }
+    }
+
+    static boolean isLoopback(String ip) {
+        return ip != null && (ip.startsWith("127.") || ip.equals("::1") || ip.equals("0:0:0:0:0:0:0:1")
+                || ip.startsWith("::ffff:127."));
+    }
+
     private synchronized boolean isLocked(String ip) {
         Long until = lockedUntil.get(ip);
         if (until == null) return false;
@@ -253,13 +297,17 @@ final class ControlServer {
     }
 
     private static void send(OutputStream out, int code, String type, byte[] body) throws IOException {
+        send(out, code, type, body, "no-referrer");
+    }
+
+    private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy) throws IOException {
         if (body == null) body = new byte[0];
         String head = "HTTP/1.1 " + code + " " + reason(code) + "\r\n"
                 + "Content-Type: " + type + "\r\n"
                 + "Content-Length: " + body.length + "\r\n"
                 + "Cache-Control: no-store\r\n"
                 + "X-Content-Type-Options: nosniff\r\n"
-                + "Referrer-Policy: no-referrer\r\n"
+                + "Referrer-Policy: " + referrerPolicy + "\r\n"
                 + "Connection: close\r\n\r\n";
         out.write(head.getBytes(LATIN1));
         out.write(body);
@@ -271,6 +319,7 @@ final class ControlServer {
             case 200: return "OK";
             case 400: return "Bad Request";
             case 401: return "Unauthorized";
+            case 403: return "Forbidden";
             case 404: return "Not Found";
             case 405: return "Method Not Allowed";
             case 413: return "Payload Too Large";

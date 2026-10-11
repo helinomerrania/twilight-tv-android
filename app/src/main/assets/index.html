@@ -1283,10 +1283,11 @@ var SETTINGS = {
 
   /* ---------- test mode (?debug=1) ---------- */
 
-  // The web engine's version (Android System WebView): an old one plays YouTube but doesn't draw its controls
+  // The web engine's version: Android System WebView (an old one plays YouTube but doesn't
+  // draw its controls), or Firefox's, in the test version of the app
   function engine() {
-    var m = /Chrome\/(\d+)/.exec(navigator.userAgent);
-    return m ? "Chrome " + m[1] + (+m[1] < 110 ? " (old)" : "") : "unknown";
+    var m = /(Chrome|Firefox)\/(\d+)/.exec(navigator.userAgent);
+    return m ? m[1] + " " + m[2] + (m[1] === "Chrome" && +m[2] < 110 ? " (old)" : "") : "unknown";
   }
   var NAMES = { "-1": "starting", "0": "ended", "1": "playing", "2": "paused", "3": "loading", "5": "ready" };
   var QUALITY = { tiny: "144p", small: "240p", medium: "360p", large: "480p", hd720: "720p", hd1080: "1080p",

@@ -1,8 +1,9 @@
 name: Build the TV app
 
 # Runs every time something in the project changes (or by hand from the Actions tab).
-# Changes on the main branch are published as the latest release (twilight-tv.apk);
-# other branches are only built, as a test.
+# Changes on the main branch are published as the latest release (twilight-tv.apk), and
+# the test version with Firefox's engine as the "firefox" pre-release (twilight-tv-gecko.apk),
+# which the TVs with the normal version never see. Other branches are only built, as a test.
 on:
   push:
   workflow_dispatch:
@@ -23,12 +24,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build the APK
+      - name: Build the APKs
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
-          cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
+          ./gradlew --no-daemon assembleWebviewRelease assembleGeckoRelease 2>&1 | tee build.log
+          cp app/build/outputs/apk/webview/release/app-webview-release.apk twilight-tv.apk
+          cp app/build/outputs/apk/gecko/release/app-gecko-release.apk twilight-tv-gecko.apk
+          ls -l twilight-tv.apk twilight-tv-gecko.apk
 
       - name: Show what went wrong
         if: failure()
@@ -42,11 +45,13 @@ jobs:
           [ -n "$errors" ] && echo "::error title=Compile errors::$errors"
           true
 
-      - name: Keep the APK with this build
+      - name: Keep the APKs with this build
         uses: actions/upload-artifact@v4
         with:
           name: twilight-tv
-          path: twilight-tv.apk
+          path: |
+            twilight-tv.apk
+            twilight-tv-gecko.apk
 
       - name: Publish it as the latest release
         if: github.ref == 'refs/heads/main'
@@ -58,3 +63,16 @@ jobs:
             --title "Twilight TV, build ${{ github.run_number }}" \
             --notes "Install twilight-tv.apk on the TVs. It installs over the previous build." \
             --latest
+
+      - name: Publish the test version with Firefox's engine
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Always the same address: .../releases/download/firefox/twilight-tv-gecko.apk
+          gh release delete firefox --cleanup-tag --yes || true
+          gh release create firefox twilight-tv-gecko.apk \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "Twilight TV with Firefox's engine (test), build ${{ github.run_number }}" \
+            --notes "A test version with Firefox's engine inside, for TV boxes whose own web engine is too old for YouTube's controls. Install twilight-tv-gecko.apk with Downloader on one TV: it installs over the normal version and keeps its settings. To go back, uninstall Twilight TV and install the normal version again."

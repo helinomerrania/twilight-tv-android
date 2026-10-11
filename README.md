@@ -26,6 +26,21 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 
 **If videos won't play or look wrong,** update **Android System WebView** from Google Play on the box, if it's offered there. YouTube's player needs a recent one. On an old one, videos play but YouTube's own controls don't appear, so the quality setup can't work. The phone page says when the box's web engine is old, and test mode shows its version.
 
+## The test version with Firefox's engine
+
+Some TV boxes come with Android's web engine from years ago (Chrome 66 from 2018 on the Amlogic boxes), and the box won't take a newer one. YouTube still plays on such an engine, but its own controls don't appear, so the quality setup can't work.
+
+The test version brings its own up-to-date engine: Firefox's (GeckoView). It's a bigger app (about 50-60 MB) and is only installed by hand, so the TVs with the normal version never update to it.
+
+**Try it on one TV:**
+1. On that TV, open **Downloader** and type this address:
+   `https://github.com/helinomerrania/twilight-tv-android/releases/download/firefox/twilight-tv-gecko.apk`
+2. Choose **Install**, then **Open**. It installs over the normal version and keeps the TV's settings and PIN.
+
+The phone page then shows **Firefox's engine** under the facts at the bottom, and its app version ends in **-firefox**. It updates itself from the same address, the same way (**Install update** on the phone page). The shuffle and song volumes start fresh, because the new engine keeps its own memory.
+
+**To go back:** uninstall Twilight TV on that TV, then install the normal version as at the top of this page.
+
 ## The remote
 
 | Remote | What it does |

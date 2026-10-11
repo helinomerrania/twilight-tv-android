@@ -11,6 +11,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Mozilla's own: GeckoView, Firefox's engine, for the test version of the app
+        maven {
+            url "https://maven.mozilla.org/maven2/"
+            content { includeGroup "org.mozilla.geckoview" }
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
@@ -20,6 +21,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.TypedValue;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -88,6 +90,7 @@ public class MainActivity extends Activity {
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static GeckoRuntime runtime;                 // Firefox's engine: one for the whole app
+    private static String formatStarted;                 // the video format it started with (videoFormat)
     static final int NIGHT_BLUE = 0xFF0B1030;            // the café screen's colour, so start-up never flashes white
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -136,6 +139,11 @@ public class MainActivity extends Activity {
     private String engineName = "";                      // Android's web engine, which draws the page and YouTube's player
     private int engineMajor = 0;                         // its Chrome version
     private String restartDoneDay = "", openingDoneDay = "";
+    private volatile JSONObject box;                     // what the TV box is (BoxInfo), once read
+    private volatile int boxVersion = 0;
+    private volatile boolean softDraw = false;           // Firefox's engine can't use the box's graphics
+    private int[] systemMode;                            // the screen mode the box chose itself {w, h, hz x 100}
+    private int systemDrawnH;                            // and the lines the app was drawn with in it
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -183,6 +191,13 @@ public class MainActivity extends Activity {
 
         makeWebView();
         readEngine();
+        readBox();
+        handler.postDelayed(new Runnable() {             // once the screen has settled in the box's own mode
+            @Override
+            public void run() {
+                applyScreenMode();
+            }
+        }, 4000);
         server = new ControlServer(phone);
         server.start();
         refreshNetwork(false);
@@ -256,19 +271,116 @@ public class MainActivity extends Activity {
         return lock;
     }
 
-    // Firefox's engine starts once for the whole app, and stays
+    // Firefox's engine starts once for the whole app, and stays. Its start-up settings file says
+    // which video formats it offers YouTube (videoFormat); it's read only now, at the start.
     private GeckoRuntime runtime() {
         if (runtime == null) {
-            GeckoRuntimeSettings rs = new GeckoRuntimeSettings.Builder()
+            GeckoRuntimeSettings.Builder rs = new GeckoRuntimeSettings.Builder()
                     .javaScriptEnabled(true)
                     .consoleOutput(false)
                     .doubleTapZoomingEnabled(false)
                     .inputAutoZoomEnabled(false)
-                    .automaticFontSizeAdjustment(false)     // the page sizes its own text for the TV
-                    .build();
-            runtime = GeckoRuntime.create(getApplicationContext(), rs);
+                    .automaticFontSizeAdjustment(false);    // the page sizes its own text for the TV
+            String format = VideoSetup.format(settings.text("videoFormat", "h264"));
+            File config = new File(getFilesDir(), "engine-config.yaml");
+            try {
+                TitleBook.writeFile(config, VideoSetup.engineConfig(format));
+                rs.configFilePath(config.getAbsolutePath());
+                formatStarted = format;
+            } catch (IOException e) {
+                formatStarted = "any";                      // couldn't write it: the engine's own choice
+            }
+            runtime = GeckoRuntime.create(getApplicationContext(), rs.build());
         }
         return runtime;
+    }
+
+    // The video format setting changed since the engine started: it takes a fresh start of the app
+    private boolean formatChanged() {
+        return formatStarted != null && !formatStarted.equals(VideoSetup.format(settings.text("videoFormat", "h264")));
+    }
+
+    // The whole app again from scratch, so Firefox's engine starts again too (only while on screen:
+    // Android doesn't let an app open itself from the background)
+    private void restartApp() {
+        if (!visible) {
+            restartWebView();
+            return;
+        }
+        try {
+            Restart.now(this);
+        } catch (RuntimeException e) {
+            restartWebView();                                // couldn't: at least a fresh page
+        }
+    }
+
+    /* ---------- the TV box: what it is, and the screen mode ---------- */
+
+    // What the box is (for the phone page, test mode and the page's picture quality): read once, in
+    // the background, as the graphics check takes a moment
+    private void readBox() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject b = new JSONObject();
+                try {
+                    b.put("box", BoxInfo.box());
+                    String[] g = BoxInfo.graphics();
+                    boolean soft = g != null && VideoSetup.softDraw(g[0], g[1]);
+                    b.put("graphics", g == null ? "" : g[0] + (VideoSetup.gl(g[1]).isEmpty() ? "" : ", " + VideoSetup.gl(g[1])));
+                    b.put("softDraw", soft);
+                    b.put("decoders", BoxInfo.decoders());
+                    softDraw = soft;
+                } catch (JSONException | RuntimeException e) {
+                    // what was read so far
+                }
+                box = b;
+                boxVersion++;
+            }
+        }, "box-info").start();
+    }
+
+    // The screen mode from the settings: at most 1080 lines (screenSize) when the box draws more,
+    // and 50 or 60 Hz (screenRate). The box's own mode is read first, before the app asks for any.
+    private void applyScreenMode() {
+        try {
+            Display d = getWindowManager().getDefaultDisplay();
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            if (systemMode == null) {
+                if (lp.preferredDisplayModeId != 0) return;
+                int[] m = BoxInfo.mode(d.getMode());
+                Point p = new Point();
+                d.getRealSize(p);
+                systemMode = new int[] { m[1], m[2], m[3] };
+                systemDrawnH = Math.min(p.x, p.y);
+            }
+            int id = VideoSetup.pickMode(BoxInfo.modes(d), systemMode, systemDrawnH,
+                    settings.text("screenSize", "1080"), settings.text("screenRate", "box"));
+            if (lp.preferredDisplayModeId != id) {
+                lp.preferredDisplayModeId = id;
+                getWindow().setAttributes(lp);
+            }
+        } catch (RuntimeException e) {
+            // this box can't change its screen mode
+        }
+    }
+
+    // "drawn at 1920x1080, sent to the TV as 1920x1080, 60 Hz (it also has 50 Hz)"
+    private String screenFacts() {
+        try {
+            Display d = getWindowManager().getDefaultDisplay();
+            int[] m = BoxInfo.mode(d.getMode());
+            Point p = new Point();
+            d.getRealSize(p);
+            String s = "drawn at " + p.x + "x" + p.y + ", sent to the TV as " + VideoSetup.mode(m[1], m[2], m[3]);
+            String other = VideoSetup.otherRates(BoxInfo.modes(d), m[1], m[2], m[3]);
+            if (!other.isEmpty()) s += " (it also has " + other + ")";
+            int[] own = systemMode;
+            if (own != null && (own[1] != m[2] || Math.abs(own[2] - m[3]) >= 5)) s += "; the box's own mode is " + VideoSetup.mode(own[0], own[1], own[2]);
+            return s;
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     private void makeWebView() {
@@ -727,8 +839,9 @@ public class MainActivity extends Activity {
             String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date(now));
             String restartAt = clock(settings.text("restartAt", "05:00"));
             if (visible && time.equals(restartAt) && !today.equals(restartDoneDay)) {
-                restartDoneDay = today;                                   // a fresh start every night
-                restartWebView();
+                restartDoneDay = today;                                   // a fresh start every night:
+                if (formatChanged()) restartApp();                        // the whole app, for a new video format
+                else restartWebView();
                 applyTvVolume();
             }
             String opening = openingTime();
@@ -749,7 +862,9 @@ public class MainActivity extends Activity {
             applyTvVolume();
         }
         refreshNetwork(true);                        // the TV's name may have changed
-        // the page sees the new settings by itself and uses them at once
+        applyScreenMode();
+        // the page sees the new settings by itself and uses them at once; a new video format waits
+        // for the app's next start (from the phone at once, from settings.json at night)
     }
 
     // "9:30" -> "09:30"; anything unreadable -> null
@@ -850,6 +965,16 @@ public class MainActivity extends Activity {
         b.append("\nPrayer times: ").append(prayerCity().isEmpty() ? "worked out by the page" : prayerTimes.status);
         b.append("\nSong names: ").append(titles.describe(pageSongs));
         b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
+        b.append("\nVideo from YouTube: ").append(VideoSetup.describe(formatStarted))
+                .append(formatChanged() ? "  (" + VideoSetup.describe(settings.text("videoFormat", "h264")) + " from the app's next start)" : "");
+        JSONObject bx = box;
+        if (bx != null) {
+            b.append("\nBox: ").append(bx.optString("box"));
+            b.append("\nGraphics: ").append(bx.optString("graphics").isEmpty() ? "not known" : bx.optString("graphics"))
+                    .append(bx.optBoolean("softDraw") ? "  (too old for Firefox's engine: it draws on the processor)" : "");
+            b.append("\nThe chip decodes: ").append(bx.optString("decoders").isEmpty() ? "not known" : bx.optString("decoders"));
+        }
+        b.append("\nScreen: ").append(screenFacts());
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
         return b.toString();
     }
@@ -1019,7 +1144,7 @@ public class MainActivity extends Activity {
 
     // Song names, weather and pictures change now and then; the page gets them again when they do
     private int extrasVersion() {
-        return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + songsVersion;
+        return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + songsVersion + boxVersion;
     }
 
     private String extras() {
@@ -1035,6 +1160,7 @@ public class MainActivity extends Activity {
             JSONArray pics = new JSONArray();
             for (String id : pictures.ids()) pics.put(id);
             x.put("pictures", pics);
+            if (box != null) x.put("box", new JSONObject().put("softDraw", softDraw));   // automatic quality: 720p then
             return x.toString();
         } catch (JSONException e) {
             return "{}";
@@ -1067,6 +1193,9 @@ public class MainActivity extends Activity {
             defaults.put("restartAt", "05:00");
             defaults.put("updates", true);
             defaults.put("weatherKey", "");
+            defaults.put("videoFormat", "h264");
+            defaults.put("screenSize", "1080");
+            defaults.put("screenRate", "box");
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("autoName", autoName(ip));
@@ -1121,6 +1250,15 @@ public class MainActivity extends Activity {
                 }
             }
             result.put("others", done);
+            if (formatChanged()) {                         // a new video format: the app starts again (after this answer)
+                result.put("restarting", true);
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (formatChanged()) restartApp();
+                    }
+                }, 2000);
+            }
             return result.toString();
         } catch (Exception e) {
             return "{\"ok\":true}";
@@ -1161,6 +1299,11 @@ public class MainActivity extends Activity {
             o.put("build", BuildConfig.VERSION_NAME);
             o.put("engine", engineName);
             o.put("engineMajor", engineMajor);
+            o.put("videoFormat", VideoSetup.describe(formatStarted));
+            o.put("videoFormatNext", formatChanged() ? VideoSetup.describe(settings.text("videoFormat", "h264")) : "");
+            JSONObject bx = box;
+            if (bx != null) o.put("box", bx);
+            o.put("screen", screenFacts());
             o.put("onScreen", visible);
             o.put("qualitySetup", inQualitySetup());
             String page = pageNow();
@@ -1249,7 +1392,7 @@ public class MainActivity extends Activity {
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
-                        restartWebView();
+                        restartApp();
                     }
                 });
                 return true;

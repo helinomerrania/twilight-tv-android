@@ -447,9 +447,11 @@ var SETTINGS = {
   // Adding ?list=ANOTHER_PLAYLIST_ID to the end of the page address overrides this.
   playlist: "https://www.youtube.com/playlist?list=PL_6oD4DKbNOvlb8kOY9APBXjC_EtR6eYK",
 
-  // Highest picture quality to ask YouTube for: 2160 = 4K, 1440, or 1080 = Full HD.
-  // 4K needs roughly 20 Mbps of internet per TV. If videos keep buffering, use 1080.
-  quality: 2160,
+  // Highest picture quality to ask YouTube for: "auto", 2160 = 4K, 1440, 1080 = Full HD or 720.
+  // "auto" is 1080, or 720 on a TV box whose graphics Firefox's engine can't use (it then draws
+  // everything on the box's processor). Above 1080 needs the app's video format VP9: YouTube has
+  // H.264 up to 1080 only. 4K needs roughly 20 Mbps of internet per TV, and a strong box.
+  quality: "auto",
 
   // Your café's name on the café screen, shown whenever a video isn't: while a song
   // loads, between songs, during pauses and instead of ads.
@@ -659,6 +661,7 @@ var SETTINGS = {
 
   // From the app: song names (YouTube), the weather (MET Norway), the café's pictures
   var X = {}, extrasVersion = -1, pictureList = [], singerCache = {}, busyChannelList = null;
+  var softDraw = false;                          // the app says Firefox's engine draws on the box's processor
   // The info panel and the café screen's messages and pictures
   var panelOn = false, panelDirty = true, drawn = {}, slideIdx = 0, slideAt = 0, slideShown = "name:", slideTimer = null;
 
@@ -1065,10 +1068,18 @@ var SETTINGS = {
   var HEIGHTS = { highres: 4320, hd2880: 2880, hd2160: 2160, hd1440: 1440, hd1080: 1080, hd720: 720,
                   large: 480, medium: 360, small: 240, tiny: 144 };
 
+  // The highest quality to ask for: the setting, or automatically 1080 (720 when the box's
+  // processor draws everything: each video frame is copied to it, so fewer pixels play smoothly)
+  function qualityCap() {
+    var q = Number(S.quality);
+    if (q >= 144) return q;
+    return softDraw ? 720 : 1080;
+  }
+
   function askQuality() {
     try {
       var levels = (player.getAvailableQualityLevels && player.getAvailableQualityLevels()) || [];
-      var cap = Math.max(Number(S.quality) || 2160, 1080), best = null;
+      var cap = qualityCap(), best = null;
       for (var i = 0; i < levels.length && !best; i++) {
         if (HEIGHTS[levels[i]] && HEIGHTS[levels[i]] <= cap) best = levels[i];
       }
@@ -1240,7 +1251,7 @@ var SETTINGS = {
   // screen of another shape gets the same picture, centered (--ox, --oy).
   //
   // YouTube picks the stream from the player's size, so the player is drawn at
-  // the chosen quality (4K by default) and shrunk to fit the stage exactly,
+  // the chosen quality (1080 lines by default) and scaled to fit the stage exactly,
   // then zoomed for this song if it has black bars (remote left/right).
   function layout() {
     var el = document.getElementById("player"), stage = document.getElementById("stage"), root = document.documentElement.style;
@@ -1267,7 +1278,7 @@ var SETTINGS = {
     if (!el) return;
     var dpr = window.devicePixelRatio || 1;
     var fitH = Math.min(sh, sw * 9 / 16);                          // biggest 16:9 area on the stage
-    var h = Math.max(Number(S.quality) || 2160, fitH * dpr) / dpr; // player size in CSS pixels
+    var h = qualityCap() / dpr;                                   // player size in CSS pixels
     // Quality setup: nearly screen size and no zoom, so YouTube's controls are full size, and all of
     // them stay inside the part of the picture every TV shows (some TVs cut off the edges)
     if (SETUP) h = fitH * 0.9;
@@ -1815,6 +1826,8 @@ var SETTINGS = {
     singerCache = {};
     busyChannelList = null;
     panelDirty = true;
+    var soft = !!(X.box && X.box.softDraw);
+    if (soft !== softDraw) { softDraw = soft; layout(); }   // the automatic quality depends on it
   }
 
   /* ---------- the call to prayer ---------- */

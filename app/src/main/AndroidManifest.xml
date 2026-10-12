@@ -42,6 +42,15 @@
             </intent-filter>
         </activity>
 
+        <!-- a fresh start for the whole app (Firefox's engine reads its start-up settings only then) -->
+        <activity
+            android:name=".Restart"
+            android:exported="false"
+            android:process=":restart"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

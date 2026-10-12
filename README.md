@@ -108,7 +108,7 @@ YouTube picks the quality itself. To make it use the highest, choose it once in 
 1. On the phone page, Control tab, press **Choose the highest quality on the TV**.
 2. On the TV, a pointer appears. Move it with the remote's arrow buttons and press **OK** to click. A USB mouse plugged into the box works too.
 3. Move it over the video, so YouTube shows its controls at the bottom. If they don't appear, click the video once.
-4. Click the gear ⚙ at the bottom right (or top right). Choose **Quality**, then the highest number (2160p on a 4K TV).
+4. Click the gear ⚙ at the bottom right (or top right). Choose **Quality**, then the highest number (1080p, unless the video format below is VP9).
 5. Press **Back** on the TV remote, or **Done** on the phone. Setup also ends by itself after 10 minutes.
 
 During setup the app asks YouTube for the version of its player it gives computers, as a browser's "Desktop site" option does: its controls appear when the pointer moves over the video. The quality choice is saved in the same place either way, so the music afterwards uses it. A line under the instructions on the TV shows which version is on, whether the video is paused, and the picture quality playing.
@@ -117,14 +117,24 @@ The Control tab shows the quality YouTube is actually playing.
 - **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.
 - **If the quality drops back after some weeks:** YouTube has forgotten the choice. Do the setup again.
 
+## If the video stutters
+
+The app asks YouTube for video the box's chip decodes by itself, at 1080p at most. If a TV still stutters, the bottom of the phone page's Control tab says why:
+- **Video from YouTube:** H.264 only, unless **Video format from YouTube** (Settings, Picture and YouTube) says otherwise. Left to itself, Firefox's engine also accepts AV1, and YouTube sends AV1 for most popular videos. Few TV boxes' chips decode AV1, so the box does it on its processor, which can't keep up. Changing the format restarts the app on that TV.
+- **The box's chip decodes:** the formats and sizes the chip plays itself.
+- **Graphics:** "too old for Firefox's engine" (the Mali-450 in many cheap boxes) means the engine draws everything on the box's processor. The app then asks YouTube for 720p. The real fix there is a box with newer graphics.
+- **Screen:** "drawn at 3840x2160" means the box draws in 4K, four times the work. **Screen resolution** (Settings, This TV box) is up to 1080p unless you change it; the TV still fills its screen.
+- **Refresh rate:** if movement jerks slightly in a steady rhythm, the video's frame rate doesn't suit the screen's. Videos made at 25 frames a second move evenly at 50 Hz, and 30 or 60 at 60 Hz: try **Screen refresh rate**.
+- If you chose a quality in YouTube's own menu (above), YouTube keeps using it. On a weak box, do that setup again and choose 720p or **Auto**.
+
 ## Settings on the phone
 
 On the phone page, open the **Settings** tab. Every setting is there, grouped:
 - **Music:** playlist, playlists by time of day, volume, volume by time of day, opening hours, fading out before closing, never the same singer twice in a row, repeats, the "Quiet for a minute" volume.
 - **Call to prayer:** how long the music pauses, and moving each prayer by minutes.
 - **Between songs:** fades, café screen at the start and end, cut endings.
-- **Picture and YouTube:** quality, automatic zoom, ads, subtitles, café name.
-- **This TV box:** its own volume, sound levelling, nightly restart, updates, the PIN (and its name, with more than one box).
+- **Picture and YouTube:** video format, quality, automatic zoom, ads, subtitles, café name.
+- **This TV box:** its own volume, sound levelling, screen resolution and refresh rate, nightly restart, updates, the PIN (and its name, with more than one box).
 - **Advanced:** the place for the weather and prayer times, reload interval, YouTube API key.
 
 Change what you like and press **Save on this TV**. Tick **Also on the other TVs** first to save the same settings on every TV the phone page lists (each TV keeps its own name). Changes are used straight away; a new playlist starts with the next song.
@@ -155,6 +165,9 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `levelSound` | Even out loud and quiet songs | `true` |
 | `restartAt` | Time of the nightly fresh start; `""` = never | `"05:00"` |
 | `updates` | Download new versions by themselves | `true` |
+| `videoFormat` | What YouTube sends: `"h264"` (smoothest, up to 1080p), `"vp9"` (up to 4K) or `"any"` (AV1 too). A change here takes effect at the nightly fresh start | `"h264"` |
+| `screenSize` | `"1080"` or `"720"`: at most that many lines when the box draws more; `"box"` = the box's own | `"1080"` |
+| `screenRate` | `"50"` or `"60"` Hz; `"box"` = the box's own | `"box"` |
 
 Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
 
@@ -172,9 +185,9 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 ## What runs by itself
 
 - **Sound levelling.** Android's own sound compressor makes quiet and loud songs closer in volume. If the box doesn't allow it, test mode says so and nothing changes.
-- **Wi-Fi at full power** while the app is on screen, so 4K streaming doesn't stutter.
+- **Wi-Fi at full power** while the app is on screen, so streaming doesn't stutter.
 - **A frozen page is reloaded** after 2 minutes. If that happens three times in half an hour, the app starts a whole new web engine.
-- **A fresh start every night** at `restartAt` (05:00 unless you change it).
+- **A fresh start every night** at `restartAt` (05:00 unless you change it): a new web engine, or the whole app when the video format changed.
 
 ## Good to know
 

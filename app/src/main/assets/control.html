@@ -537,6 +537,12 @@
     if (s.settings) facts.push("Settings: " + s.settings + ".");
     if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
     if (s.engine) facts.push("Web engine: " + s.engine + ".");
+    if (s.videoFormat) facts.push("Video from YouTube: " + s.videoFormat + (s.videoFormatNext ? " (" + s.videoFormatNext + " once the app restarts)" : "") + ".");
+    if (s.box && s.box.box) facts.push("TV box: " + s.box.box + ".");
+    if (s.box && s.box.graphics) facts.push("Graphics: " + s.box.graphics +
+      (s.box.softDraw ? ". Too old for Firefox's engine: it draws everything on the processor, so videos play at 720p" : "") + ".");
+    if (s.box && s.box.decoders) facts.push("The box's chip decodes " + s.box.decoders + ".");
+    if (s.screen) facts.push("Screen: " + s.screen + ".");
     facts.push("App version " + (s.build || "?") + ".");
     $("facts").innerHTML = "";
     facts.forEach(function (f) { $("facts").appendChild(el("p", {}, f)); });
@@ -673,8 +679,9 @@
   var FALLBACK = {
     playlist: "", volume: 100, volumeSchedule: {}, openHours: "", noRepeat: 20,
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
-    quality: 2160, autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
+    quality: "auto", autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
+    videoFormat: "h264", screenSize: "1080", screenRate: "box",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
     priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
@@ -734,7 +741,12 @@
     { key: "brandEnding", label: "Café screen over the end of each song", type: "number", min: 0, max: 30, step: 1, unit: "s", hint: "Covers YouTube's end cards. 0 = off." },
     { key: "cutEnding", label: "Cut off the end of each song", type: "number", min: 0, max: 60, step: 1, unit: "s", hint: "0 = every song plays to the end." },
     { group: "Picture and YouTube" },
-    { key: "quality", label: "Highest picture quality", type: "select", options: [[2160, "4K"], [1440, "1440p"], [1080, "1080p (for slow internet)"]] },
+    { key: "videoFormat", label: "Video format from YouTube", type: "select",
+      options: [["h264", "H.264: the smoothest, up to 1080p"], ["vp9", "H.264 or VP9: up to 4K"], ["any", "Any, AV1 too (Firefox decides)"]],
+      hint: "TV boxes' chips play H.264 and VP9 themselves. AV1 most boxes play on their processor, and it stutters. Changing this restarts the app on the TV." },
+    { key: "quality", label: "Highest picture quality", type: "select",
+      options: [["auto", "Automatic"], [2160, "4K"], [1440, "1440p"], [1080, "1080p"], [720, "720p"]],
+      hint: "Automatic is 1080p, or 720p on a box with old graphics. Above 1080p needs the video format H.264 or VP9, a strong box and fast internet. Lower it if videos stop to load." },
     { key: "autoZoom", label: "Zoom away black bars automatically", type: "toggle" },
     { key: "blockAds", label: "Cover and skip YouTube ads", type: "toggle" },
     { key: "noSubtitles", label: "Keep subtitles off", type: "toggle" },
@@ -744,6 +756,11 @@
     { key: "tvVolume", label: "Box volume", type: "range", min: 0, max: 100, step: 5, unit: "%",
       hint: "The box's own volume, set again at every new song (whatever the remote did), at opening time and every night. 0 = leave it as it is." },
     { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle" },
+    { key: "screenSize", label: "Screen resolution", type: "select",
+      options: [["1080", "Up to 1080p (recommended)"], ["720", "Up to 720p (for weak boxes)"], ["box", "The box's own setting"]],
+      hint: "A box that draws at 4K works four times as hard for a picture you can't tell apart. The TV fills its screen either way." },
+    { key: "screenRate", label: "Screen refresh rate", type: "select", options: [["box", "The box's own setting"], ["50", "50 Hz"], ["60", "60 Hz"]],
+      hint: "Videos made at 25 frames a second (TV, and many music videos here) move evenly at 50 Hz, and 30 or 60 at 60 Hz. The wrong one makes movement jerk slightly." },
     { key: "restartAt", label: "Fresh start every night at", type: "time" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle" },
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
@@ -935,7 +952,10 @@
       var s = el("select", { id: id });
       f.options.forEach(function (o) { var op = el("option", { value: o[0] }, o[1]); s.appendChild(op); });
       s.value = String(v);
-      s.addEventListener("change", function () { setValue(f.key, typeof f.options[0][0] === "number" ? Number(s.value) : s.value); });
+      s.addEventListener("change", function () {       // the option's own value: a number, or a word like "auto"
+        var o = f.options.filter(function (x) { return String(x[0]) === s.value; })[0];
+        setValue(f.key, o ? o[0] : s.value);
+      });
       return s;
     }
     if (f.type === "time") {
@@ -1297,7 +1317,7 @@
         pin = r.pin;
         try { localStorage.setItem(KEY, pin); } catch (e) {}
       }
-      var msg = "Saved on " + (r.tv || "this TV") + ".";
+      var msg = "Saved on " + (r.tv || "this TV") + "." + (r.restarting ? " The app restarts on it for the new video format." : "");
       (r.others || []).forEach(function (o) { msg += " " + o.name + ": " + o.result + "."; });
       $("saveMsg").textContent = msg;
       loadSettings();

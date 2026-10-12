@@ -29,6 +29,11 @@ android {
     }
 
     packaging {
+        // Firefox's engine compressed inside the APK, as before: a 90 MB download instead of 160 MB
+        // (the box unpacks it when installing)
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             // the same licence and Java-module files come with several of Firefox's engine's libraries
             excludes.addAll(['META-INF/versions/9/module-info.class', 'META-INF/LICENSE*', 'META-INF/NOTICE*',

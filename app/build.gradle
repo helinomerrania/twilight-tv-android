@@ -9,7 +9,11 @@ def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {
     namespace = 'com.twilightcafe.tvplayer'
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1                        // Firefox's engine 157 needs Android's 37.1 tools or newer
+        }
+    }
 
     defaultConfig {
         applicationId = 'com.twilightcafe.tvplayer'

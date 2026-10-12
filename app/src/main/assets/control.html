@@ -684,13 +684,13 @@
     videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false,
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
-    priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
+    priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
     specialDays: true, hijriAdjust: 0, labels: {}
   };
   var FIELDS = [
     { group: "Gold and currency prices", tab: "screen" },
     { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", tab: "screen",
-      hint: "From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. More than fit in one row take turns, a page every 8 seconds. None = no prices." },
+      hint: "Up to seven, in one row, centred. From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. None = no prices." },
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
@@ -712,7 +712,7 @@
     { key: "hijriAdjust", label: "Move Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
       hint: "If they come a day early or late on the TV compared with Kurdistan's announcement." },
     { key: "labels", label: "Words on the TV", type: "labels", tab: "screen",
-      hint: "Type your own word for any of these, for example in Kurdish. Empty = the English one shown in grey." },
+      hint: "Type this TV's own word for any of these, for example in Kurdish. Empty = the word in grey: settings.json's, or the English one." },
 
     { group: "Music" },
     { key: "playlist", label: "YouTube playlist", type: "text", hint: "The playlist link, or just its ID. It must be Public or Unlisted. A new playlist starts with the next song." },
@@ -778,10 +778,10 @@
   ];
   // The TV's words, if the TV hasn't reported them yet
   var WORDS = {
-    locale: "en-GB", weekdays: "", months: "", hijriMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
-    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Gold and currency prices", pricesSource: "Tirezh Index",
+    locale: "en-GB", weekdays: "", months: "", hijriMonths: "", kurdishMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
+    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Gold and currency prices", bitcoin: "Bitcoin", pound: "Pound sterling",
     goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce", am: "AM", pm: "PM",
-    weatherCredit: "Weather: MET Norway (CC BY 4.0)", weatherApiCredit: "Weather: WeatherAPI.com", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
+    weatherCredit: "MET Norway", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
     newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
     clear: "Clear", fair: "Fair", partlycloudy: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", lightrain: "Light rain", rain: "Rain", heavyrain: "Heavy rain",
     sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
@@ -791,8 +791,11 @@
     weekdays: "Weekday names, Sunday first, separated by commas",
     months: "Month names, January first, separated by commas",
     hijriMonths: "Hijri month names, Muharram first, separated by commas",
+    kurdishMonths: "Kurdish calendar months, Xakelêwe (from Newroz) first, separated by commas. Empty = no Kurdish date",
     am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)",
-    goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)"
+    goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)",
+    pound: "The pound's name in the prices (empty in Kurdish: tirezh.com's name)",
+    weatherCredit: "Under the weather from MET Norway: their condition for the free data is a credit where it's shown"
   };
 
   var data = null, local = {}, base = {}, others = [];
@@ -991,10 +994,10 @@
     ["sa", "Saudi riyal"], ["ae", "UAE dirham"], ["jo", "Jordanian dinar"], ["ca", "Canadian dollar"], ["ch", "Swiss franc"],
     ["se", "Swedish krona"], ["no", "Norwegian krone"], ["dk", "Danish krone"], ["au", "Australian dollar"], ["btc", "Bitcoin ($)"]];
 
-  // Up to eight prices, first to last as they stand on the TV
+  // Up to seven prices, first to last as they stand on the TV
   function pricesControl(f, id, v) {
-    var wrap = el("div", { class: "picks", id: id }), have = (v instanceof Array ? v : []).slice(0, 8), sels = [];
-    for (var i = 0; i < 8; i++) {
+    var wrap = el("div", { class: "picks", id: id }), have = (v instanceof Array ? v : []).slice(0, 7), sels = [];
+    for (var i = 0; i < 7; i++) {
       var row = el("label", { class: "pick" }), s = el("select", { "aria-label": "Price " + (i + 1) });
       row.appendChild(el("span", { class: "nth" }, String(i + 1)));
       PRICE_ITEMS.forEach(function (o) { s.appendChild(el("option", { value: o[0] }, o[1])); });
@@ -1138,24 +1141,29 @@
   }
 
   // The words on the TV: each can be replaced; the English one shows in grey
+  // The words on the TV. In grey, the shared word (settings.json) or the English one; typed, this TV's own.
+  // Only this TV's own are saved, word by word, so new words in settings.json still reach it.
   function wordsControl(f, id, v) {
-    var words = (data && data.defaults && data.defaults.labelWords) || WORDS, cur = v && typeof v === "object" ? copy(v) : {};
+    var words = (data && data.defaults && data.defaults.labelWords) || WORDS;
+    var shared = base[f.key] && typeof base[f.key] === "object" ? base[f.key] : {}, mine = {};
+    var own = local[f.key] && typeof local[f.key] === "object" ? local[f.key] : {};
+    Object.keys(own).forEach(function (k) { if (String(own[k]) !== String(shared[k] == null ? "" : shared[k])) mine[k] = own[k]; });
     var box = el("details", { class: "words", id: id });
     box.appendChild(el("summary", {}, "Show the " + Object.keys(words).length + " words"));
     Object.keys(words).forEach(function (k) {
       var row = el("label", { class: "lrow" });
       row.appendChild(el("span", {}, WORD_NOTES[k] || words[k]));
       var input = el("input", { type: "text", dir: "auto", autocomplete: "off", spellcheck: "false" });
-      input.placeholder = words[k] || "";
-      input.value = cur[k] == null ? "" : String(cur[k]);
+      input.placeholder = shared[k] != null && String(shared[k]).trim() ? String(shared[k]) : words[k] || "";
+      input.value = mine[k] == null ? "" : String(mine[k]);
       input.addEventListener("input", function () {
-        if (input.value.trim()) cur[k] = input.value; else delete cur[k];
-        setValue(f.key, copy(cur));
+        if (input.value.trim() && input.value !== String(shared[k] == null ? "" : shared[k])) mine[k] = input.value; else delete mine[k];
+        setValue(f.key, Object.keys(mine).length ? copy(mine) : copy(base[f.key]));
       });
       row.appendChild(input);
       box.appendChild(row);
     });
-    if (Object.keys(cur).length) box.open = true;
+    if (Object.keys(mine).length) box.open = true;
     return box;
   }
 

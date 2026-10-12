@@ -58,18 +58,36 @@ final class AppSettings {
         return orEmpty(parse(j.toString()));
     }
 
-    private static JSONObject merge(JSONObject base, JSONObject over) {
+    // The TV's own settings over settings.json's. The words on the TV (labels) go word by word, so a
+    // word added to settings.json reaches a TV that has some words of its own too.
+    static JSONObject merge(JSONObject base, JSONObject over) {
         JSONObject out = copy(base);
         try {
             for (Iterator<String> it = over.keys(); it.hasNext(); ) {
                 String k = it.next();
-                out.put(k, over.get(k));
+                Object v = over.get(k);
+                JSONObject words = out.optJSONObject(k);
+                if (k.equals("labels") && words != null && v instanceof JSONObject) {
+                    JSONObject mine = (JSONObject) v;
+                    for (Iterator<String> w = mine.keys(); w.hasNext(); ) {
+                        String word = w.next();
+                        if (word.equals("weatherCredit") && OLD_CREDITS.contains(mine.optString(word))) continue;   // the long credit of before
+                        words.put(word, mine.get(word));
+                    }
+                } else {
+                    out.put(k, v);
+                }
             }
         } catch (Exception e) {
             // keep what merged
         }
         return out;
     }
+
+    // The weather credit as settings.json had it until October 2026, kept on a TV whose words were saved
+    // from the phone then: settings.json's short one is used instead
+    private static final java.util.List<String> OLD_CREDITS = java.util.Arrays.asList("کەشوهەوا: MET Norway (CC BY 4.0)",
+            "Weather: MET Norway (CC BY 4.0)");
 
     private static String when(long t) {
         return new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(t));

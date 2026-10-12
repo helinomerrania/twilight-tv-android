@@ -79,24 +79,27 @@
   #when { padding-top: calc(10 * var(--u)); }
   #panel #when p { text-align: center; }
   #clock { display: flex; justify-content: center; align-items: baseline; gap: calc(16 * var(--u)); white-space: nowrap; }
-  #time { font-size: calc(132 * var(--u)); line-height: 1.05; font-weight: 600; letter-spacing: -.01em; }
+  #time { font-size: calc(126 * var(--u)); line-height: 1.05; font-weight: 600; letter-spacing: -.01em; }
   #ampm { font-size: calc(44 * var(--u)); line-height: 1; font-weight: 600; }
-  #date { margin-top: calc(10 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.4; }
-  #hijri { font-size: calc(23 * var(--u)); line-height: 1.45; color: var(--muted); }
+  #date { margin-top: calc(6 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.4; }
+  #hijri, #kurdish { font-size: calc(23 * var(--u)); line-height: 1.45; color: var(--muted); }
+  #kurdish:empty { display: none; }
   #greeting { margin-top: calc(4 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--amber); }
   #greeting:empty { display: none; }
-  #weather { margin: calc(22 * var(--u)) calc(30 * var(--u)) 0; padding-top: calc(20 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line);
+  #weather { margin: calc(16 * var(--u)) calc(30 * var(--u)) 0; padding-top: calc(16 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line);
              display: flex; justify-content: center; align-items: center; gap: calc(12 * var(--u)); white-space: nowrap; }
   #wicon { width: calc(68 * var(--u)); height: calc(68 * var(--u)); flex: none; margin: calc(-8 * var(--u)) 0; }
   #temp { font-size: calc(40 * var(--u)); line-height: 1.2; font-weight: 600; }
   #wwords { font-size: calc(27 * var(--u)); line-height: 1.4; }
   #wplace { font-size: calc(27 * var(--u)); line-height: 1.4; color: var(--muted); }
   #wwords::before, #wplace::before { content: "·"; margin-inline-end: calc(12 * var(--u)); color: var(--faint); }
-  #credit { margin-top: calc(6 * var(--u)); font-size: calc(14 * var(--u)); line-height: 1.4; color: var(--faint); }
+  #credit { margin-top: calc(4 * var(--u)); font-size: calc(12 * var(--u)); line-height: 1.4; color: var(--faint); }
+  #credit:empty { display: none; }
   #panel #credit { text-align: center; }
-  #codes { margin-top: auto; height: calc(500 * var(--u)); display: flex; gap: calc(20 * var(--u)); }
+  /* The QR cards: 500 high, a little less on a special day (its greeting is one more line above them) */
+  #codes { margin-top: auto; flex: 0 1 calc(500 * var(--u)); min-height: calc(456 * var(--u)); display: flex; gap: calc(20 * var(--u)); }
   .code { flex: 1 1 0; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
-          padding: calc(40 * var(--u)) calc(18 * var(--u)) calc(22 * var(--u)); }
+          padding: calc(32 * var(--u)) calc(18 * var(--u)) calc(14 * var(--u)); }
   .code .ico { width: calc(50 * var(--u)); height: calc(50 * var(--u)); color: var(--muted); flex: none; }
   .code .qr { width: calc(204 * var(--u)); height: calc(204 * var(--u)); margin: calc(22 * var(--u)) 0 calc(24 * var(--u)); flex: none;
               border-radius: calc(14 * var(--u)); overflow: hidden; background: #fff; }
@@ -113,7 +116,7 @@
           align-items: center; padding: 0 calc(22 * var(--u)); }
   html[dir="rtl"] #band { left: calc(var(--ox) + 600 * var(--u)); }
   .thumb { flex: none; display: block; object-fit: cover; border-radius: calc(10 * var(--u)); background: rgba(255, 255, 255, .06); }
-  #music { flex: 1.55 1 0; min-width: 0; display: flex; align-items: center; gap: calc(20 * var(--u)); padding-inline-end: calc(26 * var(--u)); }
+  #music { flex: 1.9 1 0; min-width: 0; display: flex; align-items: center; gap: calc(20 * var(--u)); padding-inline-end: calc(26 * var(--u)); }
   #music.still { justify-content: center; }
   #band.empty { justify-content: center; }
   #band.empty::after { content: attr(data-name); font-family: "TwilightName", "Vazirmatn", sans-serif; font-weight: 700;
@@ -136,21 +139,19 @@
   #nextTitle { font-size: calc(24 * var(--u)); line-height: 1.35; font-weight: 600; overflow: hidden; display: -webkit-box;
                -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
-  /* Along the bottom: gold and currency prices from Tirezh Index */
+  /* Along the bottom: gold and currency prices from Tirezh Index (tirezh.com), and when they were set */
   #market { top: calc(var(--oy) + 936 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1840 * var(--u)); height: calc(104 * var(--u));
             flex-direction: column; justify-content: center; padding: 0 calc(28 * var(--u)); }
   #marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u)); white-space: nowrap; }
-  #marketSrc { color: var(--text); }
-  #marketAt { color: var(--faint); margin-inline-start: calc(10 * var(--u)); font-weight: 400; }
-  /* More prices than fit: they change page every few seconds (nothing slides: a moving strip would make
-     the box redraw it 60 times a second, beside the video) */
-  #ticker { margin-top: calc(6 * var(--u)); overflow: hidden; }
-  #tiles { display: flex; white-space: nowrap; width: max-content; transition: opacity .35s ease; }
-  #tiles.turning { opacity: 0; }
+  #marketAt { color: var(--faint); font-weight: 400; }
+  /* Seven prices at most, in one row, centred. Nothing moves (anything moving beside the video makes the
+     box draw it again 60 times a second); a row too long is drawn a little smaller (--fit, by the script). */
+  #ticker { margin-top: calc(6 * var(--u)); overflow: hidden; display: flex; justify-content: center; }
+  #tiles { display: flex; flex: none; white-space: nowrap; transform: scale(var(--fit, 1)); }
   #tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(24 * var(--u));
               border-inline-start: calc(1 * var(--u)) solid var(--line); font-size: calc(24 * var(--u)); line-height: 1.5; }
-  #tiles li:first-child, #tiles li.lead { border-inline-start: 0; padding-inline-start: 0; }
-  #tiles li.off { display: none; }
+  #tiles li:first-child { border-inline-start: 0; padding-inline-start: 0; }
+  #tiles li:last-child { padding-inline-end: 0; }
   .tn { font-weight: 600; }
   .tv { font-weight: 600; }
   .tv.up { color: var(--up); } .tv.down { color: var(--down); }
@@ -402,6 +403,7 @@
     <p id="clock"><span id="time" class="n"></span><span id="ampm"></span></p>
     <p id="date"></p>
     <p id="hijri"></p>
+    <p id="kurdish"></p>
     <p id="greeting"></p>
   </div>
   <div id="weather" hidden><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="n"></span><span id="wwords"></span><span id="wplace"></span></div>
@@ -434,7 +436,7 @@
 </div>
 <!-- ...and along the bottom, gold and currency prices -->
 <div id="market" class="card" aria-hidden="true" hidden>
-  <p id="marketHead" class="cap"><span id="marketLbl"></span><span><span id="marketSrc"></span><span id="marketAt"></span></span></p>
+  <p id="marketHead" class="cap"><span id="marketLbl"></span><span id="marketAt"></span></p>
   <div id="ticker"><ol id="tiles"></ol></div>
 </div>
 <div id="setupNote" dir="ltr"></div>
@@ -572,11 +574,11 @@ var SETTINGS = {
   // The clock: false = 12-hour (9:30 PM), true = 24-hour (21:30).
   clock24: false,
 
-  // Gold and currency prices from Tirezh Index (tirezh.com), along the bottom in this order (more than
-  // fit in a row move slowly across). Currencies by their code: us (US dollar), eu, gb, tr, ir, sa, ae,
+  // Gold and currency prices from Tirezh Index (tirezh.com), along the bottom in this order, centred:
+  // seven at most. Currencies by their code: us (US dollar), eu, gb, tr, ir, sa, ae,
   // jo, ca, ch, se, no, dk, au. Gold by karat: gold24, gold22, gold21, gold18. World prices per ounce:
   // ounce (gold), silver; btc = bitcoin. [] = no prices.
-  priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"],
+  priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"],
 
   // The numbers on the TV: "auto" = in the language's own digits (١٢٣ with Kurdish words), "kurdish" =
   // always ١٢٣, "latin" = always 123. Song names, the Wi-Fi password and messages stay as written.
@@ -673,7 +675,6 @@ var SETTINGS = {
   // From the app: song names (YouTube), the weather (MET Norway), the café's pictures
   var X = {}, extrasVersion = -1, pictureList = [], singerCache = {}, busyChannelList = null;
   var softDraw = false;                          // the app says Firefox's engine draws on the box's processor
-  var marketPages = [], marketPage = 0, marketTurnAt = 0;   // prices that don't fit in one row: pages of them
   // The info panel and the café screen's messages and pictures
   var panelOn = false, panelDirty = true, drawn = {}, slideIdx = 0, slideAt = 0, slideShown = "name:", slideTimer = null;
 
@@ -683,13 +684,16 @@ var SETTINGS = {
     locale: "en-GB",
     // Optional, for a language the TV's engine may not know: names separated by commas, Sunday first
     weekdays: "", months: "", hijriMonths: "",
+    // The Kurdish calendar's months, Xakelêwe (from Newroz) first; none = no Kurdish date
+    kurdishMonths: "",
     nowPlaying: "Now playing", upNext: "Up next",
     menu: "Menu", menuHint: "Scan for the menu",
     wifi: "Wi-Fi", wifiPassword: "Password",
-    prices: "Gold and currency prices", pricesSource: "Tirezh Index",
-    goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce",
+    prices: "Gold and currency prices",
+    goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce", bitcoin: "Bitcoin", pound: "Pound sterling",
     am: "AM", pm: "PM",
-    weatherCredit: "Weather: MET Norway (CC BY 4.0)", weatherApiCredit: "Weather: WeatherAPI.com",
+    // MET Norway's data is free on the condition that it's credited where it's shown (WeatherAPI.com's isn't)
+    weatherCredit: "MET Norway",
     prayerNote: "The music resumes after the call to prayer",
     prayerBand: "Paused for the call to prayer",
     newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
@@ -697,13 +701,15 @@ var SETTINGS = {
     rain: "Rain", heavyrain: "Heavy rain", sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
   };
   var DAYS = { newroz: 1, eidFitr: 1, eidAdha: 1, barat: 1, newYear: 1 };
-  var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], prayerFrom = "", hijriMemo = {};
+  var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], prayerFrom = "", hijriMemo = {}, kurdishMemo = {};
   // Words around a song's name that aren't its name: "(Official Video)", "[4K]", "(Lyrics)"...
   var NOISE = /\s*[(\[{\u3010][^)\]}\u3011]*\b(official|video|audio|lyrics?|clip|klip|music|hd|hq|4k|8k|1080p|live|remaster(ed)?|visuali[sz]er|exclusive|new|full|karaoke)\b[^)\]}\u3011]*[)\]}\u3011]/gi;
   var lastDur = -1;                          // the song length shown under its name
-  // Units as tirezh.com writes them (the other currencies are in dollars), and the currencies' English names
-  var UNITS = { ku: { us: "د.ع", ir: "تومەن", tr: "لیرە", sa: "ڕیاڵ", ae: "درهەم", jo: "دینار" },
-                en: { us: "IQD", ir: "toman", tr: "lira", sa: "riyal", ae: "dirham", jo: "dinar" } };
+  // Units: the dollar's price is in dinars; the toman, lira, riyal, dirham and Jordanian dinar are so many
+  // for 100 dollars (100$); the other currencies, so many dollars. And the currencies' English names.
+  var UNITS = { ku: { us: "د.ع", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" },
+                en: { us: "IQD", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" } };
+  var NAME_LABELS = { gb: "pound" };             // currencies whose name is one of the words on the TV
   var CURRENCIES = { us: "US dollar", eu: "Euro", gb: "Pound sterling", ir: "Iranian toman", tr: "Turkish lira", sa: "Saudi riyal",
                      ae: "UAE dirham", jo: "Jordanian dinar", ca: "Canadian dollar", ch: "Swiss franc", se: "Swedish krona",
                      no: "Norwegian krone", dk: "Danish krone", au: "Australian dollar" };
@@ -2097,7 +2103,7 @@ var SETTINGS = {
     if (!kurdishDigits()) return s;
     return s.replace(/\d+(?:[.,]\d+)*/g, function (m) {
       return m.replace(/\d/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".charAt(Number(d)); })
-              .replace(/,/g, "٬").replace(/\./g, "٫");
+              .replace(/,/g, "٬");                      // decimals keep a plain dot: Vazirmatn's ٫ looks like a slash
     }).replace(/%/g, "٪");
   }
 
@@ -2108,7 +2114,7 @@ var SETTINGS = {
     checkExtras();
     panelTick();
     setInterval(panelTick, 1000);
-    // Once the typeface has arrived, the prices are measured again (how many fit in a row)
+    // Once the typeface has arrived, the prices are measured again (whether they fit in the row)
     try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawn.market = ""; }); } catch (e) {}
   }
 
@@ -2132,14 +2138,13 @@ var SETTINGS = {
     if (!panelOn) return;
     var d = new Date(now), look = [L("locale"), kurdishDigits(), !!S.clock24, L("am"), L("pm")].join("|");
     draw("clock", d.getHours() + ":" + d.getMinutes() + look, drawClock, d);
-    draw("date", d.toDateString() + (S.hijriAdjust || 0) + look + greeting(activeDay()) + L("weekdays") + L("months") + L("hijriMonths"), drawDate, d);
-    draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("weatherCredit") + L("weatherApiCredit"), drawWeather, now);
+    draw("date", d.toDateString() + (S.hijriAdjust || 0) + look + greeting(activeDay()) + L("weekdays") + L("months") + L("hijriMonths") + L("kurdishMonths"), drawDate, d);
+    draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("weatherCredit"), drawWeather, now);
     draw("music", musicKey(), drawMusic);
     drawProgress();
     draw("codes", JSON.stringify([S.menuUrl, S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
-    draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("pricesSource"), L("goldOunce"), L("silverOunce"),
+    draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("goldOunce"), L("silverOunce"), L("bitcoin"), own("pound"),
                                    L("perOunce"), L("months"), d.toDateString(), Math.floor(now / 600e3)]), drawMarket);
-    marketTurn(now);
     panelDirty = false;
   }
 
@@ -2183,13 +2188,19 @@ var SETTINGS = {
     return a.length === n ? a : null;
   }
 
-  // The day of the week and the date ("Monday 12 October 2026"), the Hijri date, a special day's greeting
+  // The day of the week and the date, the Hijri date and the Kurdish date (when the Kurdish months are
+  // among the words on the TV), and a special day's greeting. In Kurdish, as written in Kurdistan:
+  //   دووشەممە، ١٢ی تشرینی یەکەم، ٢٠٢٦  /  ١ی جەمادیەلئەوەڵ، ١٤٤٨  /  ٢٠ی ڕەزبەر، ٢٧٢٦
+  // Otherwise "Monday 12 October 2026" and so on.
   function drawDate(d) {
-    var days = names("weekdays", 7), months = names("months", 12), hm = names("hijriMonths", 12), h = hijri(d.getTime()), hj = "";
-    setText("date", (days ? days[d.getDay()] : dateFormat(L("locale"), { weekday: "long" }).format(d)) + " " +
-      (months ? nums(d.getDate()) + " " + months[d.getMonth()] + " " + nums(d.getFullYear())
+    var days = names("weekdays", 7), months = names("months", 12), hm = names("hijriMonths", 12), km = names("kurdishMonths", 12);
+    var h = hijri(d.getTime()), k = kurdishDate(d), ku = /^(ckb|ku)\b/i.test(L("locale")), hj = "";
+    var dmy = function (day, month, year) { return ku ? nums(day) + "ی " + month + "، " + nums(year) : nums(day) + " " + month + " " + nums(year); };
+    var wd = days ? days[d.getDay()] : dateFormat(L("locale"), { weekday: "long" }).format(d);
+    setText("date", wd + (ku ? "، " : " ") +
+      (months ? dmy(d.getDate(), months[d.getMonth()], d.getFullYear())
               : nums(dateFormat(L("locale"), { day: "numeric", month: "long", year: "numeric" }).format(d))));
-    if (h && hm) hj = nums(h.d) + " " + hm[h.m - 1] + " " + nums(h.y);
+    if (h && hm) hj = dmy(h.d, hm[h.m - 1], h.y);
     else {
       try {
         var opts = { calendar: "islamic-umalqura", day: "numeric", month: "long", year: "numeric" }, f = dateFormat(L("locale"), opts);
@@ -2198,7 +2209,25 @@ var SETTINGS = {
       } catch (e) {}
     }
     setText("hijri", hj);
+    setText("kurdish", k && km ? dmy(k.d, km[k.m - 1], k.y) : "");
     setText("greeting", greeting(activeDay()));
+  }
+
+  // The Kurdish calendar: the solar year's months, from Newroz (1 Xakelêwe, 21 March), its years 1321 on
+  // from the Solar Hijri ones (Newroz 2026 began 2726): {d, m, y}, or null if the engine can't tell
+  function kurdishDate(d) {
+    var k = d.toDateString();
+    if (kurdishMemo.k === k) return kurdishMemo.v;
+    var v = null;
+    try {
+      var o = {};
+      new Intl.DateTimeFormat("en-u-ca-persian", { day: "numeric", month: "numeric", year: "numeric" }).formatToParts(d)
+        .forEach(function (p) { o[p.type] = p.value; });
+      v = { d: Number(o.day), m: Number(o.month), y: Number(String(o.year || o.relatedYear).replace(/\D/g, "")) + 1321 };
+      if (!v.d || !v.m || v.m > 12 || !(v.y > 2600)) v = null;
+    } catch (e) {}
+    kurdishMemo = { k: k, v: v };
+    return v;
   }
 
   // 18.4 -> "18°", -3 -> "−3°"
@@ -2208,7 +2237,7 @@ var SETTINGS = {
   }
 
   // The weather now (WeatherAPI.com's measurement, else the hour we're in from the forecast), in one
-  // line: picture, temperature, words, the place; credited under it
+  // line: picture, temperature, words, the place; MET Norway's credited under it, in small
   function drawWeather(now) {
     var W = X.weather || {}, hours = W.hours instanceof Array ? W.hours : [], cur = null;
     hours.forEach(function (h) {
@@ -2218,7 +2247,7 @@ var SETTINGS = {
     if (W.now instanceof Array && typeof W.now[1] === "number" && Math.abs(now - W.now[0]) < 2 * 3600e3) cur = W.now;
     if (cur && now - cur[0] > 2 * 3600e3) cur = null;   // an old forecast: nothing rather than wrong
     $("weather").hidden = !cur;
-    setText("credit", cur ? L(W.source === "weatherapi" ? "weatherApiCredit" : "weatherCredit") : "");
+    setText("credit", cur && W.source !== "weatherapi" ? L("weatherCredit") : "");   // MET Norway's condition: credited where shown
     if (!cur) return;
     $("wicon").innerHTML = weatherIcon(cur[2], "wn");
     setText("temp", deg(cur[1]));
@@ -2302,12 +2331,18 @@ var SETTINGS = {
     return null;
   }
 
-  // The prices in priceItems that tirezh.com has: [{name, value, unit, trend}], none if the app
-  // couldn't reach tirezh.com for 3 hours (old prices are worse than none)
+  // A word on the TV only if it has been set (in settings.json or on the phone), else ""
+  function own(k) {
+    var o = S.labels && typeof S.labels === "object" ? S.labels[k] : null;
+    return o != null && String(o).trim() !== "" ? String(o) : "";
+  }
+
+  // The prices in priceItems that tirezh.com has, seven at most: [{name, value, unit, trend}], none if
+  // the app couldn't reach tirezh.com for 3 hours (old prices are worse than none)
   function priceTiles() {
     var P = X.prices, out = [], ku = rtl(), units = ku ? UNITS.ku : UNITS.en;
     if (!P || typeof P !== "object" || !(Date.now() - (Number(P.fetched) || 0) < 3 * 3600e3)) return out;
-    (S.priceItems instanceof Array ? S.priceItems : []).slice(0, 10).forEach(function (k) {
+    (S.priceItems instanceof Array ? S.priceItems : []).slice(0, 7).forEach(function (k) {
       k = String(k).toLowerCase();
       var r, t = null, gold = /^gold(24|22|21|18)$/.exec(k);
       if (gold) {
@@ -2315,87 +2350,40 @@ var SETTINGS = {
         if (r) t = { name: ku && r[2] ? nums(latinDigits(r[2])) : "Gold " + r[0] + "K", value: r[1], unit: units.us, trend: r[4] };
       } else if (k === "ounce" || k === "silver" || k === "btc") {
         r = P[k];
-        if (r instanceof Array) t = { name: k === "btc" ? "Bitcoin" : L(k === "ounce" ? "goldOunce" : "silverOunce"), value: r[0],
+        if (r instanceof Array) t = { name: L(k === "btc" ? "bitcoin" : k === "ounce" ? "goldOunce" : "silverOunce"), value: r[0],
                                       unit: k === "btc" ? "$" : "$ " + L("perOunce"), trend: r[1] };
       } else if (/^[a-z]{2,3}$/.test(k)) {
         r = row(P.currencies, k);
-        if (r) t = { name: ku ? r[1] || k.toUpperCase() : CURRENCIES[k] || k.toUpperCase(), value: r[3], unit: units[k] || "$", trend: r[4] };
+        var word = NAME_LABELS[k];                 // its word on the TV, else tirezh.com's Kurdish name (or the English one)
+        if (r) t = { name: ku ? (word && own(word)) || r[1] || k.toUpperCase() : (word ? L(word) : CURRENCIES[k]) || k.toUpperCase(),
+                     value: r[3], unit: units[k] || "$", trend: r[4] };
       }
       if (t && Number(t.value) > 0) out.push(t);
     });
     return out;
   }
 
-  // Gold and currency prices from Tirezh Index, in a row: name, price (green going up, red going
-  // down) with its unit and an arrow. More than fit: the row moves slowly, round and round.
+  // Gold and currency prices from Tirezh Index: seven at most, in one row, centred, never moving: name,
+  // price (green going up, red going down) with its unit and an arrow; when they were set above them.
+  // Prices too long for the row are drawn a little smaller instead (--fit).
   function drawMarket() {
     var tiles = priceTiles(), list = $("tiles");
     $("market").hidden = !tiles.length;
     list.innerHTML = "";
-    list.className = "";
+    list.style.removeProperty("--fit");
     if (!tiles.length) return;
     setText("marketLbl", L("prices"));
-    setText("marketSrc", L("pricesSource"));
     setText("marketAt", Number(X.prices.at) > 0 ? whenText(Number(X.prices.at)) : "");
-    $("ticker").className = "";
-    var item = function (t) {
+    tiles.forEach(function (t) {
       var li = make("li"), tr = TRENDS[String(t.trend)], cls = tr ? tr[0] : "";
       li.appendChild(make("span", "tn", t.name));
       li.appendChild(make("bdi", "tv n" + (cls ? " " + cls : ""), money(t.value)));
-      li.appendChild(make("span", "tu", t.unit));
+      li.appendChild(make("bdi", "tu", nums(t.unit)));
       if (tr) li.appendChild(svgOf("0 0 13 10", '<path fill="currentColor" d="' + tr[1] + '"/>', cls));
-      return li;
-    };
-    tiles.forEach(function (t) { list.appendChild(item(t)); });
-    // Too many for one row: pages of them, as even as fit, turned every 8 seconds (marketTurn)
-    var room = $("ticker").clientWidth, lis = [].slice.call(list.children);
-    marketPages = [];
-    if (room > 0 && list.scrollWidth > room + 2) {
-      var widths = lis.map(function (li) { return li.offsetWidth; });   // each with the line before it: a little more than a page's first needs
-      var split = function (perPage) {               // pages of perPage prices (0: as many as fit), or null if one doesn't fit
-        var pages = [], page = [], used = 0;
-        for (var i = 0; i < lis.length; i++) {
-          if (page.length && (perPage ? page.length === perPage : used + widths[i] > room)) { pages.push(page); page = []; used = 0; }
-          page.push(lis[i]);
-          used += widths[i];
-          if (used > room && page.length > 1) return null;
-        }
-        if (page.length) pages.push(page);
-        return pages;
-      };
-      var greedy = split(0);
-      marketPages = split(Math.ceil(lis.length / greedy.length)) || greedy;   // 4 and 4 rather than 7 and 1
-      if (marketTurnAt < Date.now()) marketTurnAt = Date.now() + 8000;
-    }
-    showMarketPage(marketPage);
-  }
-
-  // One page of prices (all of them when they fit)
-  function showMarketPage(n) {
-    var all = [].slice.call($("tiles").children);
-    if (marketPages.length < 2) {
-      marketPage = 0;
-      all.forEach(function (li) { li.classList.remove("off", "lead"); });
-      return;
-    }
-    marketPage = n % marketPages.length;
-    var on = marketPages[marketPage];
-    all.forEach(function (li) {
-      li.classList.toggle("off", on.indexOf(li) < 0);
-      li.classList.toggle("lead", li === on[0]);
+      list.appendChild(li);
     });
-  }
-
-  // Every 8 seconds the next page of prices, with a short fade (from panelTick)
-  function marketTurn(now) {
-    if (marketPages.length < 2 || now < marketTurnAt) return;
-    marketTurnAt = now + 8000;
-    var list = $("tiles");
-    list.classList.add("turning");
-    setTimeout(function () {
-      showMarketPage(marketPage + 1);
-      list.classList.remove("turning");
-    }, 380);
+    var room = $("ticker").clientWidth, w = list.scrollWidth;
+    if (room > 0 && w > room) list.style.setProperty("--fit", String(Math.floor(room / w * 1000) / 1000));
   }
 
   // A Wi-Fi QR code (phones join the network when they scan it); \ ; , : " are escaped

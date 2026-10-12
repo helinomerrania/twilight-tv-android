@@ -7,52 +7,144 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>TV Player</title>
 <style>
+  :root { --u: 1px; --stageW: 100vw; --stageH: 100vh; --colW: 0px; --bandH: 0px;
+          --night: #0b1030; --cream: #fff1e0; --mist: rgba(255, 241, 224, .64); --sun: #ffcf8a; --ember: #f0985c; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b1030; cursor: none; }
+  /* With the info panel: the video sits top left like a window on the lake; the night sky's
+     column on the right (time, weather, prices), the shore along the bottom (music, QR codes) */
+  body.with-panel { background: radial-gradient(70% 55% at 32% 112%, rgba(240, 152, 92, .2), transparent 70%),
+                                linear-gradient(#0b1030, #121641 62%, #1b1a49); }
+  /* Where the video and the café screen are: the whole screen, or the top left with the panel */
+  #stage { position: fixed; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;
+           container-type: size; background: #0b1030; }
   /* The player: drawn big (for quality), scaled to fit exactly, faded in and out by the script */
-  #player { position: fixed; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; opacity: 0; }
-  /* Invisible layer over the video: taps and clicks can't pause it or open YouTube */
-  #shield { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 2; }
+  #player { position: absolute; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; opacity: 0; }
+  /* Invisible layer over everything: taps and clicks can't pause the video or open YouTube */
+  #shield { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 5; }
   /* Small speaker icon, shown only while the TV's browser is blocking sound */
-  #muted { position: fixed; right: 3vmin; bottom: 3vmin; z-index: 3; width: 5vmin; height: 5vmin;
+  #muted { position: absolute; right: 3vmin; bottom: 3vmin; z-index: 3; width: 5vmin; height: 5vmin;
            display: none; opacity: .5; pointer-events: none; }
   /* Song volume, shown for a moment after the remote's up/down arrows */
-  #vol { position: fixed; left: 3vmin; bottom: 3vmin; z-index: 3; display: none; padding: .35em .8em;
+  #vol { position: absolute; left: 3vmin; bottom: 3vmin; z-index: 3; display: none; padding: .35em .8em;
          border-radius: .5em; background: rgba(10, 14, 44, .75); color: #fff1e0;
          font: 600 3vmin/1.3 system-ui, sans-serif; pointer-events: none; }
   /* Setup problems only, on top of the café screen */
   /* Quality setup's instructions: top left, clear of YouTube's controls (bottom, and the top right corner),
      and inside the part of the picture every TV shows */
-  #setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 3; display: none; width: 54vw; width: min(54vw, 46rem);
+  #setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 6; display: none; width: 54vw; width: min(54vw, 46rem);
                padding: 1.1em 1.4em; border-radius: .8em; background: rgba(10, 14, 44, .88); color: #fff1e0; pointer-events: none;
                font: 500 2.4vmin/1.5 system-ui, sans-serif; text-shadow: none; }
   #setupNote b { color: #ffcf8a; }
   #setupStatus { margin-top: .6em; opacity: .8; font-size: .85em; }
-  #note { position: fixed; left: 50%; bottom: 7vh; transform: translateX(-50%); z-index: 3; display: none;
-          max-width: 80vw; padding: .8em 1.2em; border-radius: .6em; background: rgba(10, 14, 44, .85);
+  #note { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 3; display: none;
+          max-width: 80%; padding: .8em 1.2em; border-radius: .6em; background: rgba(10, 14, 44, .85);
           color: #ffe9d6; text-align: center; font: 2.4vmin/1.5 system-ui, sans-serif; pointer-events: none; }
   /* Test mode only (?debug=1) */
-  #debug { position: fixed; top: 12px; left: 12px; z-index: 4; display: none; max-width: 75%;
+  #debug { position: fixed; top: 12px; left: 12px; z-index: 7; display: none; max-width: 75%;
            padding: 10px 14px; border-radius: 8px; background: rgba(0, 0, 0, .75); color: #fff;
            font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; pointer-events: none; }
+
+  /* ---------- the info panel ---------- */
+  /* Numbers (the time, the temperature, prices) in Fraunces' soft serif digits (OFL), all one width;
+     words in the TV's own sans-serif, which also has Kurdish */
+  #panel, #band { position: fixed; z-index: 2; display: none; box-sizing: border-box; color: var(--cream);
+                  font-family: Roboto, "Noto Sans", "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif; }
+  body.with-panel #panel, body.with-panel #band { display: flex; }
+  :where(#panel, #band) :where(p, dl, dd, figure) { margin: 0; }
+  .num { font-family: "TwilightNum", "Noto Serif", Georgia, serif; font-feature-settings: "lnum"; }
+  #panel { top: 0; right: 0; width: var(--colW); height: 100%; flex-direction: column; gap: calc(30 * var(--u));
+           padding: calc(46 * var(--u)) calc(44 * var(--u)) calc(38 * var(--u)) calc(30 * var(--u)); overflow: hidden; }
+  #clock { display: flex; align-items: flex-start; gap: calc(8 * var(--u)); font-size: calc(96 * var(--u)); line-height: .95;
+           font-weight: 400; letter-spacing: -.01em; white-space: nowrap; }
+  #ampm { font: 500 calc(24 * var(--u))/1 Roboto, "Noto Sans", "Noto Naskh Arabic", sans-serif; color: var(--mist);
+          margin-top: calc(10 * var(--u)); letter-spacing: .02em; }
+  #date { margin-top: calc(16 * var(--u)); font-size: calc(28 * var(--u)); line-height: 1.3; font-weight: 500; }
+  #hijri { font-size: calc(22 * var(--u)); line-height: 1.35; color: var(--mist); }
+  #greeting { margin-top: calc(10 * var(--u)); font-size: calc(27 * var(--u)); line-height: 1.3; font-weight: 600; color: var(--sun); }
+  #greeting:empty { display: none; }
+  #wnow { display: flex; align-items: center; gap: calc(14 * var(--u)); }
+  #wicon { width: calc(78 * var(--u)); height: calc(78 * var(--u)); flex: none; }
+  #temp { font-size: calc(80 * var(--u)); line-height: 1; }
+  #wwords { margin-top: calc(10 * var(--u)); font-size: calc(25 * var(--u)); line-height: 1.3; }
+  #whilo { display: flex; flex-wrap: wrap; column-gap: calc(14 * var(--u)); font-size: calc(22 * var(--u)); line-height: 1.35; color: var(--mist); }
+  #pricesHead { font-size: calc(22 * var(--u)); line-height: 1.3; font-weight: 600; color: var(--sun); margin-bottom: calc(6 * var(--u)); }
+  #priceList div { display: flex; align-items: baseline; justify-content: space-between; gap: calc(12 * var(--u));
+                   padding: calc(5 * var(--u)) 0; }
+  #priceList dt { font-size: calc(23 * var(--u)); line-height: 1.3; color: var(--mist); overflow-wrap: anywhere; }
+  #priceList dd { font-size: calc(29 * var(--u)); line-height: 1.2; white-space: nowrap; }
+  #pricesAt { margin-top: calc(6 * var(--u)); font-size: calc(18 * var(--u)); color: var(--mist); }
+  #credit { margin-top: auto; font-size: calc(15 * var(--u)); line-height: 1.3; color: var(--mist); opacity: .8; }
+  #band { left: 0; bottom: 0; width: var(--stageW); height: var(--bandH); align-items: center; gap: calc(36 * var(--u));
+          padding: calc(22 * var(--u)) calc(40 * var(--u)) calc(30 * var(--u)) calc(48 * var(--u)); }
+  /* The shoreline under the video: the same warm line as on the lake */
+  #band::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(2 * var(--u));
+                  background: linear-gradient(90deg, rgba(255, 178, 122, 0), rgba(255, 196, 140, .75) 50%, rgba(255, 178, 122, 0)); }
+  #music { flex: 1 1 auto; min-width: 0; }
+  #music .lbl, #nextLbl { color: var(--mist); }
+  #nowLbl { font-size: calc(20 * var(--u)); line-height: 1.3; }
+  #nowTitle { font-size: calc(38 * var(--u)); line-height: 1.25; font-weight: 600; }
+  #nowSinger { font-size: calc(25 * var(--u)); line-height: 1.3; color: var(--mist); }
+  #nextLine { margin-top: calc(10 * var(--u)); font-size: calc(22 * var(--u)); line-height: 1.3; }
+  #nowTitle, #nowSinger, #nextLine { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .code { display: flex; align-items: center; gap: calc(16 * var(--u)); flex: none; max-width: calc(400 * var(--u)); }
+  .code .qr { width: calc(164 * var(--u)); height: calc(164 * var(--u)); flex: none; border-radius: calc(10 * var(--u));
+              overflow: hidden; background: var(--cream); }
+  .code .qr svg { display: block; width: 100%; height: 100%; }
+  .code figcaption { display: flex; flex-direction: column; gap: calc(4 * var(--u)); max-width: calc(210 * var(--u)); }
+  .code b { font-size: calc(30 * var(--u)); line-height: 1.2; font-weight: 600; }
+  .code span { font-size: calc(21 * var(--u)); line-height: 1.3; color: var(--mist); overflow-wrap: anywhere; }
+  .code span.pw { color: var(--cream); }
+  /* Right-to-left words (Kurdish): everything lines up on the right, whatever the song's own language */
+  #panel[dir="rtl"] p, #band[dir="rtl"] p, #band[dir="rtl"] figcaption { text-align: right; }
+  [hidden] { display: none !important; }
 </style>
 <style>
   @font-face { font-family: "TwilightName"; src: url(data:font/woff2;base64,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) format("woff2"); font-display: block; }
+  /* The panel's numbers: Fraunces by Undercase Type (SIL Open Font License), only the characters
+     numbers need, every digit the same width */
+  @font-face { font-family: "TwilightNum"; src: url(data:font/woff2;base64,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) format("woff2"); font-display: block; }
   /* Café screen: twilight over Lake Dukan. It is what the TV shows whenever no video is on. */
-  #brand { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; background: #0b1030; }
+  #brand { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; background: #0b1030; }
   #brand svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   #brand .name { position: absolute; left: 0; right: 0; top: 33%; transform: translateY(-50%); margin: 0;
                  padding: 0 6vw; text-align: center; font-family: "TwilightName", "Noto Naskh Arabic", "Noto Sans Arabic", Tahoma, sans-serif;
-                 font-weight: 700; font-size: 11vmin; font-size: min(11vmin, 7.6vw); line-height: 1.5; color: #fff1e0;
-                 text-shadow: 0 0 .5em rgba(255, 171, 107, .35), 0 .04em .02em rgba(20, 10, 40, .5); }
+                 font-weight: 700; font-size: 11vmin; font-size: min(11cqmin, 7.6cqw); line-height: 1.5; color: #fff1e0;
+                 text-shadow: 0 0 .5em rgba(255, 171, 107, .35), 0 .04em .02em rgba(20, 10, 40, .5); transition: opacity .6s ease; }
+  /* A greeting on special days, or why the music stopped for a moment */
+  #brandNote { position: absolute; left: 0; right: 0; top: 47%; transform: translateY(-50%); margin: 0; padding: 0 6%;
+               text-align: center; color: #ffcf8a; font: 600 4.4vmin/1.4 Roboto, "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif;
+               font-size: min(4.4cqmin, 3.2cqw); text-shadow: 0 0 .6em rgba(255, 171, 107, .35); transition: opacity .6s ease; }
+  /* Between songs: the café's own messages and pictures, from the phone page */
+  #slide { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity .6s ease; }
+  #slide.on { opacity: 1; }
+  #slide img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+  #slide .msg { position: absolute; left: 0; right: 0; top: 36%; transform: translateY(-50%); margin: 0; padding: 0 8%;
+                text-align: center; color: #fff1e0; font: 600 6.4vmin/1.45 Roboto, "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif;
+                font-size: min(var(--msg, 6.4cqmin), 5cqw); text-wrap: balance; overflow-wrap: anywhere;
+                text-shadow: 0 0 .5em rgba(255, 171, 107, .35), 0 .04em .02em rgba(20, 10, 40, .5); }
+  #brand.slide-on .name, #brand.slide-on #brandNote { opacity: 0; }
   /* One slow motion: the light behind the mountains and its path on the water breathe together.
      Only opacity of whole layers changes, so the TV's graphics chip does the work. */
   #brand .glow { will-change: opacity; animation: breathe 12s ease-in-out infinite alternate; }
   @keyframes breathe { from { opacity: .68; } to { opacity: 1; } }
-  body.video-on #brand .glow { animation-play-state: paused; }   /* rests while a video covers it */
-  @media (prefers-reduced-motion: reduce) { #brand .glow { animation: none; } }
+  /* Special days: only that day's things show; fires and candles flicker gently */
+  #brand [data-day] { display: none; }
+  #brand.day-newroz [data-day~="newroz"], #brand.day-eidFitr [data-day~="eidFitr"], #brand.day-eidAdha [data-day~="eidAdha"],
+  #brand.day-newYear [data-day~="newYear"], #brand.day-barat [data-day~="barat"] { display: inline; }
+  #brand .flicker { animation: flicker 2.6s ease-in-out infinite alternate; }
+  #brand .flicker.b { animation-duration: 3.4s; animation-delay: -1.2s; }
+  #brand .flicker.c { animation-duration: 2.1s; animation-delay: -.6s; }
+  @keyframes flicker { from { opacity: .62; } to { opacity: 1; } }
+  #brand .burst { animation: burst 5s ease-in-out infinite; }
+  #brand .burst.b { animation-delay: -1.7s; }
+  #brand .burst.c { animation-delay: -3.3s; }
+  @keyframes burst { 0%, 100% { opacity: .25; } 45% { opacity: 1; } }
+  body.video-on #brand .glow, body.video-on #brand .flicker, body.video-on #brand .burst { animation-play-state: paused; }   /* rest while a video covers them */
+  @media (prefers-reduced-motion: reduce) { #brand .glow, #brand .flicker, #brand .burst { animation: none; } }
 </style>
 </head>
 <body>
+<div id="stage">
 <div id="brand" aria-hidden="true">
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -68,6 +160,27 @@
     </defs>
     <rect width="1920" height="1080" fill="url(#sky)"/>
     <g id="stars" fill="#fff6ea"></g>
+  </svg>
+  <!-- Special days, in the sky: Eid's crescent, Barat Night's full moon, New Year's fireworks -->
+  <svg id="themeSky" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="moonGlow" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#fff1e0" stop-opacity=".34"/>
+        <stop offset=".45" stop-color="#ffd9a8" stop-opacity=".12"/>
+        <stop offset="1" stop-color="#ffd9a8" stop-opacity="0"/>
+      </radialGradient>
+      <mask id="crescentCut"><rect width="1920" height="1080" fill="#fff"/><circle cx="1529" cy="188" r="45" fill="#000"/></mask>
+    </defs>
+    <g data-day="eidFitr eidAdha">
+      <circle cx="1500" cy="212" r="130" fill="url(#moonGlow)"/>
+      <circle cx="1500" cy="212" r="47" fill="#fff1e0" mask="url(#crescentCut)"/>
+    </g>
+    <g data-day="barat">
+      <circle cx="1460" cy="232" r="190" fill="url(#moonGlow)"/>
+      <circle cx="1460" cy="232" r="56" fill="#fff4e6"/>
+      <g fill="#e6d6c2" opacity=".5"><circle cx="1442" cy="216" r="11"/><circle cx="1478" cy="246" r="8"/><circle cx="1452" cy="256" r="5"/><circle cx="1484" cy="214" r="4"/></g>
+    </g>
+    <g data-day="newYear" id="fireworks"></g>
   </svg>
   <svg class="glow" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -130,7 +243,27 @@
       <rect x="920" y="992" width="110" height="1.5" rx=".75"/>
     </g>
   </svg>
+  <!-- Special days, on the land and the water: Newroz fires on the peaks, Eid's lanterns, Barat Night's candles on the shore -->
+  <svg id="themeFront" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="fireGlow" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#ffb35c" stop-opacity=".75"/>
+        <stop offset=".4" stop-color="#f0785a" stop-opacity=".25"/>
+        <stop offset="1" stop-color="#f0785a" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="lampGlow" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#ffd9a0" stop-opacity=".6"/>
+        <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+      </radialGradient>
+      <path id="flame" d="M0 0C-13 0-16-13-10-23C-5-31-4-38 0-47C4-37 13-31 13-17C13-7 9 0 0 0Z"/>
+    </defs>
+    <g data-day="newroz" id="fires"></g>
+    <g data-day="eidFitr eidAdha" id="lanterns"></g>
+    <g data-day="barat" id="candles"></g>
+  </svg>
   <p class="name" dir="rtl" lang="ckb" id="brandName"></p>
+  <p id="brandNote" dir="auto"></p>
+  <div id="slide"></div>
 </div>
 <script>
   // Stars: spread evenly, fewer towards the horizon, drawn once
@@ -144,19 +277,100 @@
       c.setAttribute("opacity", (0.25 + ((i * 3) % 10) / 14).toFixed(2));
       g.appendChild(c);
     }
+    function el(parent, name, attrs) {
+      var e = document.createElementNS(ns, name);
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+      parent.appendChild(e);
+      return e;
+    }
+    // New Year: four bursts of fireworks, fading in and out one after another
+    [[420, 245, 92, "#ffcf8a", ""], [800, 150, 70, "#f0985c", "b"], [1290, 262, 104, "#fff1e0", "c"], [1650, 168, 80, "#ff9f8a", "b"]].forEach(function (f) {
+      var b = el(document.getElementById("fireworks"), "g", { "class": "burst " + f[4], stroke: f[3], fill: f[3], "stroke-width": 3, "stroke-linecap": "round" });
+      for (var i = 0; i < 16; i++) {
+        var a = i / 16 * 2 * Math.PI, cs = Math.cos(a), sn = Math.sin(a);
+        el(b, "line", { x1: (f[0] + cs * f[2] * .3).toFixed(1), y1: (f[1] + sn * f[2] * .3).toFixed(1), x2: (f[0] + cs * f[2] * .86).toFixed(1), y2: (f[1] + sn * f[2] * .86).toFixed(1) });
+        el(b, "circle", { cx: (f[0] + cs * f[2]).toFixed(1), cy: (f[1] + sn * f[2]).toFixed(1), r: 3.2, stroke: "none" });
+      }
+    });
+    // Newroz: fires on the peaks around the lake
+    [[240, 585], [410, 560], [540, 548], [1350, 520], [1450, 505], [1570, 512]].forEach(function (p, i) {
+      var g = el(document.getElementById("fires"), "g", { "class": "flicker " + ["", "b", "c"][i % 3], transform: "translate(" + p[0] + " " + p[1] + ")" });
+      el(g, "circle", { cx: 0, cy: -16, r: 64, fill: "url(#fireGlow)" });
+      el(g, "use", { href: "#flame", fill: "#f0784e" });
+      el(g, "use", { href: "#flame", fill: "#ffcf6a", transform: "scale(.56)" });
+    });
+    // Eid: lanterns hanging from the top
+    [[220, 128], [360, 74], [1700, 104], [1830, 150]].forEach(function (p, i) {
+      var g = el(document.getElementById("lanterns"), "g", { transform: "translate(" + p[0] + " 0)" });
+      el(g, "line", { x1: 0, y1: 0, x2: 0, y2: p[1], stroke: "#ffcf8a", "stroke-opacity": .55, "stroke-width": 2 });
+      var l = el(g, "g", { transform: "translate(0 " + p[1] + ")" });
+      el(l, "circle", { cx: 0, cy: 38, r: 70, fill: "url(#lampGlow)", "class": "flicker " + ["", "b", "c"][i % 3] });
+      el(l, "path", { d: "M-9 0H9L12 8H-12Z", fill: "#ffcf8a" });
+      el(l, "path", { d: "M-18 8H18L25 22V54L18 68H-18L-25 54V22Z", fill: "#3a2a5c", stroke: "#ffcf8a", "stroke-width": 2.5 });
+      el(l, "path", { d: "M-11 18H11L15 26V50L11 58H-11L-15 50V26Z", fill: "#ffd08a", opacity: .9, "class": "flicker " + ["c", "", "b"][i % 3] });
+      el(l, "path", { d: "M-6 68H6L0 80Z", fill: "#ffcf8a" });
+    });
+    // Barat Night: candles along the shore, mirrored in the water
+    for (var x = 300, i = 0; x <= 1640; x += 84, i++) {
+      var g = el(document.getElementById("candles"), "g", { "class": "flicker " + ["", "b", "c"][i % 3], transform: "translate(" + x + " 797)" });
+      el(g, "circle", { cx: 0, cy: -6, r: 22, fill: "url(#lampGlow)" });
+      el(g, "use", { href: "#flame", fill: "#ffcf6a", transform: "scale(.3)" });
+      el(g, "rect", { x: -1.5, y: 8, width: 3, height: 22, rx: 1.5, fill: "#ffcf8a", opacity: .3 });
+    }
   })();
 </script>
 <div id="player"></div>
-<div id="shield"></div>
 <svg id="muted" viewBox="0 0 24 24" aria-hidden="true">
   <path fill="#fff" d="M3 9v6h4l5 5V4L7 9H3z"/>
   <path d="M15.5 9.5l5 5m0-5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
 </svg>
 <div id="vol"></div>
 <div id="note"></div>
+</div>
+<div id="shield"></div>
+<!-- The info panel beside the video: the time, the weather and prices on the right... -->
+<aside id="panel" aria-hidden="true">
+  <div>
+    <p id="clock" class="num"><span id="time"></span><span id="ampm"></span></p>
+    <p id="date" dir="auto"></p>
+    <p id="hijri" dir="auto"></p>
+    <p id="greeting" dir="auto"></p>
+  </div>
+  <div id="weather" hidden>
+    <div id="wnow"><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="num"></span></div>
+    <p id="wwords" dir="auto"></p>
+    <p id="whilo"></p>
+  </div>
+  <div id="prices" hidden>
+    <p id="pricesHead" dir="auto"></p>
+    <dl id="priceList"></dl>
+    <p id="pricesAt" dir="auto"></p>
+  </div>
+  <p id="credit" dir="auto"></p>
+</aside>
+<!-- ...and along the bottom: what's playing, what's next, the menu's and the Wi-Fi's QR codes -->
+<div id="band" aria-hidden="true">
+  <div id="music">
+    <p id="nowLbl" class="lbl" dir="auto"></p>
+    <p id="nowTitle" dir="auto"></p>
+    <p id="nowSinger" dir="auto"></p>
+    <p id="nextLine"><span id="nextLbl"></span> <span id="nextTitle" dir="auto"></span></p>
+  </div>
+  <figure class="code" id="menuCode" hidden><div class="qr"></div><figcaption><b id="menuLbl" dir="auto"></b><span id="menuHint" dir="auto"></span></figcaption></figure>
+  <figure class="code" id="wifiCode" hidden><div class="qr"></div><figcaption><b id="wifiLbl" dir="auto"></b><span id="wifiName" dir="auto"></span><span id="wifiPw" class="pw" dir="auto"></span></figcaption></figure>
+</div>
 <div id="setupNote"></div>
 <div id="debug"></div>
 
+<!-- QR codes for the Wi-Fi and the menu: qrcode-generator 1.4.4 by Kazuhiko Arase (MIT license) -->
+<script>
+// Copyright (c) 2009 Kazuhiko Arase
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+// DENSO WAVE INCORPORATED
+var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,(function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1}))},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(t,r){var e=n("友");if(2!=e.length||38726!=(e[0]<<8|e[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}((function(){return qrcode}));
+qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+</script>
 <script>
 /* ============================ SETTINGS ============================ */
 // Test mode: add ?debug=1 to the end of the page address to see what is playing,
@@ -239,7 +453,66 @@ var SETTINGS = {
 
   // Reloads itself between two songs after this many hours. Keeps the TV
   // fresh and picks up songs you add to the playlist.
-  refreshHours: 12
+  refreshHours: 12,
+
+  // Playlists by time of day: from each time on, this playlist instead of the one at the
+  // top. Example: { "10:00": "https://www.youtube.com/playlist?list=PL...", "18:00": "PL..." }
+  // Before the first time, the last one still holds. {} = always the playlist at the top.
+  playlistSchedule: {},
+
+  // Never two songs by the same singer in a row. The singer is read from the song's
+  // title ("Singer - Song") or, failing that, its YouTube channel.
+  differentSinger: true,
+
+  // The phone page's "Quiet for a minute" button: the music at this percent meanwhile.
+  quietLevel: 15,
+
+  // Minutes before closing time (openHours) in which the music slowly fades out. 0 = off.
+  closingFade: 10,
+
+  // Pause the music for the call to prayer, this many minutes, during opening hours only.
+  // 0 = off. The times are worked out for the place below (Muslim World League: Fajr 18°,
+  // Isha 17°, Asr Shafi'i). To match your mosque, move a prayer by minutes:
+  // { "fajr": 0, "dhuhr": 2, "asr": 1, "maghrib": 3, "isha": 0 }.
+  prayerPause: 5,
+  prayerAdjust: {},
+
+  // The place, for the weather and the prayer times.
+  place: "Ranya",
+  lat: 36.2549,
+  lon: 44.8838,
+
+  // The info panel beside the video: the time, the weather, prices, what's playing and
+  // what's next, and QR codes for the Wi-Fi and the menu. false = the video full screen.
+  infoPanel: true,
+
+  // The clock: false = 12-hour (9:30 PM), true = 24-hour (21:30).
+  clock24: false,
+
+  // Prices for the panel, one per line, like "Dollar (100 $) = 147,250". pricesAt is
+  // when they were typed (the phone page sets it), shown as "Updated ...". "" = none.
+  prices: "",
+  pricesAt: 0,
+
+  // Short messages for the café screen between songs, e.g. ["Fresh mint tea is back"].
+  messages: [],
+
+  // The Wi-Fi's name and password: a QR code that connects phones, and the same as text.
+  wifiName: "",
+  wifiPassword: "",
+
+  // A link to the menu, for a QR code. "" = none.
+  menuUrl: "",
+
+  // Special days: Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own
+  // look on the café screen, and a greeting. Eid and Barat Night follow the Umm al-Qura
+  // calendar; if they come a day early or late here, move them with hijriAdjust (days).
+  specialDays: true,
+  hijriAdjust: 0,
+
+  // The words on the TV, e.g. in Kurdish: { "nowPlaying": "...", "locale": "ckb" }. Every
+  // word left out stays as in LABELS further down.
+  labels: {}
 };
 /* ================================================================== */
 
@@ -271,7 +544,9 @@ var SETTINGS = {
   }
 
   var S = SETTINGS;
-  var LIST = playlistId(new URLSearchParams(location.search).get("list") || S.playlist);
+  // The playlist: ?list= in the page's address (for testing), else the one for this time of day
+  var URL_LIST = new URLSearchParams(location.search).get("list");
+  var LIST = playlistId(URL_LIST || scheduledList());
   var KEY = "tv-player:" + LIST;
   var DAY = 24 * 3600e3;
   var ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3, CUED = 5;   // YouTube player states
@@ -301,7 +576,39 @@ var SETTINGS = {
   var BAR_CHECK = 1;        // version of the black-bar check; a new one looks at every song again
   var quiet = "";           // "" = music on, "closed" = outside opening hours, "paused" = paused from the phone
   var quietSince = 0, holdUntil = 0, openAnywayUntil = 0, scheduleAt = 0, aliveAt = 0;
+  var quietUntil = 0, duck = 1;              // "Quiet for a minute" from the phone: the music lower until then
+  var prayerUntil = 0, prayerName = "", prayerSkip = "";   // the call to prayer's pause ("resume" skips this one)
+  var lookDay = "", lookUntil = 0;           // a special day's look, shown from the phone for a moment
   var state = load();
+
+  // From the app: song names (YouTube), the weather (MET Norway), the café's pictures
+  var X = {}, extrasVersion = -1, pictureList = [], singerCache = {}, busyChannelList = null;
+  // The info panel and the café screen's messages and pictures
+  var panelOn = false, panelDirty = true, drawn = {}, slideIdx = 0, slideAt = 0, slideShown = "name:", slideTimer = null;
+
+  // The words on the TV. Each can be replaced in the labels setting (e.g. with Kurdish ones).
+  // "locale" sets how dates are written (e.g. "ckb" for Kurdish); right-to-left ones flip the panel.
+  var LABELS = {
+    locale: "en-GB",
+    // Optional, for a language the TV's engine may not know: names separated by commas, Sunday first
+    weekdays: "", months: "", hijriMonths: "",
+    nowPlaying: "Now playing", upNext: "Up next",
+    menu: "Menu", menuHint: "Scan for the menu",
+    wifi: "Wi-Fi", wifiPassword: "Password",
+    prices: "Prices", updated: "Updated",
+    high: "High", low: "Low", am: "AM", pm: "PM",
+    weatherCredit: "Weather: MET Norway (CC BY 4.0)",
+    prayerNote: "The music resumes after the call to prayer",
+    prayerBand: "Paused for the call to prayer",
+    newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
+    clear: "Clear", fair: "Fair", partlycloudy: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", lightrain: "Light rain",
+    rain: "Rain", heavyrain: "Heavy rain", sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
+  };
+  var DAYS = { newroz: 1, eidFitr: 1, eidAdha: 1, barat: 1, newYear: 1 };
+  var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], hijriMemo = {};
+  // Words around a song's name that aren't its name: "(Official Video)", "[4K]", "(Lyrics)"...
+  var NOISE = /\s*[(\[{\u3010][^)\]}\u3011]*\b(official|video|audio|lyrics?|clip|klip|music|hd|hq|4k|8k|1080p|live|remaster(ed)?|visuali[sz]er|exclusive|new|full|karaoke)\b[^)\]}\u3011]*[)\]}\u3011]/gi;
+
   document.getElementById("brandName").textContent = S.brandName || "";
   if (SETUP) {
     document.getElementById("shield").style.display = "none";   // clicks go to YouTube's controls
@@ -314,6 +621,8 @@ var SETTINGS = {
       "<div id=\"setupStatus\"></div>";
     setupNote.style.display = "block";
   }
+
+  startPanel();
 
   if (!LIST || /PASTE_/.test(LIST)) {
     note("Add your YouTube playlist link in SETTINGS at the top of this file,<br>" +
@@ -336,6 +645,7 @@ var SETTINGS = {
       auto: s.barCheck === BAR_CHECK && s.auto && typeof s.auto === "object" ? s.auto : {}, // zooms found automatically
       barCheck: BAR_CHECK,
       problems: s.problems && typeof s.problems === "object" ? s.problems : {}, // songs that keep failing
+      upNext: s.upNext instanceof Array ? s.upNext.filter(isId).slice(0, 20) : [], // asked for on the phone, in order
       ids: s.ids instanceof Array ? s.ids : []             // last known playlist
     };
   }
@@ -374,9 +684,41 @@ var SETTINGS = {
       rest = usable.slice();
     }
     queue = shuffle(rest);
+    spreadSingers(queue);
     keepRecentAway(queue, usable.length);
     save();
     return true;
+  }
+
+  // The song next() plays: one asked for on the phone first; otherwise the next in the shuffled
+  // order that isn't by the singer playing now (when the song names tell). build: start a
+  // new round if this one is over.
+  function chooseNext(build) {
+    if (state.upNext.length) return { id: state.upNext[0], asked: true };
+    if (!queue.length && !(build && buildQueue())) return null;
+    if (S.differentSinger !== false && current) {
+      for (var i = 0; i < queue.length && i < 60; i++) {
+        if (queue[i] !== current && !sameSinger(current, queue[i])) return { id: queue[i], index: i };
+      }
+    }
+    return { id: queue[0], index: 0 };
+  }
+
+  // In the new order, songs by the same singer don't stand next to each other (when the names
+  // tell): a song next to one by its singer swaps with the first later one that fits there;
+  // if none does, it moves back to the first place between two songs by other singers.
+  function spreadSingers(q) {
+    if (S.differentSinger === false) return;
+    var before = function (i) { return i > 0 ? q[i - 1] : current; };
+    for (var i = 0; i < q.length; i++) {
+      if (!before(i) || !sameSinger(before(i), q[i])) continue;
+      var j = i + 1;
+      while (j < q.length && sameSinger(before(i), q[j])) j++;
+      if (j < q.length) { var t = q[i]; q[i] = q[j]; q[j] = t; continue; }
+      for (var k = 1; k < i; k++) {
+        if (!sameSinger(q[k - 1], q[i]) && !sameSinger(q[i], q[k])) { q.splice(k, 0, q.splice(i, 1)[0]); break; }
+      }
+    }
   }
 
   // Songs that just played can't sit at the front of the new order
@@ -402,13 +744,21 @@ var SETTINGS = {
       pendingRestart = false;
       return refresh();
     }
-    if (!queue.length && !buildQueue()) {        // nothing playable right now
+    var pick = chooseNext(true);
+    if (!pick) {                                 // nothing playable right now
       state.bad = {};
       save();
       return reloadSoon(10 * 60e3);
     }
-    current = queue.shift();
-    state.played.push(current);
+    current = pick.id;
+    if (pick.asked) {                            // asked for on the phone: out of this round's order
+      state.upNext.shift();
+      var at = queue.indexOf(current);
+      if (at >= 0) queue.splice(at, 1);
+    } else {
+      queue.splice(pick.index, 1);
+    }
+    if (allIds.indexOf(current) >= 0 && state.played.indexOf(current) < 0) state.played.push(current);
     state.recent.push(current);
     if (state.recent.length > 300) state.recent = state.recent.slice(-300);
     save();
@@ -445,6 +795,26 @@ var SETTINGS = {
     s = String(s || "").trim();
     var m = s.match(/[?&]list=([\w-]+)/);
     return m ? m[1] : s;
+  }
+
+  // A YouTube video ID: 11 letters, digits, - or _
+  function isId(v) {
+    return typeof v === "string" && /^[\w-]{11}$/.test(v);
+  }
+
+  // The playlist for this time of day: from playlistSchedule (each from its time on), else the playlist setting
+  function scheduledList() {
+    var sch = S.playlistSchedule, list = [], k;
+    if (sch && typeof sch === "object" && !(sch instanceof Array)) {
+      for (k in sch) {
+        if (Object.prototype.hasOwnProperty.call(sch, k) && minutesOf(k) != null && String(sch[k] || "").trim()) list.push([minutesOf(k), String(sch[k]).trim()]);
+      }
+    }
+    if (!list.length) return S.playlist;
+    list.sort(function (a, b) { return a[0] - b[0]; });
+    var now = nowMinutes(), v = list[list.length - 1][1];   // before the day's first time, the last one still holds
+    for (var i = 0; i < list.length; i++) if (list[i][0] <= now) v = list[i][1];
+    return v;
   }
 
   function unique(a) {
@@ -583,6 +953,7 @@ var SETTINGS = {
     started = true;
     adSkips = 0;
     needHold = false;
+    addHistory(current);
     if (state.problems[current]) { delete state.problems[current]; save(); }   // it plays fine now
     var paid = (vd && vd.paidContentOverlayDurationMs) || 0;   // "Includes paid promotion" label
     var hold = Math.max(Number(S.titleSeconds) || 0, paid ? paid / 1000 + 0.5 : 0);
@@ -648,7 +1019,13 @@ var SETTINGS = {
     if (now - scheduleAt > 10000) { scheduleAt = now; checkHours(); }
     if (quiet) {                                 // music off on purpose: café screen, silent, nothing to watch
       if (quiet === "paused" && now > holdUntil) resume();
+      else if (quiet === "prayer" && now >= prayerUntil) checkHours();
       return;
+    }
+    var low = now < quietUntil ? quietShare() : 1;   // "Quiet for a minute": down in about 2 seconds, and back
+    if (duck !== low) {
+      duck = low > duck ? Math.min(low, duck + 0.1) : Math.max(low, duck - 0.1);
+      syncSound();
     }
     var st = player.getPlayerState();
     var t = player.getCurrentTime() || 0;
@@ -693,6 +1070,7 @@ var SETTINGS = {
       if (!picEnding && st === PLAYING && left < tail + Math.max(fo, be) && settled) {
         picEnding = true;                        // café screen over the last seconds: no end cards
         picFadeSecs = be > fo ? 2 : Math.max(fo, 0.3);
+        nextSlide();                             // with the next message or picture
       }
       if (!fadingOut && st === PLAYING && left < tail + fo && settled) startFadeOut(fo);
       if (fadingOut && (left < tail || now - fadeStartedAt > (fo + 3) * 1000)) return next();
@@ -725,7 +1103,7 @@ var SETTINGS = {
   function startFadeOut(secs) {
     fadingOut = true;
     fadeStartedAt = Date.now();
-    if (!picEnding) { picEnding = true; picFadeSecs = Math.max(secs, 0.3); }
+    if (!picEnding) { picEnding = true; picFadeSecs = Math.max(secs, 0.3); nextSlide(); }
     fadeLevel(0, secs);
     syncPicture();
   }
@@ -737,7 +1115,8 @@ var SETTINGS = {
   // screen underneath is what's on the TV.
   function syncPicture() {
     var now = Date.now(), mode = "off";
-    if (picEnding || fadingOut) mode = "fadeout";
+    if (now < lookUntil) mode = "off";           // a special day's look, shown from the phone
+    else if (picEnding || fadingOut) mode = "fadeout";
     else if (started && !guarded && now >= showAt &&
              (lastState === PLAYING || (lastState === BUFFERING && now - leftPlayingAt < 700))) mode = "show";
     setPicture(mode);
@@ -762,16 +1141,41 @@ var SETTINGS = {
     syncPicture();
   }
 
+  // The info panel needs a wide screen (TVs are 16:9); never during quality setup
+  function panelWanted() {
+    return S.infoPanel !== false && !SETUP && window.innerWidth >= window.innerHeight * 1.5;
+  }
+
+  // The stage (video and café screen): the whole screen, or with the info panel 80% of its
+  // width at the top left, keeping 16:9. The panel takes the column on the right and the
+  // band below. --u is one pixel of a 1920x1080 screen, so the panel looks the same on any TV.
+  //
   // YouTube picks the stream from the player's size, so the player is drawn at
-  // the chosen quality (4K by default) and shrunk to fit the screen exactly,
+  // the chosen quality (4K by default) and shrunk to fit the stage exactly,
   // then zoomed for this song if it has black bars (remote left/right).
   function layout() {
-    var el = document.getElementById("player");
+    var el = document.getElementById("player"), stage = document.getElementById("stage"), root = document.documentElement.style;
     lastW = window.innerWidth;
     lastH = window.innerHeight;
-    if (!el || !lastW || !lastH) return;
+    if (!lastW || !lastH) return;
+    var on = panelWanted(), sw = lastW, sh = lastH;
+    if (on) {
+      sw = Math.round(lastW * 0.8);
+      sh = Math.round(sw * 9 / 16);
+      if (sh > lastH * 0.86) { sh = Math.round(lastH * 0.86); sw = Math.round(sh * 16 / 9); }
+    }
+    stage.style.width = sw + "px";
+    stage.style.height = sh + "px";
+    root.setProperty("--u", Math.min(lastW / 1920, lastH / 1080) + "px");
+    root.setProperty("--stageW", sw + "px");
+    root.setProperty("--stageH", sh + "px");
+    root.setProperty("--colW", (lastW - sw) + "px");
+    root.setProperty("--bandH", (lastH - sh) + "px");
+    if (on !== panelOn) { panelOn = on; panelDirty = true; }
+    document.body.classList.toggle("with-panel", on);
+    if (!el) return;
     var dpr = window.devicePixelRatio || 1;
-    var fitH = Math.min(lastH, lastW * 9 / 16);                    // biggest 16:9 area on screen
+    var fitH = Math.min(sh, sw * 9 / 16);                          // biggest 16:9 area on the stage
     var h = Math.max(Number(S.quality) || 2160, fitH * dpr) / dpr; // player size in CSS pixels
     // Quality setup: nearly screen size and no zoom, so YouTube's controls are full size, and all of
     // them stay inside the part of the picture every TV shows (some TVs cut off the edges)
@@ -782,7 +1186,7 @@ var SETTINGS = {
     renderH = Math.round(h * dpr);
     el.style.width = w + "px";
     el.style.height = h + "px";
-    el.style.transform = "translate(" + (lastW - w * s) / 2 + "px, " + (lastH - h * s) / 2 + "px) scale(" + s + ")";
+    el.style.transform = "translate(" + (sw - w * s) / 2 + "px, " + (sh - h * s) / 2 + "px) scale(" + s + ")";
   }
 
   /* ---------- sound ---------- */
@@ -799,8 +1203,9 @@ var SETTINGS = {
   // with the fade level (on a natural-sounding curve), at the song's volume.
   function syncSound(force) {
     if (!player || !ready) return;
-    var silent = muted || level <= 0.001 || (guarded && adBlocking());
-    var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * scheduleVolume() / 100 * Math.pow(10, (level - 1) * 1.5)));
+    var silent = muted || level <= 0.001 || duck <= 0.001 || (guarded && adBlocking());
+    var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * scheduleVolume() / 100 * closingShare() * duck *
+                                                  Math.pow(10, (level - 1) * 1.5)));
     if (force || silent !== lastSentMute) {
       if (silent) player.mute(); else player.unMute();
       lastSentMute = silent;
@@ -1049,10 +1454,53 @@ var SETTINGS = {
     return Math.max(0, Math.min(100, v));
   }
 
+  // Every 10 seconds: opening hours, the call to prayer, and the playlist for this time of day
   function checkHours() {
-    var open = isOpen() || Date.now() < openAnywayUntil;
-    if (!open && quiet !== "closed") goQuiet("closed");
-    else if (open && quiet === "closed") resume();
+    var now = Date.now(), open = isOpen() || now < openAnywayUntil;
+    if (!URL_LIST && playlistId(scheduledList()) !== LIST) pendingRestart = true;   // switches between two songs
+    if (!open) {
+      if (quiet !== "closed") goQuiet("closed");
+      return;
+    }
+    var pr = prayerNow(now);
+    if (pr && quiet !== "paused" && pr.key !== prayerSkip) {
+      prayerUntil = pr.until;
+      prayerName = pr.name;
+      if (quiet !== "prayer") goQuiet("prayer");
+      return;
+    }
+    if (quiet === "closed" || quiet === "prayer") resume();
+  }
+
+  // Minutes until the end of the opening period we're in (null: no opening hours set)
+  function minutesToClose() {
+    var spec = String(S.openHours || "").trim();
+    if (!spec) return null;
+    var d = new Date(Date.now()), now = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60, best = null;
+    spec.split(",").forEach(function (part) {
+      var p = part.split("-"), a = minutesOf(p[0]), b = minutesOf(p[1]);
+      if (p.length !== 2 || a == null || b == null || a === b) return;
+      if (!(a < b ? now >= a && now < b : now >= a || now < b)) return;
+      var left = (b - now + 1440) % 1440;
+      if (best == null || left < best) best = left;
+    });
+    return best;
+  }
+
+  // The volume's share in the last minutes before closing: it eases down to almost nothing
+  // (1 = not closing; not after "Play anyway" past closing time)
+  function closingShare() {
+    var mins = Number(S.closingFade) || 0;
+    if (mins <= 0 || Date.now() < openAnywayUntil) return 1;
+    var left = minutesToClose();
+    if (left == null || left >= mins) return 1;
+    return Math.pow(10, (Math.max(0, left / mins) - 1) * 1.5);
+  }
+
+  // "Quiet for a minute": the music at quietLevel percent
+  function quietShare() {
+    var q = Number(S.quietLevel);
+    return isNaN(q) ? 0.15 : Math.max(0, Math.min(100, q)) / 100;
   }
 
   // Music off on purpose (closing time, or paused from the phone): the song fades
@@ -1060,6 +1508,7 @@ var SETTINGS = {
   function goQuiet(why) {
     if (!quiet) quietSince = Date.now();
     quiet = why;
+    nextSlide();                                 // (for the call to prayer: the café's name, and why)
     clearTimeout(skipTimer);
     picEnding = true;
     picFadeSecs = 1.5;
@@ -1070,10 +1519,10 @@ var SETTINGS = {
     }, 1600);
   }
 
-  // Music back on: the same song if it was a short pause, otherwise the next one
+  // Music back on: the same song if it was a short pause (or the call to prayer), otherwise the next one
   function resume() {
     if (!quiet) return;
-    var shortPause = quiet === "paused" && Date.now() - quietSince < 10 * 60e3 && started;
+    var shortPause = (quiet === "paused" || quiet === "prayer") && Date.now() - quietSince < 10 * 60e3 && started;
     quiet = "";
     holdUntil = 0;
     clearTimeout(skipTimer);
@@ -1116,11 +1565,611 @@ var SETTINGS = {
     var oldList = S.playlist, oldKey = S.apiKey;
     applySettings(appSettings());
     if (S.playlist !== oldList || S.apiKey !== oldKey) pendingRestart = true;
+    if (!URL_LIST && playlistId(scheduledList()) !== LIST) pendingRestart = true;
     document.getElementById("brandName").textContent = S.brandName || "";
+    panelDirty = true;                           // prices, QR codes, words: drawn again
+    prayerDay = "";
+    singerCache = {};
+    busyChannelList = null;
     layout();
     syncSound(true);
     noCaptions();
     scheduleAt = 0;                              // opening hours checked on the next tick
+  }
+
+  /* ---------- songs asked for on the phone, and the last songs played ---------- */
+
+  // playnext: after the song playing now (after any others asked for); playnow: straight away;
+  // unnext: off the list again. A song from a link (not in the playlist) plays the same way.
+  function songCommand(what) {
+    var c = what.indexOf(":"), kind = what.slice(0, c), id = what.slice(c + 1);
+    var list = state.upNext.filter(function (v) { return v !== id; });
+    if (kind === "playnext" && list.length >= 20) return false;
+    if (kind === "playnext") list.push(id);
+    if (kind === "playnow") list.unshift(id);
+    state.upNext = list;
+    save();
+    panelDirty = true;
+    if (kind !== "playnow" || !ready || !current) return true;   // not playing yet: it's simply first
+    if (quiet) {                                 // music off: on again, with this song
+      if (quiet === "closed") openAnywayUntil = Date.now() + 3 * 3600e3;
+      if (quiet === "prayer") { var pr = prayerNow(Date.now()); prayerSkip = pr ? pr.key : ""; }
+      quiet = "";
+      holdUntil = 0;
+      lastMove = Date.now();
+      strikes = 0;
+      next();
+      return true;
+    }
+    startFadeOut(0.8);
+    clearTimeout(skipTimer);
+    skipTimer = setTimeout(next, 900);
+    return true;
+  }
+
+  // The last 20 songs that really played on this TV (any playlist), for the phone page
+  function history() {
+    try {
+      var h = JSON.parse(localStorage.getItem("tv-history"));
+      return h instanceof Array ? h.filter(function (e) { return e && isId(e.id); }) : [];
+    } catch (e) { return []; }
+  }
+
+  function addHistory(id) {
+    if (!id) return;
+    var h = history();
+    h.push({ id: id, title: titleText(id), t: Date.now() });
+    try { localStorage.setItem("tv-history", JSON.stringify(h.slice(-20))); } catch (e) {}
+  }
+
+  /* ---------- song names and singers ---------- */
+
+  // A song's [title, channel]: from the app (YouTube's oEmbed), else from the player for the song on now
+  function titleOf(id) {
+    var t = X.titles && X.titles[id];
+    if (t instanceof Array && t[0]) return [String(t[0]), String(t[1] || "")];
+    if (id && id === current && player && ready && player.getVideoData) {
+      var vd = player.getVideoData() || {};
+      if (vd.video_id === id && vd.title) return [String(vd.title), String(vd.author || "")];
+    }
+    return null;
+  }
+
+  function titleText(id) {
+    var t = titleOf(id);
+    return t ? t[0] : "";
+  }
+
+  // "Singer - Song (Official Video) [4K] | other words" -> "Singer - Song"
+  function cleanTitle(t) {
+    t = String(t || "").replace(NOISE, "").split(/\s+[|｜]\s+/)[0];
+    return t.replace(/#\S+/g, "").replace(/\s+[-–—]\s*$/, "").replace(/\s{2,}/g, " ").trim();
+  }
+
+  function cleanChannel(c) {
+    return String(c || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").replace(/\s+(official|music|channel)$/i, "").trim();
+  }
+
+  // { song, singer } from a song's name: "Singer - Song", else the channel is the singer
+  function songParts(id) {
+    var t = titleOf(id);
+    if (!t) return null;
+    var title = cleanTitle(t[0]) || t[0], channel = cleanChannel(t[1]);
+    var m = title.split(/\s+[-–—]\s+/);
+    if (m.length >= 2 && m[0].length <= 60) return { song: m.slice(1).join(" - "), singer: m[0], fromTitle: true };
+    return { song: title, singer: channel, fromTitle: false };
+  }
+
+  function nameKey(s) {
+    return String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  }
+
+  // Channels with songs by many singers (a TV channel, a record label) don't tell the singer
+  function busyChannels() {
+    if (busyChannelList) return busyChannelList;
+    var count = {}, n = 0, k;
+    for (var id in X.titles || {}) {
+      k = X.titles[id] instanceof Array ? nameKey(cleanChannel(X.titles[id][1])) : "";
+      if (k) { count[k] = (count[k] || 0) + 1; n++; }
+    }
+    busyChannelList = {};
+    for (k in count) if (n >= 8 && count[k] > n * 0.4) busyChannelList[k] = true;
+    return busyChannelList;
+  }
+
+  function singersOf(id) {
+    if (singerCache[id]) return singerCache[id];
+    var p = songParts(id), out = [];
+    if (p && p.fromTitle) {
+      p.singer.split(/\s*(?:,|&|\+|\s(?:x|X|feat\.?|ft\.?|with|and)\s|\sو\s)\s*/).forEach(function (n) {
+        n = nameKey(n);
+        if (n) out.push(n);
+      });
+    } else if (p && p.singer && !busyChannels()[nameKey(p.singer)]) {
+      out.push(nameKey(p.singer));
+    }
+    if (p) singerCache[id] = out;               // no name yet: asked again once it arrives
+    return out;
+  }
+
+  // "dashni" and "dashni morad" are the same singer (a name of 5 letters or more that starts the other)
+  function sameName(a, b) {
+    if (a === b) return true;
+    var short = a.length < b.length ? a : b, long = a.length < b.length ? b : a;
+    return short.length >= 5 && long.indexOf(short + " ") === 0;
+  }
+
+  function sameSinger(a, b) {
+    var x = singersOf(a), y = singersOf(b);
+    for (var i = 0; i < x.length; i++) for (var j = 0; j < y.length; j++) if (sameName(x[i], y[j])) return true;
+    return false;
+  }
+
+  function upNextInfo() {
+    var n = current ? chooseNext(false) : null;
+    return n ? { id: n.id, title: titleText(n.id), asked: !!n.asked } : null;
+  }
+
+  /* ---------- from the app: song names, the weather, the café's pictures ---------- */
+
+  function checkExtras() {
+    if (!APP || typeof APP.extras !== "function") return;
+    var v = -1;
+    try { v = Number(APP.extrasVersion()); } catch (e) {}
+    if (v === extrasVersion) return;
+    extrasVersion = v;
+    try { X = JSON.parse(APP.extras() || "{}") || {}; } catch (e) { X = {}; }
+    pictureList = X.pictures instanceof Array ? X.pictures.filter(function (id) { return /^[a-z0-9]{6,24}$/.test(id); }) : [];
+    singerCache = {};
+    busyChannelList = null;
+    panelDirty = true;
+  }
+
+  /* ---------- the call to prayer ---------- */
+
+  // Prayer times, worked out the PrayTimes.org way: Muslim World League (Fajr 18°, Isha 17°),
+  // Asr Shafi'i, Maghrib at sunset. Hours of the day (local time, tz = hours from UTC).
+  function prayerTimes(y, m, d, lat, lon, tz) {
+    var rad = Math.PI / 180;
+    var sin = function (x) { return Math.sin(x * rad); }, cos = function (x) { return Math.cos(x * rad); };
+    var tan = function (x) { return Math.tan(x * rad); }, asin = function (x) { return Math.asin(x) / rad; };
+    var acos = function (x) { return Math.acos(x) / rad; }, atan2 = function (a, b) { return Math.atan2(a, b) / rad; };
+    var acot = function (x) { return Math.atan(1 / x) / rad; };
+    var fix = function (a, b) { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; };
+    if (m <= 2) { y -= 1; m += 12; }
+    var A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+    var jDate = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5 - lon / (15 * 24);
+    function sun(jd) {
+      var D = jd - 2451545.0, g = fix(357.529 + 0.98560028 * D, 360), q = fix(280.459 + 0.98564736 * D, 360);
+      var L = fix(q + 1.915 * sin(g) + 0.020 * sin(2 * g), 360), e = 23.439 - 0.00000036 * D;
+      return { decl: asin(sin(e) * sin(L)), eqt: q / 15 - fix(atan2(cos(e) * sin(L), cos(L)) / 15, 24) };
+    }
+    function midDay(t) { return fix(12 - sun(jDate + t).eqt, 24); }
+    function angleTime(angle, t, before) {
+      var decl = sun(jDate + t).decl, noon = midDay(t);
+      var T = acos((-sin(angle) - sin(decl) * sin(lat)) / (cos(decl) * cos(lat))) / 15;
+      return noon + (before ? -T : T);
+    }
+    var r = {
+      fajr: angleTime(18, 5 / 24, true), dhuhr: midDay(12 / 24),
+      asr: angleTime(-acot(1 + tan(Math.abs(lat - sun(jDate + 13 / 24).decl))), 13 / 24),
+      maghrib: angleTime(0.833, 18 / 24), isha: angleTime(17, 18 / 24)
+    };
+    for (var k in r) r[k] = fix(r[k] + tz - lon / 15, 24);
+    return r;
+  }
+
+  // Today's prayer times, [{name, at (ms)}], each moved by its prayerAdjust minutes
+  function todaysPrayers(now) {
+    var d = new Date(now), lat = Number(S.lat), lon = Number(S.lon), adj = S.prayerAdjust || {};
+    var key = d.toDateString() + JSON.stringify(adj) + lat + "," + lon;
+    if (key === prayerDay) return prayerToday;
+    prayerDay = key;
+    prayerToday = [];
+    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 60) return prayerToday;   // (far north or south the sums don't hold)
+    var tz = -new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTimezoneOffset() / 60;
+    var t = prayerTimes(d.getFullYear(), d.getMonth() + 1, d.getDate(), lat, lon, tz);
+    PRAYERS.forEach(function (n) {
+      if (isNaN(t[n])) return;
+      var mins = Math.floor(t[n] * 60 + 0.5) + (Number(adj[n]) || 0);
+      prayerToday.push({ name: n, at: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, mins).getTime() });
+    });
+    return prayerToday;
+  }
+
+  // The prayer whose pause is now, if any: {name, until, key}
+  function prayerNow(now) {
+    var mins = Number(S.prayerPause) || 0, list = mins > 0 ? todaysPrayers(now) : [];
+    for (var i = 0; i < list.length; i++) {
+      if (now >= list[i].at && now < list[i].at + mins * 60e3) return { name: list[i].name, until: list[i].at + mins * 60e3, key: list[i].name + list[i].at };
+    }
+    return null;
+  }
+
+  /* ---------- special days ---------- */
+
+  // The Umm al-Qura (Hijri) date, {d, m, y}, moved by hijriAdjust days
+  function hijri(now) {
+    var t = new Date(now + (Number(S.hijriAdjust) || 0) * DAY), k = t.toDateString();
+    if (hijriMemo.k === k) return hijriMemo.v;
+    var v = null;
+    try {
+      var o = {};
+      new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { day: "numeric", month: "numeric", year: "numeric" }).formatToParts(t)
+        .forEach(function (p) { o[p.type] = p.value; });
+      v = { d: Number(o.day), m: Number(o.month), y: Number(o.year || o.relatedYear) };
+      if (!v.d || !v.m) v = null;
+    } catch (e) {}
+    hijriMemo = { k: k, v: v };
+    return v;
+  }
+
+  // Today's special day, if any: newroz, eidFitr, eidAdha, barat (Barat Night), newYear
+  function activeDay() {
+    var now = Date.now();
+    if (now < lookUntil && DAYS[lookDay]) return lookDay;
+    if (S.specialDays === false) return "";
+    var d = new Date(now), m = d.getMonth() + 1, day = d.getDate(), h = hijri(now);
+    if (h && h.m === 10 && h.d <= 3) return "eidFitr";
+    if (h && h.m === 12 && h.d >= 10 && h.d <= 13) return "eidAdha";
+    if (m === 3 && (day === 20 || day === 21)) return "newroz";
+    if (h && h.m === 8 && (h.d === 14 || h.d === 15)) return "barat";
+    if ((m === 12 && day === 31 && d.getHours() >= 18) || (m === 1 && day === 1)) return "newYear";
+    return "";
+  }
+
+  function greeting(day) {
+    if (day !== "newYear") return day ? L(day) : "";
+    var d = new Date(Date.now());                  // on 31 December (and when shown from the phone): the coming year
+    return L("newYear") + " " + (d.getMonth() === 0 ? d.getFullYear() : d.getFullYear() + 1);
+  }
+
+  function applyDay() {
+    var day = activeDay(), brand = document.getElementById("brand"), want = day ? "day-" + day : "";
+    if ((brand.getAttribute("data-look") || "") === want) return;
+    for (var k in DAYS) brand.classList.remove("day-" + k);
+    if (want) brand.classList.add(want);
+    brand.setAttribute("data-look", want);
+    panelDirty = true;
+  }
+
+  /* ---------- between songs: the café's name, messages and pictures ---------- */
+
+  // The café's name first, then messages and pictures taking turns
+  function slideList() {
+    var msgs = (S.messages instanceof Array ? S.messages : []).map(function (m) { return String(m == null ? "" : m).trim(); })
+                 .filter(Boolean).slice(0, 30);
+    var pics = pictureList.slice(0, 30), list = [{ kind: "name" }];
+    for (var i = 0; i < msgs.length || i < pics.length; i++) {
+      if (i < msgs.length) list.push({ kind: "msg", text: msgs[i] });
+      if (i < pics.length) list.push({ kind: "pic", id: pics[i] });
+    }
+    return list;
+  }
+
+  // The café screen comes up between two songs (or for a long while): the next one in turn.
+  // During the call to prayer and a special day's look from the phone: the café's name.
+  function nextSlide() {
+    var list = slideList();
+    slideIdx = quiet === "prayer" || Date.now() < lookUntil ? 0 : (slideIdx + 1) % list.length;
+    showSlide(list[slideIdx] || list[0]);
+    slideAt = Date.now();
+    var after = list[(slideIdx + 1) % list.length];   // the next picture loads now, so it's ready in time
+    if (after && after.kind === "pic") { var pre = new Image(); pre.src = "/tv/pictures/" + after.id + ".jpg"; }
+  }
+
+  function showSlide(item) {
+    var box = document.getElementById("slide"), brand = document.getElementById("brand");
+    var key = item.kind + ":" + (item.kind === "msg" ? item.text : item.id || "");
+    if (key === slideShown) return;
+    slideShown = key;
+    var wasOn = box.className === "on";
+    box.className = "";
+    clearTimeout(slideTimer);
+    if (item.kind === "name") { brand.classList.remove("slide-on"); return; }
+    slideTimer = setTimeout(function () {         // the one before fades out first
+      box.innerHTML = "";
+      if (item.kind === "pic") {
+        var img = document.createElement("img");
+        img.alt = "";
+        img.src = "/tv/pictures/" + item.id + ".jpg";
+        box.appendChild(img);
+      } else {
+        var p = document.createElement("p"), n = item.text.length;
+        p.className = "msg";
+        p.dir = "auto";
+        p.textContent = item.text;
+        p.style.setProperty("--msg", (n <= 24 ? 8 : n <= 60 ? 6.4 : n <= 120 ? 5 : 4) + "cqmin");
+        box.appendChild(p);
+      }
+      box.className = "on";
+      brand.classList.add("slide-on");
+    }, wasOn ? 600 : 0);
+  }
+
+  /* ---------- the info panel ---------- */
+
+  function L(k) {
+    var o = S.labels && typeof S.labels === "object" ? S.labels[k] : null;
+    return o != null && String(o).trim() !== "" ? String(o) : LABELS[k] || "";
+  }
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(id, text) {
+    var e = $(id);
+    if (e && e.textContent !== text) e.textContent = text;
+  }
+
+  // Starts at once (before YouTube): the clock works even with no internet
+  function startPanel() {
+    slideAt = Date.now();                        // the café's name first
+    layout();
+    checkExtras();
+    panelTick();
+    setInterval(panelTick, 1000);
+  }
+
+  function panelTick() {
+    var now = Date.now();
+    if (APP) checkExtras();
+    applyDay();
+    var note = quiet === "prayer" ? L("prayerNote") : greeting(activeDay());
+    setText("brandNote", note);
+    // A long while on the café screen (closed, paused, slow internet): the next message or picture
+    if (!SETUP && pictureMode !== "show" && now - slideAt > 20000 && (slideList().length > 1 || slideIdx)) nextSlide();
+    if (!panelOn) return;
+    var d = new Date(now), loc = L("locale");
+    var dir = /^(ckb|ar|fa|he|ur|ku-arab|sdh|lrc)\b/i.test(loc) ? "rtl" : "ltr";
+    if ($("panel").dir !== dir) { $("panel").dir = dir; $("band").dir = dir; }
+    draw("clock", d.getHours() + ":" + d.getMinutes() + S.clock24 + L("am") + L("pm"), drawClock, d);
+    draw("date", d.toDateString() + (S.hijriAdjust || 0) + loc + greeting(activeDay()), drawDate, d);
+    draw("weather", extrasVersion + ":" + d.getHours() + S.place + L("high") + L("low") + L("weatherCredit"), drawWeather, now);
+    draw("music", musicKey(), drawMusic);
+    draw("codes", JSON.stringify([S.menuUrl, S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
+    draw("prices", JSON.stringify([S.prices, S.pricesAt, L("prices"), L("updated"), loc, S.clock24, d.toDateString()]), drawPrices);
+    panelDirty = false;
+  }
+
+  // Each part of the panel is drawn again only when what it shows changed
+  function draw(part, key, fn, arg) {
+    if (!panelDirty && drawn[part] === key) return;
+    drawn[part] = key;
+    fn(arg);
+  }
+
+  // A time of day as on the clock: "9:05 PM" or "21:05"
+  function clockText(ms) {
+    var d = new Date(ms), h = d.getHours(), m = ("0" + d.getMinutes()).slice(-2);
+    return S.clock24 ? ("0" + h).slice(-2) + ":" + m : (h % 12 || 12) + ":" + m + " " + (h < 12 ? L("am") : L("pm"));
+  }
+
+  function drawClock(d) {
+    var h = d.getHours(), m = ("0" + d.getMinutes()).slice(-2);
+    setText("time", (S.clock24 ? ("0" + h).slice(-2) : String(h % 12 || 12)) + ":" + m);
+    setText("ampm", S.clock24 ? "" : h < 12 ? L("am") : L("pm"));
+  }
+
+  // Dates in the locale's language if the TV's engine knows it, else in British English
+  function dateFormat(loc, opts) {
+    try { if (Intl.DateTimeFormat.supportedLocalesOf([loc]).length) return new Intl.DateTimeFormat(loc, opts); } catch (e) {}
+    return new Intl.DateTimeFormat("en-GB", opts);
+  }
+
+  // A label that is a list of names ("weekdays", "months", "hijriMonths"), if it has them all
+  function names(k, n) {
+    var a = L(k) ? L(k).split(/\s*[,\u060C]\s*/) : [];
+    return a.length === n ? a : null;
+  }
+
+  function drawDate(d) {
+    var days = names("weekdays", 7), months = names("months", 12), hm = names("hijriMonths", 12), h = hijri(d.getTime()), hj = "";
+    setText("date", days && months ? days[d.getDay()] + " " + d.getDate() + " " + months[d.getMonth()]
+                                   : dateFormat(L("locale"), { weekday: "long", day: "numeric", month: "long" }).format(d));
+    if (h && hm) hj = h.d + " " + hm[h.m - 1] + " " + h.y;
+    else {
+      try {
+        var opts = { calendar: "islamic-umalqura", day: "numeric", month: "long", year: "numeric" }, f = dateFormat(L("locale"), opts);
+        if (f.resolvedOptions().calendar !== "islamic-umalqura") f = new Intl.DateTimeFormat("en-GB", opts);
+        hj = f.format(new Date(d.getTime() + (Number(S.hijriAdjust) || 0) * DAY));
+      } catch (e) {}
+    }
+    setText("hijri", hj);
+    setText("greeting", greeting(activeDay()));
+  }
+
+  // The hour we're in, and the next 24 hours' highest and lowest, from the app's forecast
+  function drawWeather(now) {
+    var hours = X.weather && X.weather.hours instanceof Array ? X.weather.hours : [], cur = null, hi = -99, lo = 99;
+    hours.forEach(function (h) {
+      if (!(h instanceof Array) || h.length < 3 || typeof h[1] !== "number") return;
+      if (h[0] <= now) cur = h;
+      if (h[0] > now - 3600e3 && h[0] < now + 24 * 3600e3) { hi = Math.max(hi, h[1]); lo = Math.min(lo, h[1]); }
+    });
+    if (!cur && hours.length && hours[0] instanceof Array && hours[0][0] - now < 3600e3) cur = hours[0];
+    if (cur && now - cur[0] > 2 * 3600e3) cur = null;   // an old forecast: nothing rather than wrong
+    $("weather").hidden = !cur;
+    setText("credit", cur ? L("weatherCredit") : "");
+    if (!cur) return;
+    var deg = function (t) { t = Math.round(t); return (t < 0 ? "−" + -t : String(t)) + "°"; };
+    $("wicon").innerHTML = weatherIcon(cur[2]);
+    setText("temp", deg(cur[1]));
+    setText("wwords", L(weatherKind(cur[2])) || "");
+    var line = $("whilo");
+    line.innerHTML = "";
+    [S.place || "", hi > -99 ? L("high") + " " + deg(hi) : "", lo < 99 ? L("low") + " " + deg(lo) : ""].forEach(function (t, i) {
+      if (!t) return;
+      var sp = document.createElement("span");
+      sp.textContent = t;
+      if (i === 0) sp.dir = "auto";
+      line.appendChild(sp);
+    });
+  }
+
+  function musicKey() {
+    var n = current ? chooseNext(false) : null, a = current ? songParts(current) : null, b = n ? songParts(n.id) : null;
+    return JSON.stringify([quiet, current, a, n && n.id, b, prayerUntil, L("nowPlaying"), L("upNext"), L("prayerBand"), S.clock24]);
+  }
+
+  // What's playing and what's next (or why the music stopped)
+  function drawMusic() {
+    var box = $("music");
+    if (quiet === "prayer") {
+      box.hidden = false;
+      setText("nowLbl", "");
+      setText("nowTitle", L("prayerBand"));
+      setText("nowSinger", clockText(prayerUntil));
+      $("nextLine").hidden = true;
+      return;
+    }
+    var now = !quiet && current ? songParts(current) : null;
+    box.hidden = !now;
+    if (!now) return;
+    setText("nowLbl", L("nowPlaying"));
+    setText("nowTitle", now.song);
+    setText("nowSinger", now.singer);
+    var n = chooseNext(false), nx = n ? songParts(n.id) : null;
+    $("nextLine").hidden = !nx;
+    setText("nextLbl", L("upNext"));
+    setText("nextTitle", nx ? nx.song + (nx.singer ? " – " + nx.singer : "") : "");
+  }
+
+  // "Dollar (100 $) = 147,250" -> ["Dollar (100 $)", "147,250"]; lines with no = or : stay whole
+  function priceRows(text) {
+    return String(text || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).slice(0, 12).map(function (l) {
+      var m = /^(.*?)\s*[=:]\s*(.+)$/.exec(l);
+      return m && m[1] ? [m[1], m[2]] : [l, ""];
+    });
+  }
+
+  function drawPrices() {
+    var rows = priceRows(S.prices), list = $("priceList"), at = Number(S.pricesAt) || 0;
+    $("prices").hidden = !rows.length;
+    setText("pricesHead", L("prices"));
+    list.innerHTML = "";
+    rows.forEach(function (r) {
+      var row = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd");
+      dt.textContent = r[0];
+      dt.dir = "auto";
+      dd.textContent = r[1];
+      dd.className = "num";
+      dd.dir = "ltr";
+      row.appendChild(dt);
+      row.appendChild(dd);
+      list.appendChild(row);
+    });
+    var when = "";
+    if (at) {
+      var d = new Date(at), today = new Date(Date.now()).toDateString() === d.toDateString();
+      when = L("updated") + " " + (today ? "" : dateFormat(L("locale"), { day: "numeric", month: "short" }).format(d) + ", ") + clockText(at);
+    }
+    setText("pricesAt", when);
+  }
+
+  // A Wi-Fi QR code (phones join the network when they scan it); \ ; , : " are escaped
+  function wifiText(name, password) {
+    var esc = function (v) { return String(v).replace(/([\;,:"])/g, "\\$1"); };
+    return "WIFI:T:" + (password ? "WPA" : "nopass") + ";S:" + esc(name) + ";" + (password ? "P:" + esc(password) + ";" : "") + ";";
+  }
+
+  // A QR code as a picture: dark squares on the card's light background, 2 squares of margin
+  function qrSvg(text) {
+    try {
+      var q = qrcode(0, "M");
+      q.addData(text, "Byte");
+      q.make();
+      var n = q.getModuleCount(), size = n + 4, d = "";
+      for (var r = 0; r < n; r++) {
+        for (var c = 0; c < n; c++) {
+          if (!q.isDark(r, c)) continue;
+          var run = 1;
+          while (c + run < n && q.isDark(r, c + run)) run++;
+          d += "M" + (c + 2) + " " + (r + 2) + "h" + run + "v1h-" + run + "z";
+          c += run - 1;
+        }
+      }
+      return '<svg viewBox="0 0 ' + size + " " + size + '" shape-rendering="crispEdges"><path fill="#0b1030" d="' + d + '"/></svg>';
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function drawCodes() {
+    var menu = String(S.menuUrl || "").trim(), wifi = String(S.wifiName || "").trim(), pw = String(S.wifiPassword || "");
+    $("menuCode").hidden = !menu;
+    if (menu) {
+      $("menuCode").querySelector(".qr").innerHTML = qrSvg(menu);
+      setText("menuLbl", L("menu"));
+      setText("menuHint", L("menuHint"));
+    }
+    $("wifiCode").hidden = !wifi;
+    if (wifi) {
+      $("wifiCode").querySelector(".qr").innerHTML = qrSvg(wifiText(wifi, pw));
+      setText("wifiLbl", L("wifi"));
+      setText("wifiName", wifi);
+      setText("wifiPw", pw ? L("wifiPassword") + " " + pw : "");
+    }
+  }
+
+  /* ---------- weather words and pictures ---------- */
+
+  // MET Norway's symbol ("lightrainshowers_day") -> one of the panel's words
+  function weatherKind(sym) {
+    var b = String(sym || "").replace(/_(day|night|polartwilight)$/, "");
+    if (/thunder/.test(b)) return "thunder";
+    if (/sleet/.test(b)) return "sleet";
+    if (/snow/.test(b)) return "snow";
+    if (/^heavyrain/.test(b)) return "heavyrain";
+    if (/^lightrain/.test(b)) return "lightrain";
+    if (/rain/.test(b)) return "rain";
+    if (b === "clearsky") return "clear";
+    return /^(fair|partlycloudy|cloudy|fog)$/.test(b) ? b : "";
+  }
+
+  function weatherIcon(sym) {
+    var kind = weatherKind(sym), night = /_night$/.test(sym);
+    var sun = function (cx, cy, r) {
+      var rays = "";
+      for (var i = 0; i < 8; i++) {
+        var a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+        rays += '<line x1="' + (cx + c * (r + 4)).toFixed(1) + '" y1="' + (cy + s * (r + 4)).toFixed(1) + '" x2="' + (cx + c * (r + 9)).toFixed(1) + '" y2="' + (cy + s * (r + 9)).toFixed(1) + '"/>';
+      }
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#ffcf8a"/><g stroke="#ffcf8a" stroke-width="3" stroke-linecap="round">' + rays + "</g>";
+    };
+    var moon = function (cx, cy, r) {
+      return '<path fill="#ffdca8" d="M' + (cx + r * 0.35) + " " + (cy - r) + "A" + r + " " + r + " 0 1 0 " + (cx + r) + " " + (cy + r * 0.45) +
+             "A" + r * 0.82 + " " + r * 0.82 + " 0 0 1 " + (cx + r * 0.35) + " " + (cy - r) + 'Z"/>';
+    };
+    var light = function (cx, cy, r) { return night ? moon(cx, cy, r) : sun(cx, cy, r); };
+    var cloud = function (dy, fill) {
+      return '<path fill="' + (fill || "#fff1e0") + '" transform="translate(0 ' + (dy || 0) + ')" d="M17 50H47A9.5 9.5 0 0 0 47.6 31A13 13 0 0 0 22.3 27.6A11.3 11.3 0 0 0 17 50Z"/>';
+    };
+    var drops = function (n, flakes) {
+      var out = "";
+      for (var i = 0; i < n; i++) {
+        var x = 32 + (i - (n - 1) / 2) * 10;
+        out += flakes && flakes(i) ? '<circle cx="' + x + '" cy="56" r="2.6" fill="#fff1e0"/>'
+                                   : '<line x1="' + (x + 2) + '" y1="51" x2="' + (x - 2) + '" y2="60" stroke="#9cc8ff" stroke-width="3" stroke-linecap="round"/>';
+      }
+      return out;
+    };
+    var showers = /showers/.test(sym) ? light(19, 17, 8) : "";
+    switch (kind) {
+      case "clear": return light(32, 32, 13);
+      case "fair": return light(26, 26, 11) + '<g transform="translate(14 14) scale(.62)">' + cloud() + "</g>";
+      case "partlycloudy": return light(20, 19, 10.5) + '<g transform="translate(4 4)">' + cloud(2) + "</g>";
+      case "cloudy": return '<g opacity=".55" transform="translate(-8 -8) scale(.8)">' + cloud() + "</g>" + cloud(2);
+      case "fog": return '<g stroke="#fff1e0" stroke-width="3.5" stroke-linecap="round"><line x1="12" y1="26" x2="52" y2="26"/><line x1="8" y1="35" x2="48" y2="35"/><line x1="16" y1="44" x2="56" y2="44"/></g>';
+      case "lightrain": return showers + cloud(-6) + drops(2);
+      case "rain": return showers + cloud(-6) + drops(3);
+      case "heavyrain": return showers + cloud(-6) + drops(4);
+      case "sleet": return showers + cloud(-6) + drops(3, function (i) { return i !== 1; });
+      case "snow": return showers + cloud(-6) + drops(3, function () { return true; });
+      case "thunder": return cloud(-6) + '<path fill="#ffcf8a" d="M33 44L25 56H31L28 64L39 51H33L36 44Z"/>';
+      default: return cloud(2);
+    }
   }
 
   /* ---------- for the Android app: status and commands (phone control) ---------- */
@@ -1154,16 +2203,50 @@ var SETTINGS = {
         open: isOpen(),
         holdUntil: quiet === "paused" ? holdUntil : 0,
         adsSkipped: adsSkipped,
-        problems: problems
+        problems: problems,
+        upNext: upNextInfo(),
+        asked: state.upNext.map(function (id) { return { id: id, title: titleText(id) }; }),
+        history: history().slice().reverse(),
+        quietUntil: quietUntil > Date.now() ? quietUntil : 0,
+        quietLevel: Math.round(quietShare() * 100),
+        prayers: Number(S.prayerPause) > 0 ? todaysPrayers(Date.now()).map(function (p) { return { name: p.name, at: p.at }; }) : [],
+        prayerPause: Number(S.prayerPause) || 0,
+        prayerUntil: quiet === "prayer" ? prayerUntil : 0,
+        prayerName: quiet === "prayer" ? prayerName : "",
+        closingIn: closingShare() < 1 ? Math.ceil(minutesToClose()) : 0,
+        day: activeDay(),
+        panel: panelOn
       };
+    },
+    // The songs the app should find names for: the playlist, then any asked for from a link
+    songIds: function () {
+      var more = state.upNext.concat(current ? [current] : []).filter(function (v) { return allIds.indexOf(v) < 0; });
+      return unique(allIds.concat(more));
     },
     // The page's built-in settings (for the phone page's Settings screen) and the ones in use
     settingsInfo: function () {
-      return { defaults: DEFAULTS, current: S };
+      return { defaults: Object.assign({ labelWords: LABELS }, DEFAULTS), current: S };   // (labelWords: the TV's words, for the phone)
     },
-    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload, forget
+    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload, forget,
+    // playnext:<video id>, playnow:<id>, unnext:<id>, quiet:<seconds> (0 = back to normal), look:<special day>
     command: function (what) {
       what = String(what || "");
+      if (/^(playnext|playnow|unnext):[\w-]{11}$/.test(what)) return songCommand(what);
+      if (/^quiet:\d{1,4}$/.test(what)) {
+        var secs = Math.min(Number(what.slice(6)), 1800), now = Date.now();
+        quietUntil = secs ? Math.min(Math.max(now, quietUntil) + secs * 1000, now + 30 * 60e3) : 0;   // pressed again: longer
+        return true;
+      }
+      if (/^look:\w{1,20}$/.test(what)) {
+        if (!DAYS[what.slice(5)]) return false;
+        lookDay = what.slice(5);
+        lookUntil = Date.now() + 20e3;           // the café screen with that day's look, for 20 seconds
+        slideIdx = 0;
+        showSlide({ kind: "name" });
+        applyDay();
+        syncPicture();
+        return true;
+      }
       if (what === "forget") {                   // this TV's memory: shuffle history, song volumes, zooms, problem list
         try { localStorage.removeItem(KEY); } catch (e) {}
         state = load();
@@ -1183,6 +2266,7 @@ var SETTINGS = {
       else if (what === "pause") { if (quiet !== "closed") { goQuiet("paused"); holdUntil = Date.now() + 3 * 3600e3; } }
       else if (what === "resume") {
         if (quiet === "closed") { openAnywayUntil = Date.now() + 3 * 3600e3; resume(); }
+        else if (quiet === "prayer") { var pr = prayerNow(Date.now()); prayerSkip = pr ? pr.key : ""; resume(); }   // this time without the pause
         else resume();
       }
       else if (what === "vol+" || what === "vol-") changeSongVolume(what === "vol+" ? 10 : -10);
@@ -1317,7 +2401,14 @@ var SETTINGS = {
                  ", this song's volume " + songVolume() + "% (remote up/down to change)");
       lines.push("Opening hours " + (S.openHours ? S.openHours + (isOpen() ? " (open now)" : " (closed now)") : "not set") +
                  ", volume schedule " + scheduleVolume() + "% of normal now" +
-                 (quiet === "closed" ? "   MUSIC OFF: outside opening hours" : quiet === "paused" ? "   MUSIC OFF: paused from the phone" : ""));
+                 (quiet === "closed" ? "   MUSIC OFF: outside opening hours" : quiet === "paused" ? "   MUSIC OFF: paused from the phone" :
+                  quiet === "prayer" ? "   MUSIC OFF: call to prayer until " + clockText(prayerUntil) : ""));
+      var nx = upNextInfo(), pr = Number(S.prayerPause) > 0 ? todaysPrayers(Date.now()) : [];
+      lines.push("Up next: " + (nx ? (nx.title || nx.id) + (nx.asked ? " (asked for on the phone)" : "") : "-") +
+                 (state.upNext.length > 1 ? ", then " + (state.upNext.length - 1) + " more asked for" : "") +
+                 "   song names known: " + Object.keys(X.titles || {}).length + (Date.now() < quietUntil ? "   QUIET until " + clockText(quietUntil) : ""));
+      lines.push("Call to prayer: " + (pr.length ? pr.map(function (p) { return p.name + " " + clockText(p.at); }).join(", ") +
+                 " (" + S.prayerPause + " min)" : "no pause") + (activeDay() ? "   special day: " + activeDay() : ""));
       var pids = Object.keys(state.problems);
       if (pids.length) lines.push("Songs that won't play: " + pids.length + " (listed on the phone page): " + pids.slice(0, 4).join(", "));
       lines.push("Quality: " + (QUALITY[quality] || quality || "not reported yet") +
@@ -1327,7 +2418,8 @@ var SETTINGS = {
                  "   fade in " + (Number(S.fadeIn) || 0) + "s / out " + (Number(S.fadeOut) || 0) + "s, title hidden " +
                  (Number(S.titleSeconds) || 0) + "s");
     }
-    lines.push("Screen " + window.innerWidth + "x" + window.innerHeight + ", full screen " + (fs ? "yes" : "no") + ", web engine " + engine());
+    lines.push("Screen " + window.innerWidth + "x" + window.innerHeight + ", full screen " + (fs ? "yes" : "no") + ", web engine " + engine() +
+               ", info panel " + (panelOn ? "on" : "off") + (X.weather ? ", weather from the app" : ""));
     if (skipped.length) lines.push("Skipped: " + skipped.join(", "));
     var box = document.getElementById("debug");
     box.textContent = lines.join("\n");

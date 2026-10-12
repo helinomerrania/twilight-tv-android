@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1030">
+<!-- So it can go on a phone's home screen, with the café's icon -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Twilight TV">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Twilight TV</title>
 <style>
   :root {
@@ -11,7 +19,7 @@
     --glow: #f0985c; --sun: #ffcf8a; --cream: #fff1e0; --soft: rgba(255, 241, 224, .64); --alert: #ff8f7a;
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; scroll-padding-bottom: 150px; }   /* fields scrolled to stay clear of the Save bar */
   body {
     margin: 0; min-height: 100vh; color: var(--cream); background: var(--night);
     background-image: radial-gradient(120% 60% at 50% 115%, rgba(240, 152, 92, .28), transparent 60%),
@@ -28,7 +36,7 @@
   .tvs a, .tvs span { padding: 5px 12px; border-radius: 999px; font-size: .9rem; text-decoration: none; color: var(--cream);
                       border: 1px solid var(--line); }
   .tvs span { background: var(--glow); border-color: var(--glow); color: #2a1406; font-weight: 650; }
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 16px; border-radius: 14px;
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin: 0 0 16px; border-radius: 14px;
           background: rgba(11, 16, 48, .6); border: 1px solid var(--line); }
   .tabs button { min-height: 42px; border-radius: 10px; background: transparent; color: var(--soft); font-weight: 600; }
   .tabs button[aria-selected="true"] { background: var(--plum); color: var(--cream); }
@@ -41,9 +49,12 @@
   .times { display: flex; justify-content: space-between; color: var(--soft); font-size: .85rem; font-variant-numeric: tabular-nums; }
   .state { margin: 12px 0 0; font-size: .95rem; }
   .state.off { color: var(--sun); }
-  .big { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .upnext { margin: 8px 0 0; font-size: .92rem; color: var(--soft); overflow-wrap: anywhere; }
+  .upnext b { color: var(--cream); font-weight: 600; }
+  .big { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   button { font: inherit; color: inherit; cursor: pointer; border: 0; -webkit-tap-highlight-color: transparent; }
-  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, label.upload:focus-within {
+    outline: 3px solid var(--sun); outline-offset: 2px; }
   .big button { min-height: 76px; border-radius: 18px; font-size: 1.05rem; font-weight: 650; background: var(--plum);
                 border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
   .big button.main { background: linear-gradient(160deg, #f6b06c, #e0784e); color: #2a1406; border-color: transparent; }
@@ -59,6 +70,9 @@
   .row .val { text-align: center; font-weight: 650; font-variant-numeric: tabular-nums; }
   .step { width: 48px; height: 48px; border-radius: 14px; background: var(--plum); border: 1px solid var(--line); font-size: 1.5rem; line-height: 1; }
   .wide { width: 100%; min-height: 52px; border-radius: 14px; background: transparent; border: 1px solid var(--line); font-size: .98rem; }
+  .quiet { margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .quiet svg { width: 22px; height: 22px; flex: none; }
+  .quiet.on { border-color: rgba(255, 207, 138, .6); color: var(--sun); background: rgba(255, 207, 138, .08); }
   .update { border-color: rgba(255, 207, 138, .55); }
   .steps { margin: 10px 0 12px; padding-left: 1.3em; }
   .steps li { padding: 4px 0; border: 0; }
@@ -71,13 +85,27 @@
   li b { display: block; font-weight: 600; overflow-wrap: anywhere; }
   li span { color: var(--soft); font-size: .85rem; }
   li a { color: var(--sun); font-size: .85rem; }
+  /* Songs: name on the left, buttons on the right */
+  .songs li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+  .songs li.empty { display: block; color: var(--soft); font-size: .9rem; }
+  .songs .t { min-width: 0; }
+  .songs .t span { display: block; }
+  .mini { min-height: 42px; min-width: 52px; padding: 0 12px; border-radius: 12px; background: var(--plum); border: 1px solid var(--line);
+          font-size: .9rem; font-weight: 600; }
+  .mini.go { background: var(--glow); border-color: transparent; color: #2a1406; }
+  .mini.x { min-width: 42px; padding: 0; font-size: 1.3rem; font-weight: 400; color: var(--soft); background: transparent; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .two .wide.go { background: var(--glow); color: #2a1406; border-color: transparent; font-weight: 650; }
   .facts { color: var(--soft); font-size: .8rem; margin: 18px 4px 0; }
   .facts p { margin: 0 0 4px; }
   .banner { border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; background: rgba(255, 143, 122, .16);
             border: 1px solid rgba(255, 143, 122, .5); }
   .notice { background: rgba(255, 207, 138, .14); border-color: rgba(255, 207, 138, .5); }
+  #say { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 4;
+         max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 14px; background: var(--sun); color: #2a1406; font-weight: 600;
+         box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
 
-  /* Settings */
+  /* Settings and Screen */
   .intro { color: var(--soft); font-size: .9rem; margin: 0 4px 14px; }
   .group { margin: 22px 4px 8px; font-size: 1.05rem; font-weight: 650; color: var(--sun); }
   .field { padding: 14px 0; border-top: 1px solid var(--line); }
@@ -90,9 +118,10 @@
   .reset { background: none; color: var(--sun); font-size: .8rem; text-decoration: underline; padding: 2px 0; }
   .hint { margin: 6px 0 0; color: var(--soft); font-size: .8rem; }
   .err { margin: 6px 0 0; color: var(--alert); font-size: .85rem; }
-  input[type=text], input[type=time], input[type=tel], select {
+  input[type=text], input[type=time], input[type=tel], input[type=search], input[type=url], select, textarea {
     width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
     background: var(--dusk); color: var(--cream); font: inherit; }
+  textarea { min-height: 8.5rem; resize: vertical; line-height: 1.5; }
   input[type=time] { width: auto; min-width: 8rem; color-scheme: dark; }
   input[type=range] { width: 100%; accent-color: var(--glow); }
   .rangebox { display: grid; grid-template-columns: 1fr 3.6rem; gap: 12px; align-items: center; }
@@ -110,9 +139,25 @@
   .switch span { color: var(--soft); font-size: .9rem; }
   .sched { display: grid; gap: 8px; }
   .sched .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .sched .line .x { background: none; color: var(--soft); font-size: 1.4rem; padding: 0 6px; }
-  .add { background: none; color: var(--sun); padding: 6px 0; text-decoration: underline; }
+  .sched .line input[type=text] { flex: 1 1 12rem; width: auto; }
+  .sched .line .x { background: none; color: var(--soft); font-size: 1.4rem; padding: 0 6px; min-height: 44px; }
+  .add { background: none; color: var(--sun); padding: 6px 0; text-decoration: underline; justify-self: start; }
   .timeoff { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .adjust .arow { display: grid; grid-template-columns: 5.5rem 3.4rem 1fr; align-items: center; gap: 8px; padding: 4px 0; }
+  .adjust .ptime { color: var(--soft); font-variant-numeric: tabular-nums; }
+  .looks { display: flex; flex-wrap: wrap; gap: 8px; }
+  details.words summary { cursor: pointer; color: var(--sun); padding: 6px 0; }
+  .words .lrow { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .words .lrow:first-of-type { border-top: 0; }
+  .words .lrow span { color: var(--soft); font-size: .8rem; }
+  /* The café's pictures */
+  .pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 0; }
+  .pics figure { position: relative; margin: 0; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--dusk); }
+  .pics img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .pics .del { position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; border-radius: 50%; background: rgba(11, 16, 48, .82);
+               color: var(--cream); font-size: 1.2rem; line-height: 1; }
+  label.upload { display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--plum); font-weight: 600; }
+  label.upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .savebar { position: sticky; bottom: 0; margin: 18px -16px 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom));
              background: rgba(11, 16, 48, .94); border-top: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .savebar .primary { width: 100%; min-height: 52px; border-radius: 14px; background: linear-gradient(160deg, #f6b06c, #e0784e);
@@ -142,11 +187,12 @@
 <main>
   <header>
     <p class="cafe" id="cafe" dir="auto">Twilight TV</p>
-    <nav class="tvs" id="tvs" aria-label="TVs"></nav>
+    <nav class="tvs" id="tvs" aria-label="TVs" hidden></nav>
   </header>
 
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tabControl" aria-selected="true" aria-controls="controlView">Control</button>
+    <button type="button" role="tab" id="tabScreen" aria-selected="false" aria-controls="screenView">Screen</button>
     <button type="button" role="tab" id="tabSettings" aria-selected="false" aria-controls="settingsView">Settings</button>
   </div>
 
@@ -157,10 +203,11 @@
   <div id="controlView" role="tabpanel">
     <section class="card" aria-live="polite">
       <p class="label">Now playing</p>
-      <p class="title" id="song">–</p>
+      <p class="title" id="song" dir="auto">–</p>
       <div class="bar"><i id="progress"></i></div>
       <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
       <p class="state" id="state"></p>
+      <p class="upnext" id="upNext" hidden></p>
     </section>
 
     <div class="big">
@@ -173,6 +220,10 @@
         <span>Next song</span>
       </button>
     </div>
+    <button class="wide quiet" id="quiet" data-cmd="quiet:60" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="quietText">Quiet for a minute</span>
+    </button>
 
     <section class="card">
       <div class="row">
@@ -193,6 +244,26 @@
         <div class="val" id="tvvol">–</div>
         <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
       </div>
+    </section>
+
+    <section class="card" id="pickCard">
+      <p class="title">Choose a song</p>
+      <p class="label" style="margin-top:4px">It plays next, or right now. Songs from the playlist count as played for this round.</p>
+      <input type="search" id="search" placeholder="Search the playlist" autocomplete="off" spellcheck="false" aria-label="Search the playlist" style="margin-top:10px">
+      <p class="hint" id="songsInfo"></p>
+      <ul class="songs" id="results"></ul>
+      <p class="label" style="margin-top:16px">Or any song on YouTube: paste its link</p>
+      <input type="url" id="link" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" aria-label="YouTube link">
+      <div class="two">
+        <button class="wide" id="linkNext" type="button">Play next</button>
+        <button class="wide go" id="linkNow" type="button">Play now</button>
+      </div>
+      <p class="err" id="linkErr" hidden></p>
+    </section>
+
+    <section class="card" id="askedCard" hidden>
+      <p class="title">Waiting to play</p>
+      <ul class="songs" id="askedList"></ul>
     </section>
 
     <section class="card" id="qualityCard">
@@ -219,7 +290,12 @@
       <button class="wide" data-cmd="update" type="button">Install update</button>
     </section>
 
-    <button class="wide" data-cmd="identify" type="button" style="margin-bottom:14px">Show this TV's name on its screen</button>
+    <button class="wide" id="identify" data-cmd="identify" type="button" style="margin-bottom:14px" hidden>Show this TV's name on its screen</button>
+
+    <section class="card" id="historyCard" hidden>
+      <p class="title">Last songs</p>
+      <ul class="songs" id="historyList"></ul>
+    </section>
 
     <section class="card" id="problems" hidden>
       <p class="title" id="problemsTitle">Songs that won't play</p>
@@ -228,6 +304,11 @@
     </section>
 
     <div class="facts" id="facts"></div>
+  </div>
+
+  <div id="screenView" role="tabpanel" hidden>
+    <p class="intro">What the TV shows beside the video and between the songs. Prices, messages and the QR codes change when you press Save; pictures straight away.</p>
+    <div id="screenForm"><p class="intro">Loading…</p></div>
   </div>
 
   <div id="settingsView" role="tabpanel" hidden>
@@ -243,14 +324,16 @@
       <button class="wide danger" type="button" data-tool="forget">Forget this TV's memory</button>
       <p class="hint" id="toolMsg"></p>
     </section>
+  </div>
 
-    <div class="savebar">
-      <label id="allBox" hidden><input type="checkbox" id="saveAll"> <span id="allText">Also on the other TVs</span></label>
-      <button class="primary" type="button" id="save">Save on this TV</button>
-      <p id="saveMsg" role="status"></p>
-    </div>
+  <div class="savebar" id="savebar" hidden>
+    <label id="allBox" hidden><input type="checkbox" id="saveAll"> <span id="allText">Also on the other TVs</span></label>
+    <button class="primary" type="button" id="save">Save on this TV</button>
+    <p id="saveMsg" role="status"></p>
   </div>
 </main>
+
+<div id="say" role="status" hidden></div>
 
 <div id="pin" hidden>
   <form id="pinForm" autocomplete="off">
@@ -265,9 +348,10 @@
 <script>
 (function () {
   "use strict";
-  var KEY = "twilight-tv-pin", pin = "", timer = null, busy = false, view = "control";
+  var KEY = "twilight-tv-pin", pin = "", timer = null, busy = false, view = "control", last = null, drawnLists = {};
   try { pin = localStorage.getItem(KEY) || ""; } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
+  var PRAYER_NAMES = { fajr: "Fajr", dhuhr: "Dhuhr", asr: "Asr", maghrib: "Maghrib", isha: "Isha" };
 
   function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
   function clock(ms) { var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
@@ -276,6 +360,15 @@
     for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
     if (text != null) e.textContent = text;
     return e;
+  }
+
+  // A short confirmation at the bottom of the screen
+  var sayTimer = null;
+  function say(text) {
+    $("say").textContent = text;
+    $("say").hidden = false;
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(function () { $("say").hidden = true; }, 3000);
   }
 
   function askPin(msg) {
@@ -292,7 +385,7 @@
     try { localStorage.setItem(KEY, pin); } catch (err) {}
     $("pin").hidden = true;
     poll();
-    if (view === "settings") loadSettings();
+    if (view !== "control") loadSettings();
   });
 
   function api(path, method, body) {
@@ -314,6 +407,7 @@
     if (!pin) return askPin("");
     api("/api/status").then(function (s) {
       $("offline").hidden = true;
+      last = s;
       render(s);
       schedule();
     }).catch(function (e) {
@@ -329,16 +423,24 @@
   }
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") poll(); });
 
+  // A song's name for the lists (songs from a link may not have one yet)
+  function songName(x) { return x && x.title ? x.title : "YouTube video " + (x ? x.id : ""); }
+
   function render(s) {
     var p = s.page || null;
     $("notOn").hidden = !!s.onScreen;
     if (p && p.name) $("cafe").textContent = p.name;
     document.title = (s.tv || "TV") + " · Twilight";
 
-    var nav = $("tvs"); nav.innerHTML = "";
-    nav.appendChild(el("span", {}, s.tv || "This TV"));
-    (s.others || []).forEach(function (o) { nav.appendChild(el("a", { href: o.url }, o.name)); });
+    // With one TV box, the parts about other TVs stay hidden
     others = (s.others || []).map(function (o) { return o.name; });
+    var nav = $("tvs"); nav.innerHTML = "";
+    nav.hidden = !others.length;
+    if (others.length) {
+      nav.appendChild(el("span", {}, s.tv || "This TV"));
+      (s.others || []).forEach(function (o) { nav.appendChild(el("a", { href: o.url }, o.name)); });
+    }
+    $("identify").hidden = !others.length;
     updateAllBox();
 
     var song = p && p.song;
@@ -348,20 +450,37 @@
     $("pos").textContent = mmss(pos);
     $("dur").textContent = mmss(dur);
 
-    var st = p ? p.state : "", text = "", off = false, paused = false, closed = false;
+    var st = p ? p.state : "", text = "", off = false, resumeIt = false, closed = false;
     if (!p) text = "";
     else if (st === "closed") { closed = off = true; text = "Music off: outside opening hours (" + p.openHours + ")"; }
-    else if (p.holdUntil) { paused = off = true; text = "Paused from a phone. It starts again by itself at " + clock(p.holdUntil) + "."; }
+    else if (st === "prayer") { resumeIt = off = true; text = "Paused for the call to prayer (" + (PRAYER_NAMES[p.prayerName] || "prayer") + "). The music comes back at " + clock(p.prayerUntil) + "."; }
+    else if (p.holdUntil) { resumeIt = off = true; text = "Paused from a phone. It starts again by itself at " + clock(p.holdUntil) + "."; }
     else if (st === "playing") text = "Playing" + (p.scheduleVolume < 100 ? ", volume schedule " + p.scheduleVolume + "%" : "");
     else if (st === "loading" || st === "starting" || st === "ready") text = "Loading the next song…";
     else text = st.charAt(0).toUpperCase() + st.slice(1);
+    if (p && p.closingIn && !off) text += ". Fading out: closing in " + p.closingIn + " min";
+    if (p && p.quietUntil && !off) text += ". Quiet until " + clock(p.quietUntil);
     $("state").textContent = text;
     $("state").className = "state" + (off ? " off" : "");
 
-    $("pauseText").textContent = closed ? "Play anyway" : paused ? "Resume music" : "Pause music";
-    $("pauseIcon").setAttribute("d", closed || paused ? "M7 4.5v15l12-7.5z" : "M7 5h3.5v14H7zm6.5 0H17v14h-3.5z");
-    $("pause").dataset.cmd = closed || paused ? "resume" : "pause";
-    $("next").disabled = closed;
+    var nx = p && !off ? p.upNext : null;
+    $("upNext").hidden = !nx;
+    if (nx) {
+      $("upNext").innerHTML = "";
+      $("upNext").appendChild(document.createTextNode(nx.asked ? "Next, as asked: " : "Up next: "));
+      $("upNext").appendChild(el("b", { dir: "auto" }, songName(nx)));
+    }
+
+    $("pauseText").textContent = closed ? "Play anyway" : resumeIt ? "Resume music" : "Pause music";
+    $("pauseIcon").setAttribute("d", closed || resumeIt ? "M7 4.5v15l12-7.5z" : "M7 5h3.5v14H7zm6.5 0H17v14h-3.5z");
+    $("pause").dataset.cmd = closed || resumeIt ? "resume" : "pause";
+    $("next").disabled = closed || st === "prayer";
+
+    var quietOn = !!(p && p.quietUntil);
+    $("quiet").className = "wide quiet" + (quietOn ? " on" : "");
+    $("quiet").dataset.cmd = quietOn ? "quiet:0" : "quiet:60";
+    $("quietText").textContent = quietOn ? "Back to normal volume (quiet until " + clock(p.quietUntil) + ")" : "Quiet for a minute";
+    $("quiet").disabled = !p || off;
 
     $("vol").textContent = p ? p.volume + "%" : "–";
     $("zoom").textContent = p ? p.zoom + "%" : "–";
@@ -379,6 +498,16 @@
     $("notice").hidden = !s.notice;
     $("notice").textContent = s.notice || "";
 
+    // Songs asked for on the phone, and the last songs played
+    list("askedList", (p && p.asked) || [], function (x) {
+      return songRow(x, [["×", "unnext:" + x.id, "x", "Take off the list"]]);
+    });
+    $("askedCard").hidden = !(p && p.asked && p.asked.length);
+    list("historyList", (p && p.history) || [], function (x) {
+      return songRow(x, [["Again", "playnext:" + x.id, "", "Play it again next"]], clock(x.t));
+    });
+    $("historyCard").hidden = !(p && p.history && p.history.length);
+
     var probs = (p && p.problems) || [];
     $("problems").hidden = !probs.length;
     $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
@@ -394,6 +523,10 @@
     var facts = [];
     if (p) facts.push("Playlist: " + p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round. " + p.adsSkipped + " ads skipped.");
     if (p && p.openHours) facts.push("Opening hours: " + p.openHours + ".");
+    if (p && p.prayers && p.prayers.length) facts.push("Call to prayer today: " + p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
+      " (the music pauses " + p.prayerPause + " min, in opening hours).");
+    if (s.names) facts.push("Song names: " + s.names + ".");
+    if (s.weather) facts.push("Weather: " + s.weather + ".");
     if (s.levelling) facts.push("Sound levelling: " + s.levelling + ".");
     if (s.settings) facts.push("Settings: " + s.settings + ".");
     if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
@@ -401,16 +534,48 @@
     facts.push("App version " + (s.build || "?") + ".");
     $("facts").innerHTML = "";
     facts.forEach(function (f) { $("facts").appendChild(el("p", {}, f)); });
+
+    refreshPrayerTimes();
+  }
+
+  // A list drawn again only when what's in it changed (so a button isn't replaced under a finger)
+  function list(id, items, row) {
+    var key = JSON.stringify(items);
+    if (drawnLists[id] === key) return;
+    drawnLists[id] = key;
+    var ul = $(id);
+    ul.innerHTML = "";
+    items.forEach(function (x) { ul.appendChild(row(x)); });
+  }
+
+  // One song: its name (and channel, or time) with buttons: [text, command, style, label for screen readers]
+  function songRow(x, buttons, sub) {
+    var li = el("li"), t = el("div", { class: "t" });
+    t.appendChild(el("b", { dir: "auto" }, songName(x)));
+    if (sub || x.channel) t.appendChild(el("span", { dir: "auto" }, sub || x.channel));
+    li.appendChild(t);
+    buttons.forEach(function (b) {
+      var btn = el("button", { type: "button", class: "mini" + (b[2] ? " " + b[2] : ""), "data-cmd": b[1], "data-name": songName(x), "aria-label": b[3] || b[0] }, b[0]);
+      li.appendChild(btn);
+    });
+    if (buttons.length === 1) li.style.gridTemplateColumns = "1fr auto";
+    return li;
   }
 
   function cmd(what, button) {
     if (!what || busy) return;
     busy = true;
     if (button) button.disabled = true;
-    api("/api/cmd?do=" + encodeURIComponent(what), "POST").catch(function () {}).then(function () {
+    api("/api/cmd?do=" + encodeURIComponent(what), "POST").then(function (r) {
+      var name = button && button.getAttribute("data-name");
+      if (!r.ok) { if (/^play/.test(what)) say("The TV couldn't take that song right now."); return; }
+      if (/^playnext:/.test(what)) say("Comes next: " + (name || "your song"));
+      else if (/^playnow:/.test(what)) say("Playing now: " + (name || "your song"));
+      else if (/^look:/.test(what)) say("Look at the TV: 20 seconds of that day's look.");
+    }).catch(function () {}).then(function () {
       busy = false;
       if (button) button.disabled = false;
-      setTimeout(poll, what === "next" ? 1200 : 300);
+      setTimeout(poll, /^(next|playnow)/.test(what) ? 1200 : 300);
     });
   }
 
@@ -419,20 +584,84 @@
     if (b) cmd(b.dataset.cmd, b);
   });
 
+  /* ---------- Choosing a song ---------- */
+
+  var songs = null, songsAt = 0, songsBusy = false;
+
+  function loadSongs() {
+    if (songsBusy || (songs && Date.now() - songsAt < 5 * 60e3)) return;
+    songsBusy = true;
+    api("/api/songs").then(function (r) {
+      songs = r.songs || [];
+      songsAt = Date.now();
+      $("songsInfo").textContent = songs.length ? songs.length + " songs: " + (r.names || "") + "." : "The TV is still reading the playlist.";
+      showResults();
+    }).catch(function () {
+      $("songsInfo").textContent = "Couldn't get the song list. Check the Wi-Fi and try again.";
+    }).then(function () { songsBusy = false; });
+  }
+
+  function plain(s) {
+    s = String(s || "").toLowerCase();
+    return s.normalize ? s.normalize("NFKD").replace(/[̀-ͯ]/g, "") : s;
+  }
+
+  function showResults() {
+    var q = plain($("search").value.trim()), ul = $("results");
+    ul.innerHTML = "";
+    if (!q || !songs) return;
+    var words = q.split(/\s+/);
+    var hits = songs.filter(function (s) {
+      var t = plain(s.title + " " + s.channel + " " + s.id);
+      return words.every(function (w) { return t.indexOf(w) >= 0; });
+    });
+    hits.slice(0, 40).forEach(function (s) {
+      ul.appendChild(songRow(s, [["Next", "playnext:" + s.id, "", "Play next"], ["Now", "playnow:" + s.id, "go", "Play now"]]));
+    });
+    if (!hits.length) ul.appendChild(el("li", { class: "empty" }, "No song matches. Songs whose names aren't known yet can be found by their link below."));
+    else if (hits.length > 40) ul.appendChild(el("li", { class: "empty" }, (hits.length - 40) + " more: type a little more of the name."));
+  }
+
+  $("search").addEventListener("focus", loadSongs);
+  $("search").addEventListener("input", function () { loadSongs(); showResults(); });
+
+  // A YouTube link (watch?v=, youtu.be/, shorts/, live/, embed/) or a bare video ID -> the ID
+  function videoId(s) {
+    s = String(s || "").trim();
+    if (/^[\w-]{11}$/.test(s)) return s;
+    var m = /(?:[?&]v=|youtu\.be\/|\/shorts\/|\/live\/|\/embed\/|\/v\/)([\w-]{11})(?![\w-])/.exec(s);
+    return m ? m[1] : null;
+  }
+
+  function playLink(kind, button) {
+    var id = videoId($("link").value);
+    $("linkErr").hidden = !!id;
+    if (!id) { $("linkErr").textContent = "That isn't a YouTube video link. Copy it from YouTube's Share button."; return; }
+    button.setAttribute("data-name", "the song from the link");
+    cmd(kind + ":" + id, button);
+    $("link").value = "";
+  }
+  $("linkNext").addEventListener("click", function () { playLink("playnext", $("linkNext")); });
+  $("linkNow").addEventListener("click", function () { playLink("playnow", $("linkNow")); });
+  $("link").addEventListener("input", function () { $("linkErr").hidden = true; });
+
   /* ---------- Tabs ---------- */
 
   function show(which) {
     view = which;
     $("controlView").hidden = which !== "control";
+    $("screenView").hidden = which !== "screen";
     $("settingsView").hidden = which !== "settings";
-    $("tabControl").setAttribute("aria-selected", String(which === "control"));
-    $("tabSettings").setAttribute("aria-selected", String(which === "settings"));
-    if (which === "settings") loadSettings();
+    $("savebar").hidden = which === "control";
+    ["Control", "Screen", "Settings"].forEach(function (n) { $("tab" + n).setAttribute("aria-selected", String(which === n.toLowerCase())); });
+    if (which !== "control" && !data) loadSettings();
+    if (which === "screen") loadPictures();
   }
   $("tabControl").addEventListener("click", function () { show("control"); });
+  $("tabScreen").addEventListener("click", function () { show("screen"); });
   $("tabSettings").addEventListener("click", function () { show("settings"); });
 
-  /* ---------- Settings ---------- */
+  /* ---------- Settings (and the Screen tab, which is settings too) ---------- */
 
   // Built-in values, used when the TV hasn't reported its own yet
   var FALLBACK = {
@@ -440,16 +669,52 @@
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
     quality: 2160, autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "",
-    refreshHours: 12, apiKey: ""
+    refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
+    prayerPause: 5, prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
+    prices: "", pricesAt: 0, messages: [], wifiName: "", wifiPassword: "", menuUrl: "", specialDays: true, hijriAdjust: 0, labels: {}
   };
   var FIELDS = [
+    { group: "Prices", tab: "screen" },
+    { key: "prices", label: "Prices beside the video", type: "textarea", tab: "screen", placeholder: "Dollar (100 $) = 147,250\nEuro (100 €) = 160,500",
+      hint: "One per line: a name, then = or :, then the price. The TV shows when you saved them. Empty = no prices." },
+    { group: "Between songs", tab: "screen" },
+    { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
+      hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
+    { pictures: true, tab: "screen" },
+    { group: "QR codes", tab: "screen" },
+    { key: "wifiName", label: "Wi-Fi name", type: "text", tab: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
+    { key: "wifiPassword", label: "Wi-Fi password", type: "text", tab: "screen", hint: "Empty for a network with no password." },
+    { key: "menuUrl", label: "Link to the menu", type: "text", tab: "screen", placeholder: "https://…", hint: "A QR code for it appears beside the video. Empty = none." },
+    { group: "Info panel and special days", tab: "screen" },
+    { key: "infoPanel", label: "Info panel beside the video", type: "toggle", tab: "screen",
+      hint: "The time, the weather, prices, what's playing and the QR codes. Off = the video full screen." },
+    { key: "clock24", label: "24-hour clock", type: "toggle", tab: "screen" },
+    { key: "specialDays", label: "Special days' looks", type: "toggle", tab: "screen",
+      hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own café screen and a greeting." },
+    { looks: true, tab: "screen" },
+    { key: "hijriAdjust", label: "Move Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
+      hint: "If they come a day early or late on the TV compared with Kurdistan's announcement." },
+    { key: "labels", label: "Words on the TV", type: "labels", tab: "screen",
+      hint: "Type your own word for any of these, for example in Kurdish. Empty = the English one shown in grey." },
+
     { group: "Music" },
     { key: "playlist", label: "YouTube playlist", type: "text", hint: "The playlist link, or just its ID. It must be Public or Unlisted. A new playlist starts with the next song." },
+    { key: "playlistSchedule", label: "Playlists by time of day", type: "plsched",
+      hint: "From each time on, this playlist instead of the one above. Before the first time, the last one still holds." },
     { key: "volume", label: "Normal volume", type: "range", min: 0, max: 100, step: 5, unit: "%" },
     { key: "volumeSchedule", label: "Volume by time of day", type: "schedule", hint: "From each time on, this percent of the normal volume. Before the first time, the last one still holds." },
     { key: "openHours", label: "Opening hours", type: "text", placeholder: "10:00-02:00", check: "hours",
       hint: "Music only during these hours, the café screen otherwise. Empty means always on. Two periods: 10:00-14:00, 17:00-01:00" },
+    { key: "closingFade", label: "Fade out before closing time", type: "number", min: 0, max: 30, step: 1, unit: " min",
+      hint: "The music slowly fades over these last minutes of the opening hours. 0 = off." },
+    { key: "differentSinger", label: "Never two songs by the same singer in a row", type: "toggle",
+      hint: "The singer is read from the song's name (\"Singer - Song\") or its YouTube channel." },
     { key: "noRepeat", label: "Songs before one can come back", type: "number", min: 0, max: 300, step: 5, hint: "When a new round starts, the songs that just played are kept out of this many spots." },
+    { key: "quietLevel", label: "Volume of “Quiet for a minute”", type: "range", min: 0, max: 50, step: 5, unit: "%" },
+    { group: "Call to prayer" },
+    { key: "prayerPause", label: "Pause the music for the call to prayer", type: "number", min: 0, max: 15, step: 1, unit: " min",
+      hint: "At each of the five prayers, during opening hours only. 0 = never." },
+    { key: "prayerAdjust", label: "Move a prayer time", type: "adjust", hint: "To match your mosque: minutes later (+) or earlier (−). The times shown are today's." },
     { group: "Between songs" },
     { key: "fadeIn", label: "Fade in", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
     { key: "fadeOut", label: "Fade out", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
@@ -463,18 +728,37 @@
     { key: "noSubtitles", label: "Keep subtitles off", type: "toggle" },
     { key: "brandName", label: "Café name on the café screen", type: "text", rtl: true },
     { group: "This TV box" },
-    { key: "tvName", label: "Name of this TV", type: "text", only: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
+    { key: "tvName", label: "Name of this TV", type: "text", only: true, withOthers: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
     { key: "tvVolume", label: "Box volume at opening time", type: "range", min: 0, max: 100, step: 5, unit: "%", hint: "Set at opening time and every night. 0 = leave it as it is." },
     { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle" },
     { key: "restartAt", label: "Fresh start every night at", type: "time" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle" },
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
     { group: "Advanced" },
+    { key: "place", label: "Place, for the weather", type: "text", hint: "Its name on the TV. The weather and the prayer times are for the latitude and longitude below." },
+    { key: "lat", label: "Latitude", type: "decimal" },
+    { key: "lon", label: "Longitude", type: "decimal" },
     { key: "refreshHours", label: "Reload the page every", type: "number", min: 0, max: 48, step: 1, unit: " h", hint: "Keeps the TV fresh and picks up new songs. 0 = never." },
     { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." }
   ];
+  // The TV's words, if the TV hasn't reported them yet
+  var WORDS = {
+    locale: "en-GB", weekdays: "", months: "", hijriMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
+    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Prices", updated: "Updated", high: "High", low: "Low", am: "AM", pm: "PM",
+    weatherCredit: "Weather: MET Norway (CC BY 4.0)", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
+    newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
+    clear: "Clear", fair: "Fair", partlycloudy: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", lightrain: "Light rain", rain: "Rain", heavyrain: "Heavy rain",
+    sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
+  };
+  var WORD_NOTES = {
+    locale: "Language for dates, e.g. ckb (Kurdish). If the TV doesn't know it, the names below are used.",
+    weekdays: "Weekday names, Sunday first, separated by commas",
+    months: "Month names, January first, separated by commas",
+    hijriMonths: "Hijri month names, Muharram first, separated by commas",
+    am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)"
+  };
 
-  var data = null, local = {}, base = {}, others = [];
+  var data = null, local = {}, base = {}, others = [], loadedPrices = null;
 
   function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
   function copy(v) { return v === undefined ? v : JSON.parse(JSON.stringify(v)); }
@@ -492,8 +776,10 @@
 
   function loadSettings() {
     if (!pin) return askPin("");
-    $("form").innerHTML = "";
-    $("form").appendChild(el("p", { class: "intro" }, "Loading the settings…"));
+    ["form", "screenForm"].forEach(function (id) {
+      $(id).innerHTML = "";
+      $(id).appendChild(el("p", { class: "intro" }, "Loading the settings…"));
+    });
     api("/api/settings").then(function (d) {
       data = d;
       var defaults = d.defaults || {};
@@ -506,12 +792,15 @@
       });
       local = copy(d.local || {});
       others = d.others || [];
+      loadedPrices = copy(value("prices"));
       updateAllBox();
       buildForm();
     }).catch(function (e) {
       if (e.message === "pin" || e.message === "locked") return;
-      $("form").innerHTML = "";
-      $("form").appendChild(el("p", { class: "intro" }, "Couldn't load the settings. Check the Wi-Fi and try again."));
+      ["form", "screenForm"].forEach(function (id) {
+        $(id).innerHTML = "";
+        $(id).appendChild(el("p", { class: "intro" }, "Couldn't load the settings. Check the Wi-Fi and try again."));
+      });
     });
   }
 
@@ -532,18 +821,29 @@
   }
 
   function buildForm() {
-    var form = $("form");
-    form.innerHTML = "";
-    var card = null;
+    var forms = { settings: $("form"), screen: $("screenForm") }, card = null;
+    forms.settings.innerHTML = "";
+    forms.screen.innerHTML = "";
     FIELDS.forEach(function (f) {
+      var form = forms[f.tab || "settings"];
       if (f.group) {
         form.appendChild(el("p", { class: "group" }, f.group));
         card = el("section", { class: "card" });
         form.appendChild(card);
         return;
       }
+      if (f.pictures) {                          // the café's pictures: saved at once, not with the button
+        form.appendChild(el("p", { class: "group" }, "Pictures between songs"));
+        form.appendChild(picturesCard());
+        card = null;
+        return;
+      }
+      if (f.looks) { card.appendChild(looksField()); return; }
+      if (f.withOthers && !others.length) return;   // only with more than one TV box
       card.appendChild(buildField(f));
     });
+    drawPictures();
+    refreshPrayerTimes();
   }
 
   function buildField(f) {
@@ -556,6 +856,7 @@
     reset.addEventListener("click", function () {
       delete local[f.key];
       box.parentNode.replaceChild(buildField(f), box);
+      refreshPrayerTimes();
     });
     head.appendChild(reset);
     box.appendChild(head);
@@ -572,10 +873,26 @@
       var t = el("input", { id: id, type: f.type === "pin" ? "tel" : "text", autocomplete: "off", spellcheck: "false" });
       if (f.placeholder) t.placeholder = f.placeholder;
       if (f.type === "pin") { t.inputMode = "numeric"; t.maxLength = 8; t.placeholder = "own PIN"; }
-      if (f.rtl) t.dir = "auto";
+      t.dir = "auto";
       t.value = v == null ? "" : String(v);
       t.addEventListener("input", function () { setValue(f.key, f.type === "pin" ? t.value.replace(/\D/g, "") : t.value); });
       return t;
+    }
+    if (f.type === "decimal") {
+      var dc = el("input", { id: id, type: "text", inputmode: "decimal", autocomplete: "off" });
+      dc.value = v == null ? "" : String(v);
+      dc.addEventListener("input", function () {
+        var n = Number(dc.value.replace(",", "."));
+        setValue(f.key, dc.value.trim() !== "" && !isNaN(n) ? n : dc.value);
+      });
+      return dc;
+    }
+    if (f.type === "textarea") {
+      var ta = el("textarea", { id: id, rows: 6, dir: "auto", spellcheck: "false" });
+      if (f.placeholder) ta.placeholder = f.placeholder;
+      ta.value = v == null ? "" : String(v);
+      ta.addEventListener("input", function () { setValue(f.key, ta.value); });
+      return ta;
     }
     if (f.type === "range") {
       wrap = el("div", { class: "rangebox" });
@@ -619,7 +936,11 @@
       wrap.appendChild(tm); wrap.appendChild(never);
       return wrap;
     }
-    if (f.type === "schedule") return scheduleControl(f, id, v);
+    if (f.type === "schedule") return scheduleControl(f, id, v, false);
+    if (f.type === "plsched") return scheduleControl(f, id, v, true);
+    if (f.type === "list") return listControl(f, id, v);
+    if (f.type === "adjust") return adjustControl(f, id, v);
+    if (f.type === "labels") return wordsControl(f, id, v);
     return el("span", {}, String(v));
   }
 
@@ -629,7 +950,7 @@
     var plus = el("button", { type: "button", class: "step", "aria-label": "More" }, "+");
     var out = el("output", {});
     var n = start;
-    function show() { out.textContent = n + (f.unit || ""); }
+    function show() { out.textContent = (f.signed && n > 0 ? "+" : "") + String(n).replace("-", "−") + (f.unit || ""); }
     function move(d) {
       n = Math.round((n + d * f.step) / f.step) * f.step;
       n = Math.max(f.min, Math.min(f.max, Number(n.toFixed(2))));
@@ -643,14 +964,15 @@
     return wrap;
   }
 
-  function scheduleControl(f, id, v) {
+  // Times of day, each with a volume (percent) or a playlist (link)
+  function scheduleControl(f, id, v, playlists) {
     var wrap = el("div", { class: "sched", id: id });
     var rows = [];
     var obj = v && typeof v === "object" ? v : {};
-    Object.keys(obj).sort().forEach(function (t) { rows.push({ t: t, p: Number(obj[t]) || 0 }); });
+    Object.keys(obj).sort().forEach(function (t) { rows.push({ t: t, p: playlists ? String(obj[t] || "") : Number(obj[t]) || 0 }); });
     function emit() {
       var o = {};
-      rows.forEach(function (r) { if (/^\d{1,2}:\d{2}$/.test(r.t)) o[r.t] = r.p; });
+      rows.forEach(function (r) { if (/^\d{1,2}:\d{2}$/.test(r.t) && (!playlists || r.p.trim())) o[r.t] = playlists ? r.p.trim() : r.p; });
       setValue(f.key, o);
     }
     function draw() {
@@ -661,19 +983,233 @@
         tm.value = r.t.length === 4 ? "0" + r.t : r.t;
         tm.addEventListener("input", function () { r.t = tm.value; emit(); });
         line.appendChild(tm);
-        line.appendChild(stepper({ step: 5, min: 0, max: 100, unit: "%" }, "", r.p, function (n) { r.p = n; emit(); }));
+        if (playlists) {
+          var link = el("input", { type: "text", placeholder: "Playlist link", "aria-label": "Playlist link", autocomplete: "off", spellcheck: "false" });
+          link.value = r.p;
+          link.addEventListener("input", function () { r.p = link.value; emit(); });
+          line.appendChild(link);
+        } else {
+          line.appendChild(stepper({ step: 5, min: 0, max: 100, unit: "%" }, "", r.p, function (n) { r.p = n; emit(); }));
+        }
         var x = el("button", { type: "button", class: "x", "aria-label": "Remove" }, "×");
         x.addEventListener("click", function () { rows.splice(i, 1); draw(); emit(); });
         line.appendChild(x);
         wrap.appendChild(line);
       });
       var add = el("button", { type: "button", class: "add" }, rows.length ? "Add another time" : "Add a time");
-      add.addEventListener("click", function () { rows.push({ t: rows.length ? "18:00" : "10:00", p: rows.length ? 100 : 60 }); draw(); emit(); });
+      add.addEventListener("click", function () {
+        rows.push({ t: rows.length ? "18:00" : "10:00", p: playlists ? "" : rows.length ? 100 : 60 });
+        draw();
+        emit();
+      });
       wrap.appendChild(add);
     }
     draw();
     return wrap;
   }
+
+  // Lines of text, e.g. the messages between songs
+  function listControl(f, id, v) {
+    var wrap = el("div", { class: "sched", id: id }), rows = (v instanceof Array ? v : []).map(String);
+    function emit() { setValue(f.key, rows.map(function (r) { return r.trim(); }).filter(Boolean)); }
+    function draw() {
+      wrap.innerHTML = "";
+      rows.forEach(function (r, i) {
+        var line = el("div", { class: "line" });
+        var t = el("input", { type: "text", dir: "auto", maxlength: 160, "aria-label": "Message " + (i + 1) });
+        t.value = r;
+        t.addEventListener("input", function () { rows[i] = t.value; emit(); });
+        line.appendChild(t);
+        var x = el("button", { type: "button", class: "x", "aria-label": "Remove" }, "×");
+        x.addEventListener("click", function () { rows.splice(i, 1); draw(); emit(); });
+        line.appendChild(x);
+        wrap.appendChild(line);
+      });
+      var add = el("button", { type: "button", class: "add" }, f.add || "Add");
+      add.addEventListener("click", function () {
+        rows.push("");
+        draw();
+        var inputs = wrap.querySelectorAll("input");
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      });
+      wrap.appendChild(add);
+    }
+    draw();
+    return wrap;
+  }
+
+  // The five prayers, each moved by some minutes, with today's time beside it
+  var loadedAdjust = {};
+  function adjustControl(f, id, v) {
+    var wrap = el("div", { class: "adjust", id: id }), cur = v && typeof v === "object" ? copy(v) : {};
+    loadedAdjust = copy(cur);
+    Object.keys(PRAYER_NAMES).forEach(function (k) {
+      var row = el("div", { class: "arow" });
+      row.appendChild(el("span", {}, PRAYER_NAMES[k]));
+      row.appendChild(el("span", { class: "ptime", "data-prayer": k }, "–"));
+      row.appendChild(stepper({ step: 1, min: -30, max: 30, unit: " min", signed: true }, "", Number(cur[k]) || 0, function (n) {
+        if (n) cur[k] = n; else delete cur[k];
+        setValue(f.key, copy(cur));
+        refreshPrayerTimes();
+      }));
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  // Today's prayer times from the TV, moved by any change not saved yet
+  function refreshPrayerTimes() {
+    var cells = document.querySelectorAll(".ptime");
+    if (!cells.length) return;
+    var p = last && last.page, times = {}, now = value("prayerAdjust") || {};
+    ((p && p.prayers) || []).forEach(function (x) { times[x.name] = x.at; });
+    for (var i = 0; i < cells.length; i++) {
+      var k = cells[i].getAttribute("data-prayer"), at = times[k];
+      cells[i].textContent = at ? clock(at + ((Number(now[k]) || 0) - (Number(loadedAdjust[k]) || 0)) * 60e3) : "–";
+    }
+  }
+
+  // The words on the TV: each can be replaced; the English one shows in grey
+  function wordsControl(f, id, v) {
+    var words = (data && data.defaults && data.defaults.labelWords) || WORDS, cur = v && typeof v === "object" ? copy(v) : {};
+    var box = el("details", { class: "words", id: id });
+    box.appendChild(el("summary", {}, "Show the " + Object.keys(words).length + " words"));
+    Object.keys(words).forEach(function (k) {
+      var row = el("label", { class: "lrow" });
+      row.appendChild(el("span", {}, WORD_NOTES[k] || words[k]));
+      var input = el("input", { type: "text", dir: "auto", autocomplete: "off", spellcheck: "false" });
+      input.placeholder = words[k] || "";
+      input.value = cur[k] == null ? "" : String(cur[k]);
+      input.addEventListener("input", function () {
+        if (input.value.trim()) cur[k] = input.value; else delete cur[k];
+        setValue(f.key, copy(cur));
+      });
+      row.appendChild(input);
+      box.appendChild(row);
+    });
+    if (Object.keys(cur).length) box.open = true;
+    return box;
+  }
+
+  // Buttons that show a special day's look on the TV for 20 seconds
+  function looksField() {
+    var box = el("div", { class: "field" });
+    box.appendChild(el("div", { class: "fhead" })).appendChild(el("label", {}, "See a special day's look on the TV"));
+    var row = el("div", { class: "looks" });
+    [["newroz", "Newroz"], ["eidFitr", "Eid al-Fitr"], ["eidAdha", "Eid al-Adha"], ["barat", "Barat Night"], ["newYear", "New Year"]].forEach(function (d) {
+      row.appendChild(el("button", { type: "button", class: "mini", "data-cmd": "look:" + d[0] }, d[1]));
+    });
+    box.appendChild(row);
+    box.appendChild(el("p", { class: "hint" }, "For 20 seconds, over the video. The music carries on."));
+    return box;
+  }
+
+  /* ---------- The café's pictures ---------- */
+
+  var pics = null, picsBusy = false, picNote = "";
+
+  function picturesCard() {
+    var card = el("section", { class: "card", id: "picCard" });
+    card.appendChild(el("p", { class: "label" }, "Shown between songs, taking turns with the messages. Each is fitted to the TV whole, nothing cut off."));
+    var up = el("label", { class: "wide upload", id: "picUpload" });
+    var input = el("input", { type: "file", accept: "image/*", multiple: "" });
+    up.appendChild(input);
+    up.appendChild(el("span", {}, "Add pictures"));
+    input.addEventListener("change", function () { upload([].slice.call(input.files || [])); input.value = ""; });
+    card.appendChild(up);
+    card.appendChild(el("p", { class: "hint", id: "picMsg", role: "status" }));
+    card.appendChild(el("div", { class: "pics", id: "picGrid" }));
+    return card;
+  }
+
+  function loadPictures() {
+    if (!pin) return;
+    api("/api/pictures").then(function (r) { pics = r; drawPictures(); }).catch(function () {});
+  }
+
+  function drawPictures() {
+    var grid = $("picGrid");
+    if (!grid || !pics) return;
+    grid.innerHTML = "";
+    (pics.pictures || []).forEach(function (p, i) {
+      var fig = el("figure");
+      fig.appendChild(el("img", { src: "/api/picture?id=" + encodeURIComponent(p.id) + "&size=small&pin=" + encodeURIComponent(pin), alt: "Picture " + (i + 1), loading: "lazy" }));
+      var del = el("button", { type: "button", class: "del", "aria-label": "Delete picture " + (i + 1) }, "×");
+      del.addEventListener("click", function () {
+        if (!window.confirm("Delete this picture from the TV?")) return;
+        picNote = "";
+        api("/api/pictures?delete=" + encodeURIComponent(p.id), "POST").then(loadPictures).catch(function () {});
+      });
+      fig.appendChild(del);
+      grid.appendChild(fig);
+    });
+    var n = (pics.pictures || []).length, max = pics.max || 30;
+    if (!picsBusy) $("picMsg").textContent = (picNote ? picNote + " " : "") + (n ? n + " of " + max + " pictures." : "No pictures yet.");
+    $("picUpload").hidden = n >= max;
+  }
+
+  // Each photo becomes a 1920x1080 picture for the TV: the photo whole, on a blurred, darkened copy of itself
+  function prepare(file) {
+    return loadImage(file).then(function (img) {
+      var W = 1920, H = 1080, iw = img.width, ih = img.height;
+      if (!iw || !ih) throw new Error("empty");
+      var c = el("canvas"), g, tiny = el("canvas"), tg, cover, fit;
+      c.width = W; c.height = H;
+      g = c.getContext("2d");
+      tiny.width = 32; tiny.height = 18;
+      tg = tiny.getContext("2d");
+      cover = Math.max(32 / iw, 18 / ih);
+      tg.drawImage(img, (32 - iw * cover) / 2, (18 - ih * cover) / 2, iw * cover, ih * cover);
+      g.imageSmoothingEnabled = true;
+      g.drawImage(tiny, 0, 0, W, H);
+      g.fillStyle = "rgba(11, 16, 48, .45)";
+      g.fillRect(0, 0, W, H);
+      fit = Math.min(W / iw, H / ih);
+      g.drawImage(img, (W - iw * fit) / 2, (H - ih * fit) / 2, iw * fit, ih * fit);
+      var small = el("canvas");
+      small.width = 384; small.height = 216;
+      small.getContext("2d").drawImage(c, 0, 0, 384, 216);
+      return { full: c.toDataURL("image/jpeg", 0.86), small: small.toDataURL("image/jpeg", 0.8) };
+    });
+  }
+
+  function loadImage(file) {
+    var viaImg = function () {
+      return new Promise(function (ok, no) {
+        var url = URL.createObjectURL(file), img = new Image();
+        img.onload = function () { ok(img); };
+        img.onerror = function () { no(new Error("not a picture")); };
+        img.src = url;
+      });
+    };
+    if (window.createImageBitmap) return createImageBitmap(file, { imageOrientation: "from-image" }).catch(viaImg);
+    return viaImg();
+  }
+
+  function upload(files) {
+    if (!files.length || picsBusy) return;
+    picsBusy = true;
+    var done = 0, failed = [];
+    (function nextOne(i) {
+      if (i >= files.length) {
+        picsBusy = false;
+        picNote = ((done ? done + (done === 1 ? " picture" : " pictures") + " added. " : "") + failed.join(" ")).trim();
+        return loadPictures();
+      }
+      $("picMsg").textContent = "Adding " + (i + 1) + " of " + files.length + "…";
+      prepare(files[i]).then(function (p) {
+        return api("/api/pictures", "POST", p);
+      }).then(function (r) {
+        if (r && r.ok) done++;
+        else failed.push((files[i].name || "A picture") + ": " + ((r && r.message) || "not added") + ".");
+      }).catch(function (e) {
+        if (e.message === "pin" || e.message === "locked") { picsBusy = false; return; }
+        failed.push((files[i].name || "A picture") + " couldn't be read as a picture.");
+      }).then(function () { if (picsBusy) nextOne(i + 1); });
+    })(0);
+  }
+
+  /* ---------- Saving ---------- */
 
   function problems() {
     var bad = [];
@@ -690,6 +1226,8 @@
     var p = String(value("controlPin") || "");
     if (p && !/^\d{4,8}$/.test(p)) flag("controlPin", "Use 4 to 8 digits, or leave it empty.");
     if (!String(value("playlist") || "").trim()) flag("playlist", "The TV needs a playlist.");
+    if (typeof value("lat") !== "number" || Math.abs(value("lat")) > 90) flag("lat", "A number between -90 and 90, like 36.2549.");
+    if (typeof value("lon") !== "number" || Math.abs(value("lon")) > 180) flag("lon", "A number between -180 and 180, like 44.8838.");
     return bad;
   }
 
@@ -699,7 +1237,12 @@
 
   $("save").addEventListener("click", function () {
     if (!data) return;
-    if (problems().length) { $("saveMsg").textContent = "Fix the marked settings first."; $("saveMsg").className = "bad"; return; }
+    if (problems().length) {
+      $("saveMsg").textContent = "Fix the marked settings first" + (view === "screen" ? " (some are on the Settings tab)." : ".");
+      $("saveMsg").className = "bad";
+      return;
+    }
+    if (!same(value("prices"), loadedPrices)) local.pricesAt = Date.now();   // the TV shows when the prices were typed
     var all = !$("allBox").hidden && $("saveAll").checked;
     $("save").disabled = true;
     $("saveMsg").className = "";

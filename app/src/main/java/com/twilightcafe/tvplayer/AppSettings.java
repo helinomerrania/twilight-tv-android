@@ -26,6 +26,7 @@ final class AppSettings {
     private volatile JSONObject file;              // settings.json
     private volatile JSONObject local;             // this TV's own
     private volatile JSONObject effective;         // both together
+    private volatile JSONObject builtIn;           // the page's own values, as it last reported them
     private volatile int version;
     volatile String status;                        // for test mode and the phone page
 
@@ -35,6 +36,7 @@ final class AppSettings {
         file = orEmpty(parse(prefs.getString("json", "{}")));
         local = orEmpty(parse(prefs.getString("local", "{}")));
         effective = merge(file, local);
+        builtIn = orEmpty(parse(prefs.getString("pageDefaults", "{}")));
         long t = prefs.getLong("time", 0);
         status = t > 0 ? "settings.json from GitHub, " + when(t) : "built-in settings (settings.json not read yet)";
     }
@@ -144,20 +146,34 @@ final class AppSettings {
     }
 
     void savePageDefaults(String json) {
-        if (parse(json) != null) prefs.edit().putString("pageDefaults", json).apply();
+        JSONObject j = parse(json);
+        if (j == null) return;
+        builtIn = j;
+        prefs.edit().putString("pageDefaults", json).apply();
+    }
+
+    // A setting from settings.json or this TV, else the page's built-in value
+    private JSONObject holder(String key) {
+        JSONObject j = effective;
+        if (j.has(key) && !j.isNull(key)) return j;
+        return builtIn;
     }
 
     String text(String key, String fallback) {
-        JSONObject j = effective;
+        JSONObject j = holder(key);
         if (!j.has(key) || j.isNull(key)) return fallback;
         return j.optString(key, fallback).trim();
     }
 
     int number(String key, int fallback) {
-        return effective.optInt(key, fallback);
+        return holder(key).optInt(key, fallback);
+    }
+
+    double decimal(String key, double fallback) {
+        return holder(key).optDouble(key, fallback);
     }
 
     boolean flag(String key, boolean fallback) {
-        return effective.optBoolean(key, fallback);
+        return holder(key).optBoolean(key, fallback);
     }
 }

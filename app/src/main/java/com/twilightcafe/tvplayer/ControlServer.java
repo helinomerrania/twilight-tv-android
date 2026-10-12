@@ -25,11 +25,16 @@ import java.util.concurrent.RejectedExecutionException;
  *                                   testmode, restart, forget, checkupdate
  *   GET  /api/settings?pin=1234     the settings: built-in, from settings.json, and this TV's own
  *   POST /api/settings?pin=1234     this TV's own settings (JSON body); &all=1 also on the other TVs
+ *   GET  /api/songs?pin=1234        the playlist's songs with their names, to choose one
+ *   GET  /api/pictures?pin=1234     the café's pictures; POST adds one (JSON body), POST &delete=id deletes one
+ *   GET  /api/picture?pin=1234&id=x one picture (&size=small: its small copy)
+ *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
+ *                                   so the phone page can go on a phone's home screen with its icon
  *
- * And for the TV box itself only (the version of the app with Firefox's engine shows the
- * TV page from here, at http://localhost):
+ * And for the TV box itself only (the app shows the TV page from here, at http://localhost):
  *   GET  /tv/index.html?k=key       the TV page
  *   POST /tv/sync?k=key             the TV page's check-in every second (JSON both ways)
+ *   GET  /tv/pictures/<id>.jpg      the café's pictures, for between songs
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
  * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in.
@@ -55,9 +60,39 @@ final class ControlServer {
         default String tvSync(String key, String body) {
             return null;
         }
+
+        /** The playlist's songs with their names (JSON), for choosing one on the phone. */
+        default String songs() {
+            return null;
+        }
+
+        /** The café's pictures (JSON list). */
+        default String pictures() {
+            return null;
+        }
+
+        /** Adds a picture (JSON body with base64 JPEGs). Returns JSON: {"ok":true,"id":...} or {"ok":false,"message":...}. */
+        default String addPicture(String body) {
+            return null;
+        }
+
+        default boolean deletePicture(String id) {
+            return false;
+        }
+
+        /** One picture as a JPEG (small: its small copy), or null. */
+        default byte[] picture(String id, boolean small) {
+            return null;
+        }
+
+        /** The files for the phone's home-screen icon (manifest.webmanifest, icon-192.png, ...), or null. */
+        default byte[] asset(String name) {
+            return null;
+        }
     }
 
     static final int MAX_BODY = 64 * 1024;
+    static final int MAX_PICTURE_BODY = 9 << 20;          // a picture from the phone, as text (base64)
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
@@ -146,6 +181,19 @@ final class ControlServer {
             OutputStream out = c.getOutputStream();
             String request = readLine(in);
             if (request == null || request.isEmpty()) return;
+            String[] parts = request.split(" ");
+            if (parts.length < 2) {
+                send(out, 400, "text/plain; charset=utf-8", "Bad request".getBytes(UTF8));
+                return;
+            }
+            String method = parts[0], target = parts[1], path = target, query = "";
+            int q = target.indexOf('?');
+            if (q >= 0) {
+                path = target.substring(0, q);
+                query = target.substring(q + 1);
+            }
+            Map<String, String> params = parseQuery(query);
+            String ip = c.getInetAddress().getHostAddress();
             int length = 0;
             for (int i = 0; i < 100; i++) {                    // headers: only the body's length matters
                 String h = readLine(in);
@@ -159,8 +207,12 @@ final class ControlServer {
                     }
                 }
             }
-            if (length < 0 || length > MAX_BODY) {
-                send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
+            // Only a picture from a phone with the right PIN may be big
+            boolean picture = method.equals("POST") && path.equals("/api/pictures");
+            int limit = picture && pinOk(params, ip) ? MAX_PICTURE_BODY : MAX_BODY;
+            if (length < 0 || length > limit) {
+                if (picture && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
+                else send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
                 return;
             }
             byte[] body = new byte[length];
@@ -170,18 +222,7 @@ final class ControlServer {
                 if (n < 0) break;
                 got += n;
             }
-            String[] parts = request.split(" ");
-            if (parts.length < 2) {
-                send(out, 400, "text/plain; charset=utf-8", "Bad request".getBytes(UTF8));
-                return;
-            }
-            String method = parts[0], target = parts[1], path = target, query = "";
-            int q = target.indexOf('?');
-            if (q >= 0) {
-                path = target.substring(0, q);
-                query = target.substring(q + 1);
-            }
-            respond(out, method, path, parseQuery(query), c.getInetAddress().getHostAddress(), new String(body, 0, got, UTF8));
+            respond(out, method, path, params, ip, new String(body, 0, got, UTF8));
         } catch (IOException | RuntimeException e) {
             // the phone went away
         } finally {
@@ -193,6 +234,11 @@ final class ControlServer {
         }
     }
 
+    private boolean pinOk(Map<String, String> params, String ip) {
+        String pin = tv.pin();
+        return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !isLocked(ip);
+    }
+
     void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
         if (path.startsWith("/tv/")) {
             tvRequest(out, method, path, params, ip, body);
@@ -200,6 +246,14 @@ final class ControlServer {
         }
         if (path.equals("/") || path.equals("/index.html")) {
             send(out, 200, "text/html; charset=utf-8", tv.page());
+            return;
+        }
+        String asset = ASSETS.get(path);
+        if (asset != null) {                                   // the home-screen icon: no PIN, nothing private in it
+            byte[] b = tv.asset(asset);
+            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            else send(out, 200, asset.endsWith(".png") ? "image/png" : "application/manifest+json; charset=utf-8", b,
+                    "no-referrer", "public, max-age=86400");
             return;
         }
         if (!path.startsWith("/api/")) {
@@ -239,9 +293,45 @@ final class ControlServer {
             } else {
                 json(out, 405, "{\"error\":\"use GET or POST\"}");
             }
+        } else if (path.equals("/api/songs")) {
+            String s = tv.songs();
+            json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
+        } else if (path.equals("/api/pictures")) {
+            if (method.equals("GET")) {
+                String s = tv.pictures();
+                json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
+            } else if (method.equals("POST")) {
+                String gone = params.get("delete");
+                if (gone != null) {
+                    boolean ok = tv.deletePicture(gone);
+                    json(out, ok ? 200 : 404, "{\"ok\":" + ok + "}");
+                } else {
+                    String r = tv.addPicture(body);
+                    if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
+                    else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
+                }
+            } else {
+                json(out, 405, "{\"error\":\"use GET or POST\"}");
+            }
+        } else if (path.equals("/api/picture")) {
+            byte[] b = tv.picture(params.get("id"), "small".equals(params.get("size")));
+            if (b == null) json(out, 404, "{\"error\":\"not found\"}");
+            else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");   // a picture never changes
         } else {
             json(out, 404, "{\"error\":\"not found\"}");
         }
+    }
+
+    // The home-screen icon's files, by address
+    private static final Map<String, String> ASSETS = new HashMap<>();
+
+    static {
+        ASSETS.put("/manifest.webmanifest", "manifest.webmanifest");
+        ASSETS.put("/icon-192.png", "icon-192.png");
+        ASSETS.put("/icon-512.png", "icon-512.png");
+        ASSETS.put("/apple-touch-icon.png", "apple-touch-icon.png");
+        ASSETS.put("/apple-touch-icon-precomposed.png", "apple-touch-icon.png");
+        ASSETS.put("/favicon.ico", "icon-192.png");
     }
 
     // The TV page and its check-in: only for the box itself, never for the café network
@@ -259,6 +349,11 @@ final class ControlServer {
             String r = tv.tvSync(params.get("k"), body);
             if (r == null) json(out, 403, "{\"error\":\"key\"}");
             else json(out, 200, r);
+        } else if (path.startsWith("/tv/pictures/") && path.endsWith(".jpg") && method.equals("GET")) {
+            String id = path.substring("/tv/pictures/".length(), path.length() - 4);
+            byte[] b = tv.picture(id, false);
+            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");
         } else {
             send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
         }
@@ -301,11 +396,15 @@ final class ControlServer {
     }
 
     private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy) throws IOException {
+        send(out, code, type, body, referrerPolicy, "no-store");
+    }
+
+    private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy, String cache) throws IOException {
         if (body == null) body = new byte[0];
         String head = "HTTP/1.1 " + code + " " + reason(code) + "\r\n"
                 + "Content-Type: " + type + "\r\n"
                 + "Content-Length: " + body.length + "\r\n"
-                + "Cache-Control: no-store\r\n"
+                + "Cache-Control: " + cache + "\r\n"
                 + "X-Content-Type-Options: nosniff\r\n"
                 + "Referrer-Policy: " + referrerPolicy + "\r\n"
                 + "Connection: close\r\n\r\n";
@@ -324,6 +423,7 @@ final class ControlServer {
             case 405: return "Method Not Allowed";
             case 413: return "Payload Too Large";
             case 429: return "Too Many Requests";
+            case 503: return "Service Unavailable";
             default: return "Error";
         }
     }

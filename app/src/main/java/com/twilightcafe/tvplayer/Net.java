@@ -27,21 +27,57 @@ final class Net {
             int code = c.getResponseCode();
             if (code == 404) return null;
             if (code != 200) throw new IOException("HTTP " + code);
-            InputStream in = c.getInputStream();
-            try {
-                ByteArrayOutputStream b = new ByteArrayOutputStream();
-                byte[] buf = new byte[16384];
-                int n;
-                while ((n = in.read(buf)) > 0) {
-                    b.write(buf, 0, n);
-                    if (b.size() > (2 << 20)) throw new IOException("too big");
-                }
-                return new String(b.toByteArray(), "UTF-8");
-            } finally {
-                in.close();
-            }
+            return read(c.getInputStream());
         } finally {
             c.disconnect();
+        }
+    }
+
+    /** One answer from a web server: its code, its text (only for 200), and the headers that say when to ask again. */
+    static final class Reply {
+        final int code;
+        final String body;
+        final long expires;              // from the Expires header, 0 if none
+        final String lastModified;       // the Last-Modified header, exactly as sent (null if none)
+
+        Reply(int code, String body, long expires, String lastModified) {
+            this.code = code;
+            this.body = body;
+            this.expires = expires;
+            this.lastModified = lastModified;
+        }
+    }
+
+    /** Asks with our own name (some services want to know who asks) and, if given, "only if changed since". */
+    static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(timeoutMs);
+        c.setReadTimeout(timeoutMs);
+        c.setUseCaches(false);
+        c.setRequestProperty("User-Agent", userAgent);
+        c.setRequestProperty("Accept", "application/json");
+        if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) c.setRequestProperty("If-Modified-Since", ifModifiedSince);
+        try {
+            int code = c.getResponseCode();
+            String body = code == 200 ? read(c.getInputStream()) : null;
+            return new Reply(code, body, c.getExpiration(), c.getHeaderField("Last-Modified"));
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    private static String read(InputStream in) throws IOException {
+        try {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                b.write(buf, 0, n);
+                if (b.size() > (2 << 20)) throw new IOException("too big");
+            }
+            return new String(b.toByteArray(), "UTF-8");
+        } finally {
+            in.close();
         }
     }
 

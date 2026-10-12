@@ -42,6 +42,7 @@ import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -53,6 +54,7 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -69,7 +71,9 @@ import java.util.regex.Pattern;
  *  - settings.json from GitHub (no reinstall needed for changes),
  *  - the phone control page on the café Wi-Fi (with a PIN),
  *  - the box's own volume at opening time, sound levelling, updates from GitHub,
- *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night.
+ *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night,
+ *  - for the info panel beside the video: song names (YouTube), the weather (MET Norway)
+ *    and the café's own pictures (uploaded from the phone page).
  *
  * The page runs in Firefox's engine (GeckoView), which comes inside the app: the TV boxes'
  * own engine (Android System WebView) is from 2018, too old for YouTube's controls, and they
@@ -88,6 +92,7 @@ public class MainActivity extends Activity {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService work = Executors.newSingleThreadExecutor();
+    private final ExecutorService feeds = Executors.newSingleThreadExecutor();   // the weather (never waits behind an update download)
     private FrameLayout root;
     private GeckoView web;                               // shows the page
     private GeckoSession session;                        // the page itself, in Firefox's engine
@@ -115,6 +120,11 @@ public class MainActivity extends Activity {
     private volatile String pageStatus;                  // what the page last said it's doing
     private volatile long pageStatusAt;
     private final List<Object[]> pageCommands = new ArrayList<>();   // {time, command} for the page's next check-in
+    private TitleBook titles;                            // song names, from YouTube
+    private WeatherFeed weather;                         // from MET Norway
+    private PictureStore pictures;                       // the café's own, from the phone page
+    private volatile List<String> pageSongs = Collections.emptyList();   // the page's songs (its playlist first)
+    private volatile int songsVersion = 0;
 
     private volatile long lastAlive = 0;                 // the page's last "I'm alive"
     private long pageOpenedAt = 0, lastReload = 0, startedAt = 0, lastSettingsCheck = 0, lastUpdateCheck = 0;
@@ -140,6 +150,7 @@ public class MainActivity extends Activity {
 
         settings = new AppSettings(this);
         updater = new Updater(this, BuildConfig.REPO, BuildConfig.VERSION_CODE);
+        makeFeeds();
         audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (wifi != null) {
@@ -174,6 +185,42 @@ public class MainActivity extends Activity {
         refreshNetwork(false);
         askToStartWithTv();
         handler.postDelayed(maintenance, 3000);
+    }
+
+    // Song names, the weather and the café's pictures, for the info panel and between songs
+    private void makeFeeds() {
+        // Who is asking, with a link: MET Norway asks every app for this
+        String repo = BuildConfig.REPO == null || BuildConfig.REPO.isEmpty() ? "helinomerrania/twilight-tv-android" : BuildConfig.REPO;
+        final String agent = "TwilightTV/" + BuildConfig.VERSION_NAME + " (+https://github.com/" + repo + ")";
+        titles = new TitleBook(new File(getFilesDir(), "titles.json"), new TitleBook.Fetcher() {
+            @Override
+            public Net.Reply get(String url) throws IOException {
+                return Net.fetch(url, 15000, agent, null);
+            }
+        });
+        weather = new WeatherFeed(new File(getFilesDir(), "weather.json"), new WeatherFeed.Fetcher() {
+            @Override
+            public Net.Reply get(String url, String ifModifiedSince) throws IOException {
+                return Net.fetch(url, 20000, agent, ifModifiedSince);
+            }
+        });
+        pictures = new PictureStore(new File(getFilesDir(), "pictures"));
+    }
+
+    // Where the weather is for: lat/lon from the settings, else the page's built-in place (Ranya)
+    private double[] place() {
+        double lat = settings.decimal("lat", Double.NaN), lon = settings.decimal("lon", Double.NaN);
+        if (Double.isNaN(lat) || Double.isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+            try {
+                JSONObject d = new JSONObject(settings.pageDefaults());
+                lat = d.optDouble("lat", 36.2549);
+                lon = d.optDouble("lon", 44.8838);
+            } catch (JSONException e) {
+                lat = 36.2549;
+                lon = 44.8838;
+            }
+        }
+        return new double[] { lat, lon };
     }
 
     @SuppressWarnings("deprecation")
@@ -493,6 +540,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         work.shutdownNow();
+        feeds.shutdownNow();
         if (server != null) server.stop();
         if (finder != null) finder.stop();
         leveller.release();
@@ -618,6 +666,19 @@ public class MainActivity extends Activity {
                     open();
                 }
             }
+            // The weather (only while on screen, as MET asks), and song names after an internet cut
+            if (visible && settings.flag("infoPanel", true)) {
+                final double[] ll = place();
+                if (weather.due(now, ll[0], ll[1])) {
+                    feeds.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            weather.refresh(ll[0], ll[1]);
+                        }
+                    });
+                }
+            }
+            titles.start();
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
             String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date(now));
             String restartAt = clock(settings.text("restartAt", "05:00"));
@@ -739,6 +800,8 @@ public class MainActivity extends Activity {
         }
         b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
         b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
+        b.append("\nWeather: ").append(weather.status);
+        b.append("\nSong names: ").append(titles.describe(pageSongs));
         b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
         return b.toString();
@@ -787,6 +850,50 @@ public class MainActivity extends Activity {
         public String tvSync(String key, String body) {
             return pageCheckIn(key, body);
         }
+
+        @Override
+        public String songs() {
+            try {
+                List<String> ids = pageSongs;
+                return new JSONObject().put("songs", titles.list(ids)).put("names", titles.describe(ids)).toString();
+            } catch (JSONException e) {
+                return null;
+            }
+        }
+
+        @Override
+        public String pictures() {
+            return "{\"pictures\":" + pictures.listJson() + ",\"max\":" + PictureStore.MAX + "}";
+        }
+
+        @Override
+        public String addPicture(String body) {
+            try {
+                JSONObject o = new JSONObject(body);
+                String id = pictures.add(o.optString("full", ""), o.optString("small", ""));
+                return new JSONObject().put("ok", true).put("id", id).toString();
+            } catch (IllegalArgumentException e) {
+                return "{\"ok\":false,\"message\":" + JSONObject.quote(e.getMessage()) + "}";
+            } catch (JSONException e) {
+                return "{\"ok\":false,\"message\":\"That picture didn't arrive whole. Try again.\"}";
+            }
+        }
+
+        @Override
+        public boolean deletePicture(String id) {
+            return pictures.remove(id);
+        }
+
+        @Override
+        public byte[] picture(String id, boolean small) {
+            return pictures.read(id, small);
+        }
+
+        @Override
+        public byte[] asset(String name) {
+            byte[] b = readAsset(name);
+            return b.length == 0 ? null : b;
+        }
     };
 
     /* ---------- the link with the page (Firefox's engine has no other way) ---------- */
@@ -800,6 +907,8 @@ public class MainActivity extends Activity {
             boot.put("k", pageKey);
             boot.put("v", settings.version());
             boot.put("s", settings.forPage());              // settings never include the PIN
+            boot.put("xv", extrasVersion());
+            boot.put("x", extras());                        // song names, weather, pictures
             return TvPage.withBridge(tvPageHtml, bridgeJs, boot.toString());
         } catch (JSONException e) {
             return null;
@@ -821,10 +930,21 @@ public class MainActivity extends Activity {
             }
             JSONObject info = in.optJSONObject("info");
             if (info != null && info.optJSONObject("defaults") != null) settings.savePageDefaults(info.getJSONObject("defaults").toString());
+            JSONArray ids = in.optJSONArray("ids");
+            if (ids != null) {                              // the page's songs changed (a new playlist, a song from a link)
+                pageSongs = Collections.unmodifiableList(TitleBook.ids(ids));
+                songsVersion++;
+                titles.want(pageSongs);
+            }
             JSONObject out = new JSONObject();
             int v = settings.version();
             out.put("v", v);
             if (in.optInt("v", -1) != v) out.put("s", settings.forPage());
+            int xv = extrasVersion();
+            if (in.optInt("xv", -1) != xv) {
+                out.put("xv", xv);
+                out.put("x", extras());
+            }
             JSONArray cmds = new JSONArray();
             synchronized (pageCommands) {
                 for (Object[] c : pageCommands) {
@@ -834,6 +954,26 @@ public class MainActivity extends Activity {
             }
             out.put("cmds", cmds);
             return out.toString();
+        } catch (JSONException e) {
+            return "{}";
+        }
+    }
+
+    // Song names, weather and pictures change now and then; the page gets them again when they do
+    private int extrasVersion() {
+        return titles.version() + weather.version() + pictures.version() + songsVersion;
+    }
+
+    private String extras() {
+        try {
+            JSONObject x = new JSONObject();
+            x.put("titles", titles.forPage(pageSongs));
+            JSONObject w = weather.forPage();
+            if (w != null) x.put("weather", w);
+            JSONArray pics = new JSONArray();
+            for (String id : pictures.ids()) pics.put(id);
+            x.put("pictures", pics);
+            return x.toString();
         } catch (JSONException e) {
             return "{}";
         }
@@ -969,6 +1109,8 @@ public class MainActivity extends Activity {
             }
             o.put("levelling", leveller.status);
             o.put("settings", settings.status);
+            o.put("weather", settings.flag("infoPanel", true) ? weather.status : "");
+            o.put("names", titles.describe(pageSongs));
             o.put("updateReady", Updater.shown(updater.readyBuild));
             o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");
             o.put("notice", System.currentTimeMillis() - noticeAt < 120000L ? notice : "");
@@ -1055,6 +1197,29 @@ public class MainActivity extends Activity {
                     }
                 });
                 return true;
+            default:
+                return pageCommand(what);
+        }
+    }
+
+    // Commands with a value, for the page: a song to play next or now, a quiet minute, a special day's look
+    private boolean pageCommand(String what) {
+        int colon = what.indexOf(':');
+        if (colon < 0) return false;
+        String name = what.substring(0, colon), value = what.substring(colon + 1);
+        switch (name) {
+            case "playnext":
+            case "playnow":
+                if (!TitleBook.isId(value)) return false;
+                titles.want(Collections.singletonList(value));   // a song from a link: its name too
+                return toPage(what);
+            case "unnext":
+                return TitleBook.isId(value) && toPage(what);
+            case "quiet":
+                if (!value.matches("\\d{1,4}") || Integer.parseInt(value) > 3600) return false;
+                return toPage(what);
+            case "look":
+                return value.matches("[A-Za-z]{1,20}") && toPage(what);
             default:
                 return false;
         }

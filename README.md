@@ -2,10 +2,14 @@
 
 Your café TV page as an Android app for the TV boxes. It plays full screen, starts the music with sound by itself, keeps the screen awake, and opens by itself when the box turns on. On top of that:
 
-- **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom.
+- **Info panel beside the video:** the time and date (with the Hijri date), Ranya's weather, prices, what's playing and what's next, and QR codes for the Wi-Fi and the menu.
+- **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom, to choose a song or play any YouTube link, and for "Quiet for a minute". It can go on the phone's home screen.
+- **The café's own messages and pictures** on the café screen between songs, uploaded from the phone.
+- **The call to prayer:** the music pauses for 5 minutes at each prayer, during opening hours.
+- **Special days:** Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year each get their own café screen and a greeting.
 - **Settings on the phone:** every setting, on one TV or all of them at once, used straight away.
 - **One settings file:** `settings.json` in this repository reaches every TV, with no reinstalling.
-- **Schedules:** opening hours, a volume schedule, and the box's own volume reset at opening time.
+- **Schedules:** opening hours, a playlist and a volume for each time of day, a fade-out before closing, and the box's own volume reset at opening time. Never two songs by the same singer in a row.
 - **Updates:** new versions download by themselves; staff install them from the phone page.
 - **Runs by itself:** sound levelling, Wi-Fi at full power, a restart if the page freezes, and a fresh start every night.
 
@@ -43,17 +47,55 @@ During quality setup (below), the arrows move a pointer, OK clicks, and Back fin
 1. On the TV, hold OK for 3 seconds. At the bottom right you'll see something like `Phone control: http://192.168.1.23:8080   PIN 4821`.
 2. On a phone connected to the **café Wi-Fi**, open that address and enter the PIN. The phone remembers it.
 
-The page has:
-- **Pause music** and **Next song**.
+To put it on the phone's home screen with the café's icon: in the phone's browser menu, choose **Add to Home screen** (on an iPhone: Share, then **Add to Home Screen**).
+
+The **Control** tab has:
+- **Pause music** and **Next song**, and what's coming next.
+- **Quiet for a minute:** the music goes down to 15% for a minute (press again for longer), then back by itself. **Back to normal volume** ends it early.
 - **Song volume:** this song only, remembered on that TV.
 - **Zoom:** for black bars.
 - **TV volume:** the box's own volume.
-- **Show this TV's name on its screen:** to tell the TVs apart.
-- **Other TVs:** each TV's name at the top opens that TV's page.
+- **Choose a song:** search the playlist by name or singer, then **Next** (after the song playing now) or **Now**. Or paste any YouTube link (from YouTube's Share button) and press **Play next** or **Play now**. Songs asked for are listed under **Waiting to play**, where × takes one off again.
+- **Last songs:** the last 20 songs, with the time each played. **Again** plays one next.
 - **Songs that won't play:** each one links to YouTube.
 - **Install update:** appears when a new version is waiting.
+- With more than one TV box: **Show this TV's name on its screen**, and each TV's name at the top opens that TV's page.
 
-A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours.
+A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours. During the call to prayer it says **Resume music**, which brings the music back for that prayer.
+
+The **Screen** tab has what the TV shows beside the video and between songs: the prices, the messages, the pictures, the Wi-Fi and the menu link for the QR codes, the info panel and special days, and the words on the TV. **Settings** has everything else.
+
+## The info panel
+
+The video takes the top left, four fifths of the screen's width. On the right: the time, the date and the Hijri date, the weather in Ranya (now, and the next 24 hours' high and low), and the prices. Along the bottom: the song playing and the one coming next, and QR codes for the menu and the Wi-Fi (scanning the Wi-Fi one joins the network; the name and password are written beside it too).
+
+- **Prices:** on the phone, Screen tab, one per line, like `Dollar (100 $) = 147,250`. The TV shows when they were saved. They're typed by hand: tirezh.com's terms don't allow other programs to read its prices without permission. With their permission, the app could fetch them by itself.
+- **Weather:** from MET Norway (the Norwegian Meteorological Institute), refreshed about every 30 minutes while the app is on screen. Their data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/), which asks for the credit shown at the bottom of the panel. The app keeps the next 48 hours, so a short internet cut changes nothing.
+- **Song names** come from YouTube (once per song, then kept). "(Official Video)", "[4K]" and the like are left out on the TV.
+- **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language puts everything on the right.
+- **Info panel off** (Screen tab) shows the video full screen as before.
+
+## Between songs: messages and pictures
+
+Whenever the café screen comes up between two songs, it shows the café's name, or one of your messages, or one of your pictures, in turn. On a long pause it moves to the next one every 20 seconds.
+
+- **Messages:** Screen tab, **Add a message**, then Save.
+- **Pictures:** Screen tab, **Add pictures**, and choose photos on the phone. Each is fitted to the TV whole (nothing cut off), on a blurred copy of itself. Up to 30; × deletes one. They're kept on the TV box itself.
+
+## The call to prayer
+
+At each of the five prayers, during opening hours only, the music fades out for 5 minutes and the café screen says why; then the same song carries on. The times are worked out for Ranya (Muslim World League: Fajr 18°, Isha 17°, Asr Shafi'i), and match Aladhan's within a minute.
+
+- **Today's times** are at the bottom of the Control tab, and beside each prayer under **Settings, Call to prayer**.
+- **If they differ from your mosque,** move a prayer by minutes there (for example Asr +2) and Save.
+- **Resume music** on the phone during a pause brings the music back for that prayer.
+- **0 minutes** switches the pause off.
+
+## Special days
+
+Newroz (20 and 21 March), Eid al-Fitr (1 to 3 Shawwal), Eid al-Adha (10 to 13 Dhu al-Hijjah), Barat Night (14 and 15 Sha'ban) and New Year's Eve (from 18:00) to New Year's Day each get their own café screen (fires on the mountains, the crescent and lanterns, the full moon and candles on the shore, fireworks) and a greeting, on the café screen and in the panel.
+
+Eid and Barat Night follow the Umm al-Qura calendar. If Kurdistan announces them a day earlier or later, set **Move Eid and Barat Night by** on the Screen tab. The buttons under **See a special day's look on the TV** show each one for 20 seconds, over the video.
 
 ## Highest picture quality
 
@@ -74,11 +116,12 @@ The Control tab shows the quality YouTube is actually playing.
 ## Settings on the phone
 
 On the phone page, open the **Settings** tab. Every setting is there, grouped:
-- **Music:** playlist, volume, volume by time of day, opening hours, repeats.
+- **Music:** playlist, playlists by time of day, volume, volume by time of day, opening hours, fading out before closing, never the same singer twice in a row, repeats, the "Quiet for a minute" volume.
+- **Call to prayer:** how long the music pauses, and moving each prayer by minutes.
 - **Between songs:** fades, café screen at the start and end, cut endings.
 - **Picture and YouTube:** quality, automatic zoom, ads, subtitles, café name.
-- **This TV box:** its name, its own volume, sound levelling, nightly restart, updates, the PIN.
-- **Advanced:** reload interval, YouTube API key.
+- **This TV box:** its own volume, sound levelling, nightly restart, updates, the PIN (and its name, with more than one box).
+- **Advanced:** the place for the weather and prayer times, reload interval, YouTube API key.
 
 Change what you like and press **Save on this TV**. Tick **Also on the other TVs** first to save the same settings on every TV the phone page lists (each TV keeps its own name). Changes are used straight away; a new playlist starts with the next song.
 
@@ -109,7 +152,7 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `restartAt` | Time of the nightly fresh start; `""` = never | `"05:00"` |
 | `updates` | Download new versions by themselves | `true` |
 
-Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`. Their explanations are at the top of `app/src/main/assets/index.html`.
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `prices`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
 
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 
@@ -132,7 +175,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 ## Good to know
 
 - The repository includes the app's signing key (`app/twilight-tv.keystore`). That's what lets every new build update the app in place. In a public repository anyone could copy it, but it does nothing to your TVs unless someone installs their own app on them.
-- `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi.
+- `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi. Put the Wi-Fi password on the phone's Screen tab rather than in `settings.json`, so it stays off GitHub.
 - If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
 - The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only; phones on the café Wi-Fi only get the phone page. The page checks in with the app every second, which is how settings and the phone's commands reach it.

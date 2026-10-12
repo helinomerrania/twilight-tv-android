@@ -337,7 +337,7 @@
     <p id="greeting" dir="auto"></p>
   </div>
   <div id="weather" hidden>
-    <div id="wnow"><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="num"></span></div>
+    <div id="wnow"><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="num" dir="ltr"></span></div>
     <p id="wwords" dir="auto"></p>
     <p id="whilo"></p>
   </div>
@@ -1997,13 +1997,21 @@ var SETTINGS = {
     $("wicon").innerHTML = weatherIcon(cur[2]);
     setText("temp", deg(cur[1]));
     setText("wwords", L(weatherKind(cur[2])) || "");
+    // The place, then "High 24°" and "Low 11°": each temperature one left-to-right piece, so it reads
+    // "24°" in Kurdish too (next to Kurdish letters a number's degree sign would jump to its left)
     var line = $("whilo");
     line.innerHTML = "";
-    [S.place || "", hi > -99 ? L("high") + " " + deg(hi) : "", lo < 99 ? L("low") + " " + deg(lo) : ""].forEach(function (t, i) {
-      if (!t) return;
+    [[S.place || "", ""], [hi > -99 ? L("high") : "", hi > -99 ? deg(hi) : ""], [lo < 99 ? L("low") : "", lo < 99 ? deg(lo) : ""]].forEach(function (t) {
+      if (!t[0] && !t[1]) return;
       var sp = document.createElement("span");
-      sp.textContent = t;
-      if (i === 0) sp.dir = "auto";
+      sp.dir = "auto";
+      if (t[0]) sp.appendChild(document.createTextNode(t[0] + (t[1] ? " " : "")));
+      if (t[1]) {
+        var n = document.createElement("bdi");
+        n.dir = "ltr";
+        n.textContent = t[1];
+        sp.appendChild(n);
+      }
       line.appendChild(sp);
     });
   }

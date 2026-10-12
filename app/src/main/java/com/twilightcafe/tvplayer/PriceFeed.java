@@ -14,7 +14,8 @@ import java.util.TimeZone;
 
 /**
  * Gold and currency prices for the TV's info panel, from tirezh.com's own price service
- * (/api/economy, the café owner's site). Asked every 5 minutes while the app is on screen;
+ * (/api/economy, the café owner's site), or the same service at another address (pricesUrl: the
+ * tirezh worker's own workers.dev address, say). Asked every 5 minutes while the app is on screen;
  * the last good answer is kept in a file, so the panel keeps its prices through an
  * internet cut. Only what the panel can show is kept: the currencies (buy, sell, up or
  * down), the Kurdistan gold prices by karat, and the world prices of gold, silver and bitcoin.
@@ -36,6 +37,7 @@ final class PriceFeed {
     private JSONObject prices;                            // the compact form below, or null
     private long fetchedAt, triedAt, waitUntil;
     private boolean busy;
+    private String asked = "";                            // the address asked last
     private volatile int version = 1;
     volatile String status = "not asked yet";
 
@@ -50,33 +52,47 @@ final class PriceFeed {
     }
 
     synchronized boolean due(long now) {
+        return due(now, URL);
+    }
+
+    /** Every 5 minutes; at once for a new address. */
+    synchronized boolean due(long now, String url) {
+        if (!busy && !url.equals(asked)) return true;
         return !busy && now >= waitUntil && now - triedAt >= RETRY && now - fetchedAt >= GAP;
     }
 
     /** Asks tirezh.com for the prices (background thread). */
     void refresh() {
+        refresh(URL);
+    }
+
+    /** Asks this address for the prices (background thread). */
+    void refresh(String url) {
         synchronized (this) {
             if (busy) return;
             busy = true;
             triedAt = System.currentTimeMillis();
+            if (!url.equals(asked)) waitUntil = 0;
+            asked = url;
         }
+        String site = host(url);
         try {
-            Net.Reply r = fetcher.get(URL);
+            Net.Reply r = fetcher.get(url);
             long now = System.currentTimeMillis();
             if (r.code == 429) {
                 synchronized (this) {
                     waitUntil = now + 15 * 60000L;
                 }
-                status = "tirezh.com asked to slow down; asking again in 15 minutes";
+                status = site + " asked to slow down; asking again in 15 minutes";
                 return;
             }
             if (r.code != 200 || r.body == null) {
-                status = "tirezh.com didn't send prices (" + r.code + ")";
+                status = site + " didn't send prices (" + r.code + ")";
                 return;
             }
             JSONObject p = parse(r.body);
             if (p == null) {
-                status = "tirezh.com's answer had no prices in it";
+                status = site + "'s answer had no prices in it";
                 return;
             }
             synchronized (this) {
@@ -86,9 +102,9 @@ final class PriceFeed {
                 version++;
                 save();
             }
-            status = "from tirezh.com, " + clock(now);
+            status = "from " + site + ", " + clock(now);
         } catch (Exception e) {                           // no internet, or an answer that can't be read
-            status = "couldn't reach tirezh.com (" + e.getClass().getSimpleName() + ")";
+            status = "couldn't reach " + site + " (" + e.getClass().getSimpleName() + ")";
         } finally {
             synchronized (this) {
                 busy = false;
@@ -192,6 +208,23 @@ final class PriceFeed {
         } catch (JSONException e) {
             return null;
         }
+    }
+
+    /**
+     * The address to ask, from the pricesUrl setting: as typed, with /api/economy added to a bare
+     * address (the tirezh worker's own, say https://tirezh.name.workers.dev); tirezh.com when empty
+     * or not a web address.
+     */
+    static String address(String typed) {
+        String u = typed == null ? "" : typed.trim();
+        if (!u.matches("(?i)https?://[^\\s/?#]+(/[^\\s]*)?")) return URL;
+        return u.matches("(?i)https?://[^/?#]+/?") ? u.replaceAll("/$", "") + "/api/economy" : u;
+    }
+
+    /** The site's name in an address: "tirezh.com" from "https://tirezh.com/api/economy" */
+    static String host(String url) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^[a-zA-Z]+://([^/:?#]+)").matcher(url == null ? "" : url);
+        return m.find() ? m.group(1) : String.valueOf(url);
     }
 
     private static String clock(long t) {

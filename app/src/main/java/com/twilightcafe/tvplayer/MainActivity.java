@@ -245,6 +245,11 @@ public class MainActivity extends Activity {
         return wanted ? settings.text("prayerCity", "Ranya").trim() : "";
     }
 
+    // Where the prices come from: pricesUrl (the tirezh worker at another address), else tirezh.com
+    private String pricesUrl() {
+        return PriceFeed.address(settings.text("pricesUrl", ""));
+    }
+
     // Prices only when the panel shows some (the built-in choice: the dollar and gold)
     private boolean wantsPrices() {
         JSONArray items = settings.list("priceItems");
@@ -841,11 +846,12 @@ public class MainActivity extends Activity {
                     }
                 });
             }
-            if (visible && wantsPrices() && prices.due(now)) {
+            final String priceUrl = pricesUrl();
+            if (visible && wantsPrices() && prices.due(now, priceUrl)) {
                 feeds.execute(new Runnable() {
                     @Override
                     public void run() {
-                        prices.refresh();
+                        prices.refresh(priceUrl);
                     }
                 });
             }
@@ -1212,6 +1218,7 @@ public class MainActivity extends Activity {
             defaults.put("screenSize", "1080");
             defaults.put("screenRate", "box");
             defaults.put("engineNumbers", false);
+            defaults.put("pricesUrl", "");
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("autoName", autoName(ip));
@@ -1361,6 +1368,7 @@ public class MainActivity extends Activity {
             case "zoom+":
             case "zoom-":
             case "reload":
+            case "unfreeze":
                 return toPage(what);
             case "identify":
                 return toPage("identify:" + tvName);

@@ -21,7 +21,7 @@ final class AppSettings {
 
     // Used by the app itself; never handed to the page
     private static final String[] APP_ONLY = { "controlPin", "tvVolume", "levelSound", "restartAt", "updates", "tvName",
-                                                "weatherKey", "videoFormat", "screenSize", "screenRate", "engineNumbers" };
+                                                "weatherKey", "videoFormat", "screenSize", "screenRate", "engineNumbers", "pricesUrl" };
 
     private final SharedPreferences prefs;
     private volatile JSONObject file;              // settings.json

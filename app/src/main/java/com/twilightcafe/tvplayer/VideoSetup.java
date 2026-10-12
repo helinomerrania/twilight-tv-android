@@ -32,6 +32,7 @@ final class VideoSetup {
      *    H.264 up to 1080p; the sound comes as AAC instead of Opus.
      *  - vp9: no AV1.
      *  - any: the engine's own choice, AV1 too.
+     * Whatever the format, the video's decoding is never paused (see below).
      */
     static String engineConfig(String format) {
         return engineConfig(format, false);
@@ -45,13 +46,18 @@ final class VideoSetup {
     static String engineConfig(String format, boolean numbers) {
         String f = format(format);
         StringBuilder y = new StringBuilder();
+        // The video's decoding never paused: the engine pauses it for a video out of sight (as under the
+        // café screen, 10 seconds or more at every song's end) or paused for 5 seconds, and starting it
+        // again can leave the picture frozen while the sound plays on
+        y.append("  media.suspend-background-video.enabled: false\n");
+        y.append("  media.dormant-on-pause-timeout-ms: -1\n");
         if (!f.equals("any")) y.append("  media.av1.enabled: false\n");
         if (f.equals("h264")) y.append("  media.webm.enabled: false\n");
         if (numbers) {
             y.append("  gfx.webrender.debug.profiler: true\n");
             y.append("  gfx.webrender.debug.profiler-ui: \"").append(NUMBERS).append("\"\n");
         }
-        return y.length() == 0 ? "prefs: {}\n" : "prefs:\n" + y;
+        return "prefs:\n" + y;
     }
 
     static final String NUMBERS = "FPS,Frame CPU total,Renderer,GPU,Rendered picture tiles,Draw calls,"

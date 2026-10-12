@@ -227,6 +227,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span id="quietText">Quiet for a minute</span>
     </button>
+    <button class="wide" id="unfreeze" data-cmd="unfreeze" type="button" style="margin-top:10px">Picture stuck? Get it moving again</button>
 
     <section class="card">
       <div class="row">
@@ -585,6 +586,7 @@
       if (/^playnext:/.test(what)) say("Comes next: " + (name || "your song"));
       else if (/^playnow:/.test(what)) say("Playing now: " + (name || "your song"));
       else if (/^look:/.test(what)) say("Look at the TV: 20 seconds of that day's look.");
+      else if (what === "unfreeze") say("Done: the song goes on from the same moment, with the picture moving.");
     }).catch(function () {}).then(function () {
       busy = false;
       if (button) button.disabled = false;
@@ -682,16 +684,18 @@
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
     quality: "auto", autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
-    videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false,
+    videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false, pricesUrl: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
     priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
-    specialDays: true, hijriAdjust: 0, labels: {}
+    specialDays: true, hijriAdjust: 0, kurdishNewYear: "21march", labels: {}
   };
   var FIELDS = [
     { group: "Gold and currency prices", tab: "screen" },
     { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", tab: "screen",
       hint: "Up to seven, in one row, centred. From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. None = no prices." },
+    { key: "pricesUrl", label: "Where the prices come from", type: "text", tab: "screen", placeholder: "https://tirezh.com/api/economy",
+      hint: "The tirezh worker at another address: its workers.dev address from Cloudflare, or a new domain (the TV adds /api/economy to a bare address). Empty = tirezh.com." },
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
@@ -712,6 +716,9 @@
     { looks: true, tab: "screen" },
     { key: "hijriAdjust", label: "Move the Hijri date, Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
       hint: "The Hijri date comes from amozhgary.tv by itself (from the Umm al-Qura calendar when it can't be reached). Only if it's still a day early or late compared with Kurdistan's announcement." },
+    { key: "kurdishNewYear", label: "Kurdish date: the year begins on", type: "select", tab: "screen",
+      options: [["21march", "21 March, every year"], ["equinox", "The equinox (Iran's calendar)"]],
+      hint: "Both give the same dates until 19 March 2028. In years when the equinox comes on 20 March (2028, 2029, 2032…), they are a day apart all that year." },
     { key: "labels", label: "Words on the TV", type: "labels", tab: "screen",
       hint: "Type this TV's own word for any of these, for example in Kurdish. Empty = the word in grey: settings.json's, or the English one." },
 

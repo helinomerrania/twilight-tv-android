@@ -148,7 +148,7 @@
      box draw it again 60 times a second); a row too long is drawn a little smaller (--fit, by the script). */
   #ticker { margin-top: calc(6 * var(--u)); overflow: hidden; display: flex; justify-content: center; }
   #tiles { display: flex; flex: none; white-space: nowrap; transform: scale(var(--fit, 1)); }
-  #tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(24 * var(--u));
+  #tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(20 * var(--u));
               border-inline-start: calc(1 * var(--u)) solid var(--line); font-size: calc(24 * var(--u)); line-height: 1.5; }
   #tiles li:first-child { border-inline-start: 0; padding-inline-start: 0; }
   #tiles li:last-child { padding-inline-end: 0; }
@@ -156,6 +156,9 @@
   .tv { font-weight: 600; }
   .tv.up { color: var(--up); } .tv.down { color: var(--down); }
   .tu { font-size: calc(16 * var(--u)); color: var(--muted); }
+  /* "100$" beside a currency priced for 100 dollars: a small label as Bootstrap draws one */
+  .per { padding: .42em .65em .28em; border-radius: calc(6 * var(--u)); background: #6c757d; color: #fff;
+         font-size: .75em; font-weight: 700; line-height: 1; }
   #tiles svg { width: calc(13 * var(--u)); height: calc(10 * var(--u)); align-self: center; }
   #tiles svg.up { color: var(--up); } #tiles svg.down { color: var(--down); }
   [hidden] { display: none !important; }
@@ -601,6 +604,12 @@ var SETTINGS = {
   specialDays: true,
   hijriAdjust: 0,
 
+  // The Kurdish date, under the Hijri one (when the Kurdish months are among the words on the TV):
+  // "21march" = Newroz, 1 Xakelêwe, on 21 March every year, as the Kurdistan Region keeps it; "equinox" = on
+  // the day of the spring equinox, as in Iran's calendar (20 March in some years: 2028, 2029, 2032...).
+  // Both give the same dates until 19 March 2028.
+  kurdishNewYear: "21march",
+
   // The words on the TV, e.g. in Kurdish: { "nowPlaying": "...", "locale": "ckb" }. Every
   // word left out stays as in LABELS further down.
   labels: {}
@@ -707,9 +716,11 @@ var SETTINGS = {
   var NOISE = /\s*[(\[{\u3010][^)\]}\u3011]*\b(official|video|audio|lyrics?|clip|klip|music|hd|hq|4k|8k|1080p|live|remaster(ed)?|visuali[sz]er|exclusive|new|full|karaoke)\b[^)\]}\u3011]*[)\]}\u3011]/gi;
   var lastDur = -1;                          // the song length shown under its name
   // Units: the dollar's price is in dinars; the toman, lira, riyal, dirham and Jordanian dinar are so many
-  // for 100 dollars (100$); the other currencies, so many dollars. And the currencies' English names.
-  var UNITS = { ku: { us: "د.ع", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" },
-                en: { us: "IQD", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" } };
+  // for 100 dollars (PER_100: a small "100$" label beside their names); the other currencies, so many
+  // dollars. And the currencies' English names.
+  var UNITS = { ku: { us: "د.ع", ir: "تمەن", tr: "لیرە", sa: "ڕیاڵ", ae: "درهەم", jo: "دینار" },
+                en: { us: "IQD", ir: "toman", tr: "lira", sa: "riyal", ae: "dirham", jo: "dinar" } };
+  var PER_100 = { ir: 1, tr: 1, sa: 1, ae: 1, jo: 1 };
   var NAME_LABELS = { gb: "pound" };             // currencies whose name is one of the words on the TV
   var HIJRI_EN = ["Muharram", "Safar", "Rabiʻ I", "Rabiʻ II", "Jumada I", "Jumada II", "Rajab", "Shaʻban", "Ramadan", "Shawwal",
                   "Dhuʻl-Qiʻdah", "Dhuʻl-Hijjah"];
@@ -2227,21 +2238,38 @@ var SETTINGS = {
     setText("greeting", greeting(activeDay()));
   }
 
-  // The Kurdish calendar: the solar year's months, from Newroz (1 Xakelêwe, 21 March), its years 1321 on
-  // from the Solar Hijri ones (Newroz 2026 began 2726): {d, m, y}, or null if the engine can't tell
+  // The Kurdish date, {d, m, y}: the solar year's months (six of 31 days, five of 30, then Reşeme), its
+  // years 700 on from Newroz (Newroz 2026 began 2726). Newroz, 1 Xakelêwe, on 21 March every year
+  // (kurdishNewYear "21march"), or on the day of the spring equinox ("equinox": Iran's calendar, the
+  // engine's "persian" one; the same as the true equinox every year to 2150 but 2091, a matter of seconds)
   function kurdishDate(d) {
-    var k = d.toDateString();
+    var rule = S.kurdishNewYear === "equinox" ? "equinox" : "21march", k = d.toDateString() + ":" + rule;
     if (kurdishMemo.k === k) return kurdishMemo.v;
-    var v = null;
+    var v = (rule === "equinox" && persianDate(d)) || march21Date(d);
+    kurdishMemo = { k: k, v: v };
+    return v;
+  }
+
+  // From 1 Xakelêwe on 21 March: so many days on, in months of 31 days, then 30; Reşeme ends on 20 March
+  // (29 days, or 30 when February had 29)
+  function march21Date(d) {
+    var y = d.getFullYear(), day = Math.round(Date.UTC(y, d.getMonth(), d.getDate()) / DAY);
+    if (day < Math.round(Date.UTC(y, 2, 21) / DAY)) y--;
+    var n = day - Math.round(Date.UTC(y, 2, 21) / DAY), m = n < 186 ? Math.floor(n / 31) : Math.min(11, 6 + Math.floor((n - 186) / 30));
+    return { d: n < 186 ? n - m * 31 + 1 : n - 186 - (m - 6) * 30 + 1, m: m + 1, y: y + 700 };
+  }
+
+  // The day in Iran's calendar (Solar Hijri), its years 1321 on: null if the engine hasn't that calendar
+  function persianDate(d) {
     try {
       var o = {};
       new Intl.DateTimeFormat("en-u-ca-persian", { day: "numeric", month: "numeric", year: "numeric" }).formatToParts(d)
         .forEach(function (p) { o[p.type] = p.value; });
-      v = { d: Number(o.day), m: Number(o.month), y: Number(String(o.year || o.relatedYear).replace(/\D/g, "")) + 1321 };
-      if (!v.d || !v.m || v.m > 12 || !(v.y > 2600)) v = null;
-    } catch (e) {}
-    kurdishMemo = { k: k, v: v };
-    return v;
+      var v = { d: Number(o.day), m: Number(o.month), y: Number(String(o.year || o.relatedYear).replace(/\D/g, "")) + 1321 };
+      return v.d && v.m && v.m <= 12 && v.y > 2600 ? v : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   // 18.4 -> "18°", -3 -> "−3°"
@@ -2351,7 +2379,7 @@ var SETTINGS = {
     return o != null && String(o).trim() !== "" ? String(o) : "";
   }
 
-  // The prices in priceItems that tirezh.com has, seven at most: [{name, value, unit, trend}], none if
+  // The prices in priceItems that tirezh.com has, seven at most: [{name, per, value, unit, trend}], none if
   // the app couldn't reach tirezh.com for 3 hours (old prices are worse than none)
   function priceTiles() {
     var P = X.prices, out = [], ku = rtl(), units = ku ? UNITS.ku : UNITS.en;
@@ -2370,16 +2398,17 @@ var SETTINGS = {
         r = row(P.currencies, k);
         var word = NAME_LABELS[k];                 // its word on the TV, else tirezh.com's Kurdish name (or the English one)
         if (r) t = { name: ku ? (word && own(word)) || r[1] || k.toUpperCase() : (word ? L(word) : CURRENCIES[k]) || k.toUpperCase(),
-                     value: r[3], unit: units[k] || "$", trend: r[4] };
+                     per: PER_100[k] ? (ku ? "100$" : "$100") : "", value: r[3], unit: units[k] || "$", trend: r[4] };
       }
       if (t && Number(t.value) > 0) out.push(t);
     });
     return out;
   }
 
-  // Gold and currency prices from Tirezh Index: seven at most, in one row, centred, never moving: name,
-  // price (green going up, red going down) with its unit and an arrow; when they were set above them.
-  // Prices too long for the row are drawn a little smaller instead (--fit).
+  // Gold and currency prices from Tirezh Index: seven at most, in one row, centred, never moving: name
+  // (with its "100$" label when it is priced for 100 dollars), price (green going up, red going down) with
+  // its unit and an arrow; when they were set above them. Prices too long for the row are drawn a little
+  // smaller instead (--fit).
   function drawMarket() {
     var tiles = priceTiles(), list = $("tiles");
     $("market").hidden = !tiles.length;
@@ -2391,6 +2420,7 @@ var SETTINGS = {
     tiles.forEach(function (t) {
       var li = make("li"), tr = TRENDS[String(t.trend)], cls = tr ? tr[0] : "";
       li.appendChild(make("span", "tn", t.name));
+      if (t.per) li.appendChild(make("bdi", "per n", nums(t.per)));
       li.appendChild(make("bdi", "tv n" + (cls ? " " + cls : ""), money(t.value)));
       li.appendChild(make("bdi", "tu", nums(t.unit)));
       if (tr) li.appendChild(svgOf("0 0 13 10", '<path fill="currentColor" d="' + tr[1] + '"/>', cls));
@@ -2538,7 +2568,7 @@ var SETTINGS = {
     settingsInfo: function () {
       return { defaults: Object.assign({ labelWords: LABELS }, DEFAULTS), current: S };   // (labelWords: the TV's words, for the phone)
     },
-    // next, pause, resume, vol+, vol-, zoom+, zoom-, identify:<name>, reload, forget,
+    // next, pause, resume, unfreeze, vol+, vol-, zoom+, zoom-, identify:<name>, reload, forget,
     // playnext:<video id>, playnow:<id>, unnext:<id>, quiet:<seconds> (0 = back to normal), look:<special day>
     command: function (what) {
       what = String(what || "");
@@ -2579,6 +2609,10 @@ var SETTINGS = {
         if (quiet === "closed") { openAnywayUntil = Date.now() + 3 * 3600e3; resume(); }
         else if (quiet === "prayer") { var pr = prayerNow(Date.now()); prayerSkip = pr ? pr.key : ""; resume(); }   // this time without the pause
         else resume();
+      }
+      else if (what === "unfreeze") {            // the picture stuck while the sound plays: the same moment again, freshly decoded
+        if (quiet) return false;
+        try { player.seekTo(Math.max(0, (player.getCurrentTime() || 0) - 0.2), true); } catch (e) { return false; }
       }
       else if (what === "vol+" || what === "vol-") changeSongVolume(what === "vol+" ? 10 : -10);
       else if (what === "zoom+" || what === "zoom-") changeSongZoom(what === "zoom+" ? 1 : -1);

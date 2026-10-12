@@ -50,12 +50,17 @@ final class Net {
 
     /** Asks with our own name (some services want to know who asks) and, if given, "only if changed since". */
     static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince) throws IOException {
+        return fetch(url, timeoutMs, userAgent, ifModifiedSince, "application/json");
+    }
+
+    /** The same, for a web page (accept = "text/html") or anything else. */
+    static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince, String accept) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(timeoutMs);
         c.setReadTimeout(timeoutMs);
         c.setUseCaches(false);
         c.setRequestProperty("User-Agent", userAgent);
-        c.setRequestProperty("Accept", "application/json");
+        c.setRequestProperty("Accept", accept);
         if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) c.setRequestProperty("If-Modified-Since", ifModifiedSince);
         try {
             int code = c.getResponseCode();

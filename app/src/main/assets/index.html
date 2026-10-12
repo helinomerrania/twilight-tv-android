@@ -7,18 +7,18 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>TV Player</title>
 <style>
-  :root { --u: 1px; --stageW: 100vw; --stageH: 100vh; --colW: 0px; --bandH: 0px;
-          /* the twilight sky: night above, dusk at the horizon; the sun's amber for the café's own things;
-             green and red only for prices going up and down */
-          --ink: #0b0f2d; --dusk: #1a1c4b; --text: #f5f1ea; --muted: rgba(245, 241, 234, .68); --faint: rgba(245, 241, 234, .52);
-          --line: rgba(245, 241, 234, .13); --amber: #f2a65a; --up: #43c48b; --down: #f07470; }
+  :root { --u: 1px; --ox: 0px; --oy: 0px;
+          /* dark glass: cards a little lighter than the room, white words; green and red only for
+             prices going up and down, the sun's amber only for a special day's greeting */
+          --ink: #0b0f2d; --bg: #0f1217; --text: #f3f5f8; --muted: rgba(243, 245, 248, .64); --faint: rgba(243, 245, 248, .45);
+          --edge: rgba(255, 255, 255, .11); --line: rgba(255, 255, 255, .10); --amber: #ffc580; --up: #3fd08f; --down: #ff6f6f; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--ink); cursor: none; }
-  /* With the info panel the screen is the café's own channel: the video is a window at the top
-     (top right in Kurdish, top left in English) and the frame around it is the evening sky */
-  body.with-panel { background: linear-gradient(to top, var(--dusk), #11153c 42%, var(--ink)); }
-  /* Where the video and the café screen are: the whole screen, or the top corner with the panel */
-  #stage { position: fixed; inset-inline-start: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;
+  /* With the info panel the video is a card in the top corner (top right in Kurdish), with cards around it */
+  body.with-panel { background: radial-gradient(110% 80% at 50% 0%, #1b1f27, var(--bg) 72%); }
+  /* Where the video and the café screen are: the whole screen, or the video card with the panel */
+  #stage { position: fixed; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;
            container-type: size; background: var(--ink); }
+  body.with-panel #stage { border-radius: calc(18 * var(--u)); box-shadow: 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(16 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, .45); }
   /* The player: drawn big (for quality), scaled to fit exactly, faded in and out by the script */
   #player { position: absolute; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; opacity: 0; }
   /* Invisible layer over everything: taps and clicks can't pause the video or open YouTube */
@@ -47,101 +47,106 @@
            font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; pointer-events: none; }
 
   /* ---------- the frame around the video ---------- */
-  /* Beside the video: the time, the weather and the QR codes. Below it, on the horizon: what's
-     playing and gold and currency prices. One typeface (Twilight Sans), sizes in --u (one pixel of a
-     1920x1080 screen) so the frame looks the same on any TV. Mirrored for right-to-left languages. */
-  #panel, #band { position: fixed; z-index: 2; display: none; box-sizing: border-box; color: var(--text);
-                  font-family: "Twilight Sans", Roboto, "Noto Sans", "Noto Naskh Arabic", system-ui, sans-serif; }
-  body.with-panel #panel, body.with-panel #band { display: flex; }
-  :where(#panel, #band) :where(p, ol, li, figure) { margin: 0; padding: 0; }
-  :where(#panel, #band) ol { list-style: none; }
-  html[dir="rtl"] :where(#panel, #band) :where(p, figcaption) { text-align: right; }   /* also song names in other scripts */
+  /* Laid out on a 1920x1080 screen (--u is one of its pixels; another shape gets the same, centered):
+     the video card 1280x720 in the top corner, what's playing in a card under it, the time, the weather
+     and two QR cards beside it, and gold and currency prices in a card along the bottom. Twilight Sans
+     for every word and number. Mirrored for right-to-left languages. */
+  #panel, #band, #market { position: fixed; z-index: 2; display: none; box-sizing: border-box; color: var(--text);
+                           font-family: "Twilight Sans", Roboto, "Noto Sans", "Noto Naskh Arabic", system-ui, sans-serif; }
+  body.with-panel #panel, body.with-panel #band, body.with-panel #market { display: flex; }
+  :where(#panel, #band, #market) :where(p, ol, li, figure) { margin: 0; padding: 0; }
+  :where(#panel, #band, #market) ol { list-style: none; }
+  html[dir="rtl"] :where(#panel, #band, #market) :where(p, figcaption) { text-align: right; }   /* also song names in other scripts */
   .n { unicode-bidi: isolate; direction: ltr; }       /* one number (with its ° or :), never split or turned around */
+  .card { border-radius: calc(18 * var(--u)); background: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .035));
+          box-shadow: inset 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(12 * var(--u)) calc(32 * var(--u)) rgba(0, 0, 0, .32); }
+  .cap { font-size: calc(17 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--muted); }
+  html[dir="ltr"] .cap { text-transform: uppercase; letter-spacing: .07em; }
 
-  #panel { top: 0; inset-inline-end: 0; width: var(--colW); height: 100%; flex-direction: column;
-           padding-block: calc(50 * var(--u)) calc(38 * var(--u)); padding-inline: calc(34 * var(--u)) calc(44 * var(--u)); }
-  #clock { display: flex; align-items: baseline; gap: calc(12 * var(--u)); white-space: nowrap; }
-  #time { font-size: calc(100 * var(--u)); line-height: 1.08; font-weight: 600; letter-spacing: -.01em; }
-  #ampm { font-size: calc(30 * var(--u)); line-height: 1; font-weight: 600; color: var(--muted); }
-  #weekday { margin-top: calc(10 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.4; font-weight: 600; }
-  #date { font-size: calc(25 * var(--u)); line-height: 1.45; color: var(--muted); }
-  #hijri { font-size: calc(21 * var(--u)); line-height: 1.45; color: var(--faint); }
-  #greeting { margin-top: calc(8 * var(--u)); font-size: calc(25 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--amber); }
+  /* Beside the video: the time, the date, the weather; the Wi-Fi's and the menu's QR codes */
+  #panel { top: calc(var(--oy) + 40 * var(--u)); left: calc(var(--ox) + 1340 * var(--u)); width: calc(540 * var(--u));
+           height: calc(876 * var(--u)); flex-direction: column; }
+  html[dir="rtl"] #panel { left: calc(var(--ox) + 40 * var(--u)); }
+  #when { padding-top: calc(10 * var(--u)); }
+  #panel #when p { text-align: center; }
+  #clock { display: flex; justify-content: center; align-items: baseline; gap: calc(16 * var(--u)); white-space: nowrap; }
+  #time { font-size: calc(132 * var(--u)); line-height: 1.05; font-weight: 600; letter-spacing: -.02em; }
+  #ampm { font-size: calc(44 * var(--u)); line-height: 1; font-weight: 600; }
+  #date { margin-top: calc(10 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.4; }
+  #hijri { font-size: calc(23 * var(--u)); line-height: 1.45; color: var(--muted); }
+  #greeting { margin-top: calc(4 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--amber); }
   #greeting:empty { display: none; }
-
-  #weather { margin-top: calc(32 * var(--u)); padding-top: calc(30 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line); }
-  #wnow { display: flex; align-items: center; gap: calc(10 * var(--u)); }
-  #wicon { width: calc(100 * var(--u)); height: calc(100 * var(--u)); flex: none; margin: calc(-12 * var(--u)) 0; margin-inline-start: calc(-14 * var(--u)); }
-  #temp { font-size: calc(64 * var(--u)); line-height: 1; font-weight: 600; }
-  #wwhat { min-width: 0; margin-inline-start: calc(8 * var(--u)); }
-  #wwords { font-size: calc(23 * var(--u)); line-height: 1.4; font-weight: 600; }
-  #wplace { font-size: calc(19 * var(--u)); line-height: 1.45; color: var(--muted); }
-  #whilo { margin-top: calc(14 * var(--u)); display: flex; flex-wrap: wrap; column-gap: calc(20 * var(--u));
-           font-size: calc(20 * var(--u)); line-height: 1.45; color: var(--muted); }
-  #whilo .n { color: var(--text); font-weight: 600; }
-  #forecast { margin-top: calc(16 * var(--u)); display: flex; padding: calc(12 * var(--u)) 0;
-              border-radius: calc(12 * var(--u)); background: rgba(245, 241, 234, .055); }
-  #forecast li { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
-  #forecast li + li { border-inline-start: calc(1 * var(--u)) solid var(--line); }
-  #forecast .h { font-size: calc(17 * var(--u)); line-height: 1.4; color: var(--muted); white-space: nowrap; }
-  #forecast svg { width: calc(54 * var(--u)); height: calc(54 * var(--u)); margin: calc(-4 * var(--u)) 0; }
-  #forecast .t { font-size: calc(22 * var(--u)); line-height: 1.3; font-weight: 600; }
-  #forecast:empty { display: none; }
-  #credit { margin-top: calc(10 * var(--u)); font-size: calc(15 * var(--u)); line-height: 1.4; color: var(--faint); }
-
-  #codes { margin-top: auto; padding-top: calc(28 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line);
-           display: flex; flex-direction: column; gap: calc(18 * var(--u)); }
-  #codes:not(:has(figure:not([hidden]))) { display: none; }
-  .code { display: flex; align-items: center; gap: calc(18 * var(--u)); }
-  .code .qr { width: calc(154 * var(--u)); height: calc(154 * var(--u)); flex: none; border-radius: calc(12 * var(--u));
-              overflow: hidden; background: #f7f3ec; }
+  #weather { margin: calc(22 * var(--u)) calc(30 * var(--u)) 0; padding-top: calc(20 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line);
+             display: flex; justify-content: center; align-items: center; gap: calc(12 * var(--u)); white-space: nowrap; }
+  #wicon { width: calc(68 * var(--u)); height: calc(68 * var(--u)); flex: none; margin: calc(-8 * var(--u)) 0; }
+  #temp { font-size: calc(40 * var(--u)); line-height: 1.2; font-weight: 600; }
+  #wwords { font-size: calc(27 * var(--u)); line-height: 1.4; }
+  #wplace { font-size: calc(27 * var(--u)); line-height: 1.4; color: var(--muted); }
+  #wwords::before, #wplace::before { content: "·"; margin-inline-end: calc(12 * var(--u)); color: var(--faint); }
+  #credit { margin-top: calc(6 * var(--u)); font-size: calc(14 * var(--u)); line-height: 1.4; color: var(--faint); }
+  #panel #credit { text-align: center; }
+  #codes { margin-top: auto; height: calc(500 * var(--u)); display: flex; gap: calc(20 * var(--u)); }
+  .code { flex: 1 1 0; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
+          padding: calc(40 * var(--u)) calc(18 * var(--u)) calc(22 * var(--u)); }
+  .code .ico { width: calc(50 * var(--u)); height: calc(50 * var(--u)); color: var(--muted); flex: none; }
+  .code .qr { width: calc(204 * var(--u)); height: calc(204 * var(--u)); margin: calc(22 * var(--u)) 0 calc(24 * var(--u)); flex: none;
+              border-radius: calc(14 * var(--u)); overflow: hidden; background: #fff; }
   .code .qr svg { display: block; width: 100%; height: 100%; }
-  .code figcaption { display: flex; flex-direction: column; min-width: 0; }
-  .code b { font-size: calc(24 * var(--u)); line-height: 1.4; font-weight: 600; }
-  .code span { font-size: calc(18 * var(--u)); line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
-  .code span.pw { font-size: calc(21 * var(--u)); color: var(--text); font-weight: 600; }
+  .code figcaption { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; }
+  .code figcaption, html[dir="rtl"] .code figcaption { text-align: center; }
+  .code b { font-size: calc(26 * var(--u)); line-height: 1.35; font-weight: 600; }
+  html[dir="ltr"] .code b { text-transform: uppercase; letter-spacing: .05em; }
+  .code span { font-size: calc(19 * var(--u)); line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+  .code span.pw { color: var(--text); font-weight: 600; }
 
-  #band { inset-inline-start: 0; bottom: 0; width: var(--stageW); height: var(--bandH); align-items: center; gap: calc(36 * var(--u));
-          padding-block: calc(28 * var(--u)) calc(32 * var(--u)); padding-inline: calc(48 * var(--u)) calc(34 * var(--u));
-          background: radial-gradient(50% 110% at 50% 0%, rgba(242, 166, 90, .085), transparent 72%); }
-  /* The horizon under the video: the setting sun's line, as on the café screen's lake */
-  #band::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: calc(2 * var(--u)); background: var(--amber);
-                  box-shadow: 0 0 calc(14 * var(--u)) rgba(242, 166, 90, .6); }
-  #music, #market { height: calc(156 * var(--u)); }        /* the same on screens taller than 16:9 */
-  #music { flex: 1 1 auto; min-width: 0; max-width: calc(900 * var(--u)); display: flex; flex-direction: column; justify-content: space-between; }
-  #music.still { justify-content: center; gap: calc(6 * var(--u)); }          /* paused for the call to prayer */
-  #nowLbl { font-size: calc(18 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--amber); }
-  #nowLbl:empty { display: none; }
-  #nowTitle { font-size: calc(34 * var(--u)); line-height: 1.3; font-weight: 600; }
-  #nowSinger { font-size: calc(22 * var(--u)); line-height: 1.4; color: var(--muted); }
-  #nowTitle, #nowSinger, #nextLine { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #progress { display: flex; align-items: center; gap: calc(14 * var(--u)); height: calc(18 * var(--u)); }
-  #bar { flex: 1 1 auto; height: calc(4 * var(--u)); border-radius: calc(2 * var(--u)); background: rgba(245, 241, 234, .16); overflow: hidden; }
-  #barFill { display: block; height: 100%; background: var(--amber); transform-origin: left; transform: scaleX(0); }
+  /* Under the video: what's playing (how far into it) and what's next */
+  #band { top: calc(var(--oy) + 780 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1280 * var(--u)); height: calc(136 * var(--u));
+          align-items: center; padding: 0 calc(22 * var(--u)); }
+  html[dir="rtl"] #band { left: calc(var(--ox) + 600 * var(--u)); }
+  .thumb { flex: none; display: block; object-fit: cover; border-radius: calc(10 * var(--u)); background: rgba(255, 255, 255, .06); }
+  #music { flex: 1.55 1 0; min-width: 0; display: flex; align-items: center; gap: calc(20 * var(--u)); padding-inline-end: calc(26 * var(--u)); }
+  #music.still { justify-content: center; }
+  #band.empty { justify-content: center; }
+  #band.empty::after { content: attr(data-name); font-family: "TwilightName", "Twilight Sans", sans-serif; font-weight: 700;
+                       font-size: calc(46 * var(--u)); line-height: 1.5; color: var(--muted); }
+  #nowThumb { width: calc(160 * var(--u)); height: calc(90 * var(--u)); }
+  .np { flex: 1 1 auto; min-width: 0; }
+  #nowTitle { font-size: calc(29 * var(--u)); line-height: 1.4; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #nowSinger { font-weight: 400; color: var(--muted); }
+  #nowSinger:not(:empty)::before { content: " — "; }
+  #progress { display: flex; align-items: center; gap: calc(14 * var(--u)); margin-top: calc(8 * var(--u)); }
+  #bar { flex: 1 1 auto; height: calc(5 * var(--u)); border-radius: calc(3 * var(--u)); background: rgba(255, 255, 255, .16); overflow: hidden; }
+  #barFill { display: block; height: 100%; background: var(--text); transform-origin: left; transform: scaleX(0); }
   html[dir="rtl"] #barFill { transform-origin: right; }
-  #dur { font-size: calc(17 * var(--u)); line-height: 1; color: var(--faint); }
-  #nextLine { font-size: calc(19 * var(--u)); line-height: 1.4; color: var(--muted); }
-  #nextLbl { color: var(--faint); margin-inline-end: calc(10 * var(--u)); }
+  #ptime { flex: none; min-width: calc(118 * var(--u)); font-size: calc(17 * var(--u)); line-height: 1; color: var(--muted); text-align: center; }
+  #eq { flex: none; width: calc(36 * var(--u)); height: calc(22 * var(--u)); color: var(--muted); }
+  #nextBox { flex: 1 1 0; min-width: 0; height: calc(96 * var(--u)); display: flex; align-items: center; gap: calc(18 * var(--u));
+             padding-inline-start: calc(26 * var(--u)); border-inline-start: calc(1 * var(--u)) solid var(--line); }
+  #nextThumb { width: calc(128 * var(--u)); height: calc(72 * var(--u)); }
+  #nextTitle { font-size: calc(24 * var(--u)); line-height: 1.35; font-weight: 600; overflow: hidden; display: -webkit-box;
+               -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
-  #market { flex: none; display: flex; flex-direction: column; justify-content: space-between; padding-inline-start: calc(34 * var(--u));
-            border-inline-start: calc(1 * var(--u)) solid var(--line); }
-  #marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u));
-                font-size: calc(18 * var(--u)); line-height: 1.45; color: var(--muted); white-space: nowrap; }
-  #marketSrc { color: var(--amber); font-weight: 600; }
-  #marketAt { color: var(--faint); margin-inline-start: calc(8 * var(--u)); }
-  #tiles { display: flex; }
-  #tiles li { width: calc(196 * var(--u)); box-sizing: border-box; padding-inline: calc(20 * var(--u)); }
-  #tiles li:first-child { padding-inline-start: 0; width: calc(176 * var(--u)); }
-  #tiles li + li { border-inline-start: calc(1 * var(--u)) solid var(--line); }
-  .tn { display: flex; justify-content: space-between; align-items: center; gap: calc(8 * var(--u));
-        font-size: calc(20 * var(--u)); line-height: 1.45; color: var(--muted); white-space: nowrap; }
-  .tn span { overflow: hidden; text-overflow: ellipsis; }
-  .tn svg { width: calc(13 * var(--u)); height: calc(10 * var(--u)); flex: none; }
-  .tn .up { color: var(--up); } .tn .down { color: var(--down); }
-  .tv { font-size: calc(31 * var(--u)); line-height: calc(42 * var(--u)); font-weight: 600; white-space: nowrap; }
-  .tv.long { font-size: calc(25 * var(--u)); } .tv.longer { font-size: calc(21 * var(--u)); }
-  .tv small { font-size: calc(15 * var(--u)); font-weight: 400; color: var(--muted); margin-inline-start: calc(6 * var(--u)); }
-  .tb { font-size: calc(17 * var(--u)); line-height: 1.45; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Along the bottom: gold and currency prices from Tirezh Index */
+  #market { top: calc(var(--oy) + 936 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1840 * var(--u)); height: calc(104 * var(--u));
+            flex-direction: column; justify-content: center; padding: 0 calc(28 * var(--u)); }
+  #marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u)); white-space: nowrap; }
+  #marketSrc { color: var(--text); }
+  #marketAt { color: var(--faint); margin-inline-start: calc(10 * var(--u)); font-weight: 400; }
+  #ticker { margin-top: calc(6 * var(--u)); overflow: hidden; }
+  #ticker.moving { -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+                   mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
+  #tiles { display: flex; white-space: nowrap; width: max-content; }
+  #tiles.run { animation: tick var(--tickT, 60s) linear infinite; will-change: transform; }
+  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(var(--tickX, -50%)); } }
+  #tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(24 * var(--u));
+              border-inline-start: calc(1 * var(--u)) solid var(--line); font-size: calc(24 * var(--u)); line-height: 1.5; }
+  #tiles li:first-child { border-inline-start: 0; padding-inline-start: 0; }
+  .tn { font-weight: 600; }
+  .tv { font-weight: 600; }
+  .tv.up { color: var(--up); } .tv.down { color: var(--down); }
+  .tu { font-size: calc(16 * var(--u)); color: var(--muted); }
+  #tiles svg { width: calc(13 * var(--u)); height: calc(10 * var(--u)); align-self: center; }
+  #tiles svg.up { color: var(--up); } #tiles svg.down { color: var(--down); }
   [hidden] { display: none !important; }
 </style>
 <style>
@@ -382,39 +387,46 @@
 <div id="note" dir="ltr"></div>
 </div>
 <div id="shield"></div>
-<!-- The frame around the video (the info panel). Beside it: the time, the weather, QR codes... -->
+<!-- The frame around the video (the info panel). Beside it: the time, the date, the weather, QR codes... -->
 <aside id="panel" aria-hidden="true">
   <div id="when">
     <p id="clock"><span id="time" class="n"></span><span id="ampm"></span></p>
-    <p id="weekday"></p>
     <p id="date"></p>
     <p id="hijri"></p>
     <p id="greeting"></p>
   </div>
-  <div id="weather" hidden>
-    <div id="wnow"><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="n"></span><div id="wwhat"><p id="wwords"></p><p id="wplace"></p></div></div>
-    <p id="whilo"></p>
-    <ol id="forecast"></ol>
-    <p id="credit" dir="auto"></p>
-  </div>
+  <div id="weather" hidden><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="n"></span><span id="wwords"></span><span id="wplace"></span></div>
+  <p id="credit" dir="auto"></p>
   <div id="codes">
-    <figure class="code" id="menuCode" hidden><div class="qr"></div><figcaption><b id="menuLbl"></b><span id="menuHint"></span></figcaption></figure>
-    <figure class="code" id="wifiCode" hidden><div class="qr"></div><figcaption><b id="wifiLbl"></b><span id="wifiName" dir="auto"></span><span id="wifiPwLbl"></span><span id="wifiPw" class="pw" dir="auto"></span></figcaption></figure>
+    <figure class="code card" id="wifiCode" hidden>
+      <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 19.5a26 26 0 0 1 36 0"/><path d="M12.5 26.5a16.5 16.5 0 0 1 23 0"/><path d="M19 33.2a7.4 7.4 0 0 1 10 0"/></g><circle cx="24" cy="39.5" r="3" fill="currentColor"/></svg>
+      <div class="qr"></div><figcaption><b id="wifiLbl"></b><span id="wifiName" dir="auto"></span><span id="wifiPwLbl"></span><span id="wifiPw" class="pw" dir="auto"></span></figcaption></figure>
+    <figure class="code card" id="menuCode" hidden>
+      <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6v10a5 5 0 0 0 10 0V6"/><path d="M18 6v36"/><path d="M33.5 42V27"/><path d="M33.5 27h-4c0-9 1-17 4-21z"/></g></svg>
+      <div class="qr"></div><figcaption><b id="menuLbl"></b><span id="menuHint"></span></figcaption></figure>
   </div>
 </aside>
-<!-- ...and below it, on the horizon: what's playing and what's next, and gold and currency prices -->
-<div id="band" aria-hidden="true">
+<!-- ...under it, what's playing and what's next... -->
+<div id="band" class="card" aria-hidden="true">
   <div id="music">
-    <p id="nowLbl"></p>
-    <p id="nowTitle" dir="auto"></p>
-    <p id="nowSinger" dir="auto"></p>
-    <div id="progress"><span id="bar"><i id="barFill"></i></span><span id="dur" class="n"></span></div>
-    <p id="nextLine"><span id="nextLbl"></span><bdi id="nextTitle"></bdi></p>
+    <img id="nowThumb" class="thumb" alt="">
+    <div class="np">
+      <p id="nowLbl" class="cap"></p>
+      <p id="nowTitle" dir="auto"><span id="nowSong"></span><span id="nowSinger"></span></p>
+      <div id="progress"><span id="bar"><i id="barFill"></i></span><span id="ptime" class="n"></span>
+        <svg id="eq" viewBox="0 0 36 22" aria-hidden="true"><g fill="currentColor"><rect x="0" y="9" width="2.4" height="4" rx="1.2"/><rect x="4.5" y="6" width="2.4" height="10" rx="1.2"/><rect x="9" y="2" width="2.4" height="18" rx="1.2"/><rect x="13.5" y="7" width="2.4" height="8" rx="1.2"/><rect x="18" y="0" width="2.4" height="22" rx="1.2"/><rect x="22.5" y="5" width="2.4" height="12" rx="1.2"/><rect x="27" y="8" width="2.4" height="6" rx="1.2"/><rect x="31.5" y="4" width="2.4" height="14" rx="1.2"/></g></svg>
+      </div>
+    </div>
   </div>
-  <div id="market" hidden>
-    <p id="marketHead"><span id="marketLbl"></span><span><span id="marketSrc"></span><span id="marketAt"></span></span></p>
-    <ol id="tiles"></ol>
+  <div id="nextBox">
+    <img id="nextThumb" class="thumb" alt="">
+    <div class="np"><p id="nextLbl" class="cap"></p><p id="nextTitle" dir="auto"></p></div>
   </div>
+</div>
+<!-- ...and along the bottom, gold and currency prices -->
+<div id="market" class="card" aria-hidden="true" hidden>
+  <p id="marketHead" class="cap"><span id="marketLbl"></span><span><span id="marketSrc"></span><span id="marketAt"></span></span></p>
+  <div id="ticker"><ol id="tiles"></ol></div>
 </div>
 <div id="setupNote" dir="ltr"></div>
 <div id="debug" dir="ltr"></div>
@@ -528,10 +540,12 @@ var SETTINGS = {
   closingFade: 10,
 
   // Pause the music for the call to prayer, this many minutes, during opening hours only.
-  // 0 = off. The times are worked out for the place below (Muslim World League: Fajr 18°,
-  // Isha 17°, Asr Shafi'i). To match your mosque, move a prayer by minutes:
-  // { "fajr": 0, "dhuhr": 2, "asr": 1, "maghrib": 3, "isha": 0 }.
+  // 0 = off. In the Android app the times come from amozhgary.tv for the town in prayerCity
+  // (its name as in amozhgary.tv/bang/Ranya), once a day; otherwise, or "" there, they're worked
+  // out for the place below (Muslim World League: Fajr 18°, Isha 17°, Asr Shafi'i). To match
+  // your mosque, move a prayer by minutes: { "fajr": 0, "dhuhr": 2, "asr": 1, "maghrib": 3, "isha": 0 }.
   prayerPause: 5,
+  prayerCity: "Ranya",
   prayerAdjust: {},
 
   // The place, for the weather and the prayer times.
@@ -547,11 +561,11 @@ var SETTINGS = {
   // The clock: false = 12-hour (9:30 PM), true = 24-hour (21:30).
   clock24: false,
 
-  // Gold and currency prices from Tirezh Index (tirezh.com), up to 4, in this order. Currencies by
-  // their code: us (US dollar), eu, gb, tr, ir, sa, ae, jo, ca, ch, se, no, dk, au. Gold by karat:
-  // gold24, gold22, gold21, gold18. World prices per ounce: ounce (gold), silver; btc = bitcoin.
-  // [] = no prices.
-  priceItems: ["us", "gold21", "gold18", "ounce"],
+  // Gold and currency prices from Tirezh Index (tirezh.com), along the bottom in this order (more than
+  // fit in a row move slowly across). Currencies by their code: us (US dollar), eu, gb, tr, ir, sa, ae,
+  // jo, ca, ch, se, no, dk, au. Gold by karat: gold24, gold22, gold21, gold18. World prices per ounce:
+  // ounce (gold), silver; btc = bitcoin. [] = no prices.
+  priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"],
 
   // The numbers on the TV: "auto" = in the language's own digits (١٢٣ with Kurdish words), "kurdish" =
   // always ١٢٣, "latin" = always 123. Song names, the Wi-Fi password and messages stay as written.
@@ -640,6 +654,7 @@ var SETTINGS = {
   var quiet = "";           // "" = music on, "closed" = outside opening hours, "paused" = paused from the phone
   var quietSince = 0, holdUntil = 0, openAnywayUntil = 0, scheduleAt = 0, aliveAt = 0;
   var quietUntil = 0, duck = 1;              // "Quiet for a minute" from the phone: the music lower until then
+  var tempVol = null;                        // {id, v}: this song louder or quieter from the remote, until it ends
   var prayerUntil = 0, prayerName = "", prayerSkip = "";   // the call to prayer's pause ("resume" skips this one)
   var lookDay = "", lookUntil = 0;           // a special day's look, shown from the phone for a moment
   var state = load();
@@ -658,10 +673,10 @@ var SETTINGS = {
     nowPlaying: "Now playing", upNext: "Up next",
     menu: "Menu", menuHint: "Scan for the menu",
     wifi: "Wi-Fi", wifiPassword: "Password",
-    prices: "Gold and currency prices", pricesSource: "Tirezh Index", buy: "Buy",
+    prices: "Gold and currency prices", pricesSource: "Tirezh Index",
     goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce",
-    high: "High", low: "Low", am: "AM", pm: "PM",
-    weatherCredit: "Weather: MET Norway (CC BY 4.0)",
+    am: "AM", pm: "PM",
+    weatherCredit: "Weather: MET Norway (CC BY 4.0)", weatherApiCredit: "Weather: WeatherAPI.com",
     prayerNote: "The music resumes after the call to prayer",
     prayerBand: "Paused for the call to prayer",
     newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
@@ -669,7 +684,7 @@ var SETTINGS = {
     rain: "Rain", heavyrain: "Heavy rain", sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
   };
   var DAYS = { newroz: 1, eidFitr: 1, eidAdha: 1, barat: 1, newYear: 1 };
-  var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], hijriMemo = {};
+  var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], prayerFrom = "", hijriMemo = {};
   // Words around a song's name that aren't its name: "(Official Video)", "[4K]", "(Lyrics)"...
   var NOISE = /\s*[(\[{\u3010][^)\]}\u3011]*\b(official|video|audio|lyrics?|clip|klip|music|hd|hq|4k|8k|1080p|live|remaster(ed)?|visuali[sz]er|exclusive|new|full|karaoke)\b[^)\]}\u3011]*[)\]}\u3011]/gi;
   var lastDur = -1;                          // the song length shown under its name
@@ -715,7 +730,6 @@ var SETTINGS = {
       played: s.played instanceof Array ? s.played : [],   // played in this round
       recent: s.recent instanceof Array ? s.recent : [],   // last songs played, newest last
       bad: s.bad && typeof s.bad === "object" ? s.bad : {}, // videos that refuse to play
-      vol: s.vol && typeof s.vol === "object" ? s.vol : {}, // song volumes set with the remote
       zoom: s.zoom && typeof s.zoom === "object" ? s.zoom : {}, // song zooms set with the remote
       auto: s.barCheck === BAR_CHECK && s.auto && typeof s.auto === "object" ? s.auto : {}, // zooms found automatically
       barCheck: BAR_CHECK,
@@ -826,6 +840,7 @@ var SETTINGS = {
       return reloadSoon(10 * 60e3);
     }
     current = pick.id;
+    tempVol = null;                              // a new song: the volume from the settings again
     if (pick.asked) {                            // asked for on the phone: out of this round's order
       state.upNext.shift();
       var at = queue.indexOf(current);
@@ -1221,9 +1236,10 @@ var SETTINGS = {
     return S.infoPanel !== false && !SETUP && window.innerWidth >= window.innerHeight * 1.5;
   }
 
-  // The stage (video and café screen): the whole screen, or with the info panel 80% of its
-  // width at the top left, keeping 16:9. The panel takes the column on the right and the
-  // band below. --u is one pixel of a 1920x1080 screen, so the panel looks the same on any TV.
+  // The stage (video and café screen): the whole screen, or with the info panel a card of 1280x720
+  // (on a 1920x1080 screen) in the top corner: top left, or top right for a right-to-left language.
+  // The frame's other cards are placed around it in CSS. --u is one pixel of a 1920x1080 screen; a
+  // screen of another shape gets the same picture, centered (--ox, --oy).
   //
   // YouTube picks the stream from the player's size, so the player is drawn at
   // the chosen quality (4K by default) and shrunk to fit the stage exactly,
@@ -1233,19 +1249,21 @@ var SETTINGS = {
     lastW = window.innerWidth;
     lastH = window.innerHeight;
     if (!lastW || !lastH) return;
-    var on = panelWanted(), sw = lastW, sh = lastH;
+    var on = panelWanted(), sw = lastW, sh = lastH, u = Math.min(lastW / 1920, lastH / 1080);
+    var ox = (lastW - 1920 * u) / 2, oy = (lastH - 1080 * u) / 2, x = 0, y = 0;
     if (on) {
-      sw = Math.round(lastW * 0.8);
-      sh = Math.round(sw * 9 / 16);
-      if (sh > lastH * 0.86) { sh = Math.round(lastH * 0.86); sw = Math.round(sh * 16 / 9); }
+      sw = Math.round(1280 * u);
+      sh = Math.round(720 * u);
+      x = Math.round(ox + (document.documentElement.dir === "rtl" ? 600 : 40) * u);
+      y = Math.round(oy + 40 * u);
     }
+    stage.style.left = x + "px";
+    stage.style.top = y + "px";
     stage.style.width = sw + "px";
     stage.style.height = sh + "px";
-    root.setProperty("--u", Math.min(lastW / 1920, lastH / 1080) + "px");
-    root.setProperty("--stageW", sw + "px");
-    root.setProperty("--stageH", sh + "px");
-    root.setProperty("--colW", (lastW - sw) + "px");
-    root.setProperty("--bandH", (lastH - sh) + "px");
+    root.setProperty("--u", u + "px");
+    root.setProperty("--ox", ox + "px");
+    root.setProperty("--oy", oy + "px");
     if (on !== panelOn) { panelOn = on; panelDirty = true; }
     document.body.classList.toggle("with-panel", on);
     if (!el) return;
@@ -1266,10 +1284,12 @@ var SETTINGS = {
 
   /* ---------- sound ---------- */
 
+  // The volume from the settings (a song's own one in songVolume, else the normal one), or what the
+  // remote or the phone set for the song playing now: that lasts until the song ends
   function songVolume() {
     var v = S.volume;
     if (current && S.songVolume && S.songVolume[current] != null) v = S.songVolume[current];
-    if (current && state.vol[current] != null) v = state.vol[current];
+    if (current && tempVol && tempVol.id === current) v = tempVol.v;
     v = Number(v);
     return isNaN(v) ? 100 : Math.max(0, Math.min(100, v));
   }
@@ -1310,13 +1330,12 @@ var SETTINGS = {
     document.getElementById("muted").style.display = m ? "block" : "none";
   }
 
-  // Remote up/down arrows (or + / - on a keyboard): this song louder or quieter,
-  // remembered on this TV.
+  // Remote up/down arrows (or + / - on a keyboard, or the phone): this song louder or quieter,
+  // until it ends. The next song is back at the volume from the settings.
   function changeSongVolume(delta) {
     if (!current) return;
     var v = Math.max(10, Math.min(100, Math.round((songVolume() + delta) / 10) * 10));
-    state.vol[current] = v;
-    save();
+    tempVol = { id: current, v: v };
     syncSound();
     toast(nums("♪ " + v + "%"));
   }
@@ -1835,21 +1854,36 @@ var SETTINGS = {
   }
 
   // Today's prayer times, [{name, at (ms)}], each moved by its prayerAdjust minutes
+  // Today's five prayers, [{name, at}]: amozhgary.tv's times for the town (from the app), else worked
+  // out here; each moved by prayerAdjust
   function todaysPrayers(now) {
-    var d = new Date(now), lat = Number(S.lat), lon = Number(S.lon), adj = S.prayerAdjust || {};
-    var key = d.toDateString() + JSON.stringify(adj) + lat + "," + lon;
+    var d = new Date(now), lat = Number(S.lat), lon = Number(S.lon), adj = S.prayerAdjust || {}, site = siteTimes(d);
+    var key = d.toDateString() + JSON.stringify(adj) + lat + "," + lon + (site ? site.join(",") : "");
     if (key === prayerDay) return prayerToday;
     prayerDay = key;
     prayerToday = [];
-    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 60) return prayerToday;   // (far north or south the sums don't hold)
-    var tz = -new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTimezoneOffset() / 60;
-    var t = prayerTimes(d.getFullYear(), d.getMonth() + 1, d.getDate(), lat, lon, tz);
+    prayerFrom = site ? "amozhgary.tv" : "";
+    var t = {};
+    if (site) PRAYERS.forEach(function (n, i) { t[n] = site[[0, 2, 3, 4, 5][i]] / 60; });
+    else {
+      if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 60) return prayerToday;   // (far north or south the sums don't hold)
+      var tz = -new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTimezoneOffset() / 60;
+      t = prayerTimes(d.getFullYear(), d.getMonth() + 1, d.getDate(), lat, lon, tz);
+    }
     PRAYERS.forEach(function (n) {
       if (isNaN(t[n])) return;
       var mins = Math.floor(t[n] * 60 + 0.5) + (Number(adj[n]) || 0);
       prayerToday.push({ name: n, at: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, mins).getTime() });
     });
     return prayerToday;
+  }
+
+  // The day's times from amozhgary.tv's month (the app gets it): [fajr, sunrise, dhuhr, asr, maghrib,
+  // isha] in minutes after midnight, or null when the app has none for this month
+  function siteTimes(d) {
+    var P = X.prayers, row = null;
+    if (P && P.year === d.getFullYear() && P.month === d.getMonth() + 1 && P.days instanceof Array) row = P.days[d.getDate() - 1];
+    return row instanceof Array && row.length === 6 && row.every(function (v) { return typeof v === "number" && v >= 0 && v < 1440; }) ? row : null;
   }
 
   // The prayer whose pause is now, if any: {name, until, key}
@@ -2035,7 +2069,9 @@ var SETTINGS = {
       root.lang = dir === "rtl" ? L("locale") : "en";
       $("panel").dir = dir;
       $("band").dir = dir;
+      $("market").dir = dir;
       panelDirty = true;
+      layout();                                  // the video card to the other side
     }
     var note = quiet === "prayer" ? L("prayerNote") : greeting(activeDay());
     setText("brandNote", note);
@@ -2045,11 +2081,11 @@ var SETTINGS = {
     var d = new Date(now), look = [L("locale"), kurdishDigits(), !!S.clock24, L("am"), L("pm")].join("|");
     draw("clock", d.getHours() + ":" + d.getMinutes() + look, drawClock, d);
     draw("date", d.toDateString() + (S.hijriAdjust || 0) + look + greeting(activeDay()) + L("weekdays") + L("months") + L("hijriMonths"), drawDate, d);
-    draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("high") + L("low") + L("weatherCredit"), drawWeather, now);
+    draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("weatherCredit") + L("weatherApiCredit"), drawWeather, now);
     draw("music", musicKey(), drawMusic);
     drawProgress();
     draw("codes", JSON.stringify([S.menuUrl, S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
-    draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("pricesSource"), L("buy"), L("goldOunce"), L("silverOunce"),
+    draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("pricesSource"), L("goldOunce"), L("silverOunce"),
                                    L("perOunce"), L("months"), d.toDateString(), Math.floor(now / 600e3)]), drawMarket);
     panelDirty = false;
   }
@@ -2065,12 +2101,6 @@ var SETTINGS = {
   function clockText(ms) {
     var d = new Date(ms), h = d.getHours(), m = ("0" + d.getMinutes()).slice(-2);
     return S.clock24 ? nums(("0" + h).slice(-2) + ":" + m) : nums((h % 12 || 12) + ":" + m) + " " + (h < 12 ? L("am") : L("pm"));
-  }
-
-  // An hour for the forecast: "9 PM" or "21:00"
-  function hourText(ms) {
-    var h = new Date(ms).getHours();
-    return S.clock24 ? nums(("0" + h).slice(-2) + ":00") : nums(String(h % 12 || 12)) + " " + (h < 12 ? L("am") : L("pm"));
   }
 
   // When something happened: "9:30 AM" today, else "11 October 9:30 AM"
@@ -2100,11 +2130,12 @@ var SETTINGS = {
     return a.length === n ? a : null;
   }
 
-  // The day of the week, the date, the Hijri date (and a special day's greeting)
+  // The day of the week and the date ("Monday 12 October 2026"), the Hijri date, a special day's greeting
   function drawDate(d) {
     var days = names("weekdays", 7), months = names("months", 12), hm = names("hijriMonths", 12), h = hijri(d.getTime()), hj = "";
-    setText("weekday", days ? days[d.getDay()] : dateFormat(L("locale"), { weekday: "long" }).format(d));
-    setText("date", months ? nums(d.getDate()) + " " + months[d.getMonth()] : nums(dateFormat(L("locale"), { day: "numeric", month: "long" }).format(d)));
+    setText("date", (days ? days[d.getDay()] : dateFormat(L("locale"), { weekday: "long" }).format(d)) + " " +
+      (months ? nums(d.getDate()) + " " + months[d.getMonth()] + " " + nums(d.getFullYear())
+              : nums(dateFormat(L("locale"), { day: "numeric", month: "long", year: "numeric" }).format(d))));
     if (h && hm) hj = nums(h.d) + " " + hm[h.m - 1] + " " + nums(h.y);
     else {
       try {
@@ -2123,45 +2154,23 @@ var SETTINGS = {
     return nums((t < 0 ? "−" + -t : String(t)) + "°");
   }
 
-  // From the app's forecast: the hour we're in, the next 24 hours' highest and lowest, and every 3 hours ahead
+  // The weather now (WeatherAPI.com's measurement, else the hour we're in from the forecast), in one
+  // line: picture, temperature, words, the place; credited under it
   function drawWeather(now) {
-    var hours = X.weather && X.weather.hours instanceof Array ? X.weather.hours : [], cur = null, hi = -99, lo = 99, at = {};
+    var W = X.weather || {}, hours = W.hours instanceof Array ? W.hours : [], cur = null;
     hours.forEach(function (h) {
-      if (!(h instanceof Array) || h.length < 3 || typeof h[1] !== "number") return;
-      at[h[0]] = h;
-      if (h[0] <= now) cur = h;
-      if (h[0] > now - 3600e3 && h[0] < now + 24 * 3600e3) { hi = Math.max(hi, h[1]); lo = Math.min(lo, h[1]); }
+      if (h instanceof Array && h.length >= 3 && typeof h[1] === "number" && h[0] <= now) cur = h;
     });
     if (!cur && hours.length && hours[0] instanceof Array && hours[0][0] - now < 3600e3) cur = hours[0];
+    if (W.now instanceof Array && typeof W.now[1] === "number" && Math.abs(now - W.now[0]) < 2 * 3600e3) cur = W.now;
     if (cur && now - cur[0] > 2 * 3600e3) cur = null;   // an old forecast: nothing rather than wrong
     $("weather").hidden = !cur;
-    setText("credit", cur ? L("weatherCredit") : "");
+    setText("credit", cur ? L(W.source === "weatherapi" ? "weatherApiCredit" : "weatherCredit") : "");
     if (!cur) return;
     $("wicon").innerHTML = weatherIcon(cur[2], "wn");
     setText("temp", deg(cur[1]));
     setText("wwords", L(weatherKind(cur[2])) || "");
     setText("wplace", S.place || "");
-    // "High 24°", "Low 11°": each temperature one left-to-right piece, so it reads "24°" beside
-    // Kurdish words too (there a number's degree sign would jump to its other side)
-    var line = $("whilo");
-    line.innerHTML = "";
-    [[L("high"), hi > -99 ? deg(hi) : ""], [L("low"), lo < 99 ? deg(lo) : ""]].forEach(function (t) {
-      if (!t[1]) return;
-      var sp = make("span", "", t[0] + " ");
-      sp.appendChild(make("bdi", "n", t[1]));
-      line.appendChild(sp);
-    });
-    var list = $("forecast");
-    list.innerHTML = "";
-    for (var i = 1; i <= 4; i++) {
-      var t = Math.floor((now + i * 3 * 3600e3) / 3600e3) * 3600e3, h = at[t];
-      if (!h) continue;
-      var li = make("li");
-      li.appendChild(make("span", "h", hourText(t)));
-      li.appendChild(svgOf("0 0 64 64", weatherIcon(h[2], "f" + i)));
-      li.appendChild(make("span", "t n", deg(h[1])));
-      list.appendChild(li);
-    }
   }
 
   function musicKey() {
@@ -2169,48 +2178,64 @@ var SETTINGS = {
     return JSON.stringify([quiet, current, a, n && n.id, b, prayerUntil, L("nowPlaying"), L("upNext"), L("prayerBand"), S.clock24, kurdishDigits(), L("am"), L("pm")]);
   }
 
+  // A song's picture from YouTube (the one YouTube shows for it everywhere), for the cards; none
+  // while it loads or when it can't (no internet)
+  function thumb(id, img) {
+    var src = isId(id) ? "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg" : "";
+    if (img.getAttribute("src") === src) return;
+    img.style.visibility = "hidden";
+    img.onload = function () { img.style.visibility = ""; };
+    img.onerror = function () { img.style.visibility = "hidden"; };
+    if (src) img.setAttribute("src", src); else img.removeAttribute("src");
+  }
+
   // What's playing and what's next (or why the music stopped)
   function drawMusic() {
-    var box = $("music");
+    var box = $("music"), nextBox = $("nextBox");
     lastDur = -1;
     box.className = quiet === "prayer" ? "still" : "";
     if (quiet === "prayer") {
       box.hidden = false;
-      setText("nowLbl", "");
-      setText("nowTitle", L("prayerBand"));
-      setText("nowSinger", clockText(prayerUntil));
+      nextBox.hidden = true;
+      $("nowThumb").hidden = true;
       $("progress").hidden = true;
-      $("nextLine").hidden = true;
+      setText("nowLbl", clockText(prayerUntil));
+      setText("nowSong", L("prayerBand"));
+      setText("nowSinger", "");
       return;
     }
     var now = !quiet && current ? songParts(current) : null;
     box.hidden = !now;
+    $("band").classList.toggle("empty", !now);         // no music: the café's name instead
+    $("band").setAttribute("data-name", S.brandName || "");
+    var n = now ? chooseNext(false) : null, nx = n ? songParts(n.id) : null;
+    nextBox.hidden = !nx;
     if (!now) return;
+    $("nowThumb").hidden = false;
+    thumb(current, $("nowThumb"));
     setText("nowLbl", L("nowPlaying"));
-    setText("nowTitle", now.song);
+    setText("nowSong", now.song);
     setText("nowSinger", now.singer);
     $("progress").hidden = false;
-    var n = chooseNext(false), nx = n ? songParts(n.id) : null;
-    $("nextLine").hidden = !nx;
-    setText("nextLbl", L("upNext"));
-    setText("nextTitle", nx ? nx.song + (nx.singer ? " – " + nx.singer : "") : "");
+    if (nx) {
+      thumb(n.id, $("nextThumb"));
+      setText("nextLbl", L("upNext"));
+      setText("nextTitle", nx.song + (nx.singer ? " — " + nx.singer : ""));
+    }
     drawProgress();
   }
 
-  // How far into the song (a thin line that fills slowly), and how long it is
+  // How far into the song: a line that fills, and "1:42 / 3:55"
   function drawProgress() {
     if (!panelOn || !ready || !current || quiet || guarded || !player || typeof player.getDuration !== "function") return;
-    var d = Number(player.getDuration()) || 0, t = Number(player.getCurrentTime()) || 0;
+    var d = Number(player.getDuration()) || 0, t = Math.min(Number(player.getCurrentTime()) || 0, d);
     $("barFill").style.transform = "scaleX(" + (d > 0 ? Math.max(0, Math.min(1, t / d)) : 0).toFixed(4) + ")";
-    if (Math.round(d) !== lastDur) {
-      lastDur = Math.round(d);
-      setText("dur", d > 0 ? nums(mmss(d)) : "");
-    }
+    setText("ptime", d > 0 ? nums(mmss(t) + " / " + mmss(d)) : "");
   }
 
   // "زێڕی ٢١" -> "زێڕی 21" (tirezh.com's names have Kurdish digits; nums() makes them the TV's digits)
   function latinDigits(s) {
-    return String(s).replace(/[\u0660-\u0669]/g, function (d) { return String(d.charCodeAt(0) - 0x660); });
+    return String(s).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x660); });
   }
 
   // 165250 -> "165,250", 112.25 -> "112.25", in the TV's digits
@@ -2224,56 +2249,60 @@ var SETTINGS = {
     return null;
   }
 
-  // The prices in priceItems that tirezh.com has: [{name, value, unit, buy or note, trend}], none if
-  // the app couldn't reach tirezh.com for 3 hours (old prices are worse than none)
+  // The prices in priceItems that tirezh.com has: [{name, value, unit, trend}], none if the app
+  // couldn't reach tirezh.com for 3 hours (old prices are worse than none)
   function priceTiles() {
     var P = X.prices, out = [], ku = rtl(), units = ku ? UNITS.ku : UNITS.en;
     if (!P || typeof P !== "object" || !(Date.now() - (Number(P.fetched) || 0) < 3 * 3600e3)) return out;
-    (S.priceItems instanceof Array ? S.priceItems : []).slice(0, 4).forEach(function (k) {
+    (S.priceItems instanceof Array ? S.priceItems : []).slice(0, 10).forEach(function (k) {
       k = String(k).toLowerCase();
       var r, t = null, gold = /^gold(24|22|21|18)$/.exec(k);
       if (gold) {
         r = row(P.gold, Number(gold[1]));
-        if (r) t = { name: ku && r[2] ? nums(latinDigits(r[2])) : "Gold " + r[0] + "K", value: r[1], unit: units.us, buy: r[3], trend: r[4] };
+        if (r) t = { name: ku && r[2] ? nums(latinDigits(r[2])) : "Gold " + r[0] + "K", value: r[1], unit: units.us, trend: r[4] };
       } else if (k === "ounce" || k === "silver" || k === "btc") {
         r = P[k];
-        if (r instanceof Array) t = { name: k === "btc" ? "Bitcoin" : L(k === "ounce" ? "goldOunce" : "silverOunce"), value: r[0], unit: "$",
-                                      note: k === "btc" ? "" : L("perOunce"), trend: r[1] };
+        if (r instanceof Array) t = { name: k === "btc" ? "Bitcoin" : L(k === "ounce" ? "goldOunce" : "silverOunce"), value: r[0],
+                                      unit: k === "btc" ? "$" : "$ " + L("perOunce"), trend: r[1] };
       } else if (/^[a-z]{2,3}$/.test(k)) {
         r = row(P.currencies, k);
-        if (r) t = { name: ku ? r[1] || k.toUpperCase() : CURRENCIES[k] || k.toUpperCase(), value: r[3], unit: units[k] || "$", buy: r[2], trend: r[4] };
+        if (r) t = { name: ku ? r[1] || k.toUpperCase() : CURRENCIES[k] || k.toUpperCase(), value: r[3], unit: units[k] || "$", trend: r[4] };
       }
       if (t && Number(t.value) > 0) out.push(t);
     });
     return out;
   }
 
-  // Gold and currency prices from Tirezh Index: name, up or down, the price (selling), and the buying price
+  // Gold and currency prices from Tirezh Index, in a row: name, price (green going up, red going
+  // down) with its unit and an arrow. More than fit: the row moves slowly, round and round.
   function drawMarket() {
     var tiles = priceTiles(), list = $("tiles");
     $("market").hidden = !tiles.length;
     list.innerHTML = "";
+    list.className = "";
     if (!tiles.length) return;
     setText("marketLbl", L("prices"));
     setText("marketSrc", L("pricesSource"));
     setText("marketAt", Number(X.prices.at) > 0 ? whenText(Number(X.prices.at)) : "");
-    tiles.forEach(function (t) {
-      var li = make("li"), top = make("p", "tn"), val = make("p", "tv"), sub = make("p", "tb"), v = money(t.value), tr = TRENDS[String(t.trend)];
-      top.appendChild(make("span", "", t.name));
-      if (tr) top.appendChild(svgOf("0 0 13 10", '<path fill="currentColor" d="' + tr[1] + '"/>', tr[0]));
-      if (v.length > 9) val.className += " longer";
-      else if (v.length > 7) val.className += " long";
-      val.appendChild(make("bdi", "n", v));
-      val.appendChild(make("small", "", t.unit));
-      if (Number(t.buy) > 0) {
-        sub.appendChild(document.createTextNode(L("buy") + " "));
-        sub.appendChild(make("bdi", "n", money(t.buy)));
-      } else sub.textContent = t.note || "";
-      li.appendChild(top);
-      li.appendChild(val);
-      li.appendChild(sub);
-      list.appendChild(li);
-    });
+    $("ticker").className = "";
+    var item = function (t) {
+      var li = make("li"), tr = TRENDS[String(t.trend)], cls = tr ? tr[0] : "";
+      li.appendChild(make("span", "tn", t.name));
+      li.appendChild(make("bdi", "tv n" + (cls ? " " + cls : ""), money(t.value)));
+      li.appendChild(make("span", "tu", t.unit));
+      if (tr) li.appendChild(svgOf("0 0 13 10", '<path fill="currentColor" d="' + tr[1] + '"/>', cls));
+      return li;
+    };
+    tiles.forEach(function (t) { list.appendChild(item(t)); });
+    var box = $("ticker"), w = list.scrollWidth;
+    if (w > box.clientWidth + 2 && box.clientWidth > 0) {      // too many for one row: a second copy, and round they go
+      tiles.forEach(function (t) { var li = item(t); li.className = "again"; list.appendChild(li); });
+      var gap = list.scrollWidth - 2 * w, dist = w + gap;
+      list.style.setProperty("--tickX", (rtl() ? dist : -dist) + "px");
+      list.style.setProperty("--tickT", Math.round(dist / (60 * parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--u")) || 60)) + "s");
+      list.className = "run";
+      box.className = "moving";
+    }
   }
 
   // A Wi-Fi QR code (phones join the network when they scan it); \ ; , : " are escaped
@@ -2395,6 +2424,7 @@ var SETTINGS = {
         quietUntil: quietUntil > Date.now() ? quietUntil : 0,
         quietLevel: Math.round(quietShare() * 100),
         prayers: Number(S.prayerPause) > 0 ? todaysPrayers(Date.now()).map(function (p) { return { name: p.name, at: p.at }; }) : [],
+        prayersFrom: Number(S.prayerPause) > 0 ? prayerFrom : "",
         prayerPause: Number(S.prayerPause) || 0,
         prayerUntil: quiet === "prayer" ? prayerUntil : 0,
         prayerName: quiet === "prayer" ? prayerName : "",

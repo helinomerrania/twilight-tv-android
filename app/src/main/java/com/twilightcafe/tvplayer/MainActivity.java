@@ -118,11 +118,13 @@ public class MainActivity extends Activity {
     // The link with the page: only the page this app opened knows the key
     private final String pageKey = new BigInteger(80, new SecureRandom()).toString(36);
     private volatile String pageStatus;                  // what the page last said it's doing
+    private volatile String pageSong = "";              // the song it's playing (a new one: the box's volume back to tvVolume)
     private volatile long pageStatusAt;
     private final List<Object[]> pageCommands = new ArrayList<>();   // {time, command} for the page's next check-in
     private TitleBook titles;                            // song names, from YouTube
     private WeatherFeed weather;                         // from MET Norway
     private PriceFeed prices;                            // gold and currency prices, from tirezh.com
+    private PrayerFeed prayerTimes;                      // the call to prayer's times, from amozhgary.tv
     private PictureStore pictures;                       // the café's own, from the phone page
     private volatile List<String> pageSongs = Collections.emptyList();   // the page's songs (its playlist first)
     private volatile int songsVersion = 0;
@@ -211,7 +213,18 @@ public class MainActivity extends Activity {
                 return Net.fetch(url, 20000, agent, null);
             }
         });
+        prayerTimes = new PrayerFeed(new File(getFilesDir(), "prayers.json"), new PrayerFeed.Fetcher() {
+            @Override
+            public Net.Reply get(String url) throws IOException {
+                return Net.fetch(url, 20000, agent, null, "text/html");
+            }
+        });
         pictures = new PictureStore(new File(getFilesDir(), "pictures"));
+    }
+
+    // The town for the prayer times on amozhgary.tv ("" = the TV works them out), when the music pauses for them
+    private String prayerCity() {
+        return settings.number("prayerPause", 5) > 0 ? settings.text("prayerCity", "Ranya").trim() : "";
     }
 
     // Prices only when the panel shows some (the built-in choice: the dollar and gold)
@@ -679,17 +692,27 @@ public class MainActivity extends Activity {
                     open();
                 }
             }
-            // The weather (only while on screen, as MET asks), and song names after an internet cut
+            // The weather (only while on screen, as MET asks; WeatherAPI.com with a key), and song names after an internet cut
             if (visible && settings.flag("infoPanel", true)) {
                 final double[] ll = place();
-                if (weather.due(now, ll[0], ll[1])) {
+                final String key = settings.text("weatherKey", "").trim();
+                if (weather.due(now, ll[0], ll[1], key)) {
                     feeds.execute(new Runnable() {
                         @Override
                         public void run() {
-                            weather.refresh(ll[0], ll[1]);
+                            weather.refresh(ll[0], ll[1], key);
                         }
                     });
                 }
+            }
+            final String city = prayerCity();
+            if (visible && !city.isEmpty() && prayerTimes.due(now, city)) {
+                feeds.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        prayerTimes.refresh(city);
+                    }
+                });
             }
             if (visible && wantsPrices() && prices.due(now)) {
                 feeds.execute(new Runnable() {
@@ -749,7 +772,8 @@ public class MainActivity extends Activity {
         return clock(hours.split(",")[0].split("-")[0]);
     }
 
-    // The box's own media volume, from tvVolume (percent) in settings.json
+    // The box's own media volume, from tvVolume (percent) in the settings: at every new song, at
+    // opening time and every night
     private void applyTvVolume() {
         int v = settings.number("tvVolume", 0);
         if (v <= 0 || v > 100 || audio == null || audio.isVolumeFixed()) return;
@@ -817,12 +841,13 @@ public class MainActivity extends Activity {
             if (audio.isVolumeFixed()) b.append("set by the TV itself");
             else b.append(audio.getStreamVolume(AudioManager.STREAM_MUSIC)).append(" of ")
                     .append(audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
-                    .append(settings.number("tvVolume", 0) > 0 ? "  (set to " + settings.number("tvVolume", 0) + "% at opening time and every night)" : "");
+                    .append(settings.number("tvVolume", 0) > 0 ? "  (back to " + settings.number("tvVolume", 0) + "% at every new song)" : "");
         }
         b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
         b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
         b.append("\nWeather: ").append(weather.status);
         b.append("\nPrices: ").append(wantsPrices() ? prices.status : "none chosen");
+        b.append("\nPrayer times: ").append(prayerCity().isEmpty() ? "worked out by the page" : prayerTimes.status);
         b.append("\nSong names: ").append(titles.describe(pageSongs));
         b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
@@ -949,6 +974,17 @@ public class MainActivity extends Activity {
             if (st != null) {
                 pageStatus = st.toString();
                 pageStatusAt = now;
+                JSONObject song = st.optJSONObject("song");
+                String id = song == null ? "" : song.optString("id", "");
+                if (!id.isEmpty() && !id.equals(pageSong)) {
+                    pageSong = id;                          // every new song starts at the box volume from the settings,
+                    handler.post(new Runnable() {           // whatever the remote did to the last one
+                        @Override
+                        public void run() {
+                            applyTvVolume();
+                        }
+                    });
+                }
             }
             JSONObject info = in.optJSONObject("info");
             if (info != null && info.optJSONObject("defaults") != null) settings.savePageDefaults(info.getJSONObject("defaults").toString());
@@ -983,7 +1019,7 @@ public class MainActivity extends Activity {
 
     // Song names, weather and pictures change now and then; the page gets them again when they do
     private int extrasVersion() {
-        return titles.version() + weather.version() + prices.version() + pictures.version() + songsVersion;
+        return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + songsVersion;
     }
 
     private String extras() {
@@ -994,6 +1030,8 @@ public class MainActivity extends Activity {
             if (w != null) x.put("weather", w);
             JSONObject p = prices.forPage();
             if (p != null) x.put("prices", p);
+            JSONObject pt = prayerCity().isEmpty() ? null : prayerTimes.forPage();
+            if (pt != null) x.put("prayers", pt);
             JSONArray pics = new JSONArray();
             for (String id : pictures.ids()) pics.put(id);
             x.put("pictures", pics);
@@ -1028,6 +1066,7 @@ public class MainActivity extends Activity {
             defaults.put("levelSound", true);
             defaults.put("restartAt", "05:00");
             defaults.put("updates", true);
+            defaults.put("weatherKey", "");
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("autoName", autoName(ip));
@@ -1130,11 +1169,13 @@ public class MainActivity extends Activity {
                 o.put("tvVolumeFixed", audio.isVolumeFixed());
                 o.put("tvVolume", audio.getStreamVolume(AudioManager.STREAM_MUSIC));
                 o.put("tvVolumeMax", audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+                o.put("tvVolumeSet", settings.number("tvVolume", 0));
             }
             o.put("levelling", leveller.status);
             o.put("settings", settings.status);
             o.put("weather", settings.flag("infoPanel", true) ? weather.status : "");
             o.put("prices", wantsPrices() ? prices.status : "");
+            o.put("prayerTimes", prayerCity().isEmpty() ? "" : prayerTimes.status);
             o.put("names", titles.describe(pageSongs));
             o.put("updateReady", Updater.shown(updater.readyBuild));
             o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");

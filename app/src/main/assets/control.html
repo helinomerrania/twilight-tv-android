@@ -230,7 +230,7 @@
 
     <section class="card">
       <div class="row">
-        <div class="what">This song's volume<small>Remembered on this TV</small></div>
+        <div class="what">This song's volume<small>Until it ends; the next one is back to Settings</small></div>
         <button class="step" data-cmd="vol-" type="button" aria-label="Song quieter">−</button>
         <div class="val" id="vol">–</div>
         <button class="step" data-cmd="vol+" type="button" aria-label="Song louder">+</button>
@@ -242,7 +242,7 @@
         <button class="step" data-cmd="zoom+" type="button" aria-label="Zoom in">+</button>
       </div>
       <div class="row" id="tvRow">
-        <div class="what">TV volume<small>The box's own volume</small></div>
+        <div class="what">TV volume<small id="tvvolNote">The box's own volume</small></div>
         <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
         <div class="val" id="tvvol">–</div>
         <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
@@ -490,6 +490,7 @@
     var fixed = s.tvVolumeFixed || s.tvVolumeMax == null;
     $("tvRow").hidden = !!fixed;
     if (!fixed) $("tvvol").textContent = s.tvVolume + "/" + s.tvVolumeMax;
+    $("tvvolNote").textContent = s.tvVolumeSet > 0 ? "The box's own, until the next song" : "The box's own volume";
 
     $("qualityNow").textContent = s.qualitySetup ? "Quality setup is on the TV" :
       p && p.quality ? "Now playing in " + p.quality : "Not reported by YouTube yet";
@@ -527,7 +528,8 @@
     if (p) facts.push("Playlist: " + p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round. " + p.adsSkipped + " ads skipped.");
     if (p && p.openHours) facts.push("Opening hours: " + p.openHours + ".");
     if (p && p.prayers && p.prayers.length) facts.push("Call to prayer today: " + p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
-      " (the music pauses " + p.prayerPause + " min, in opening hours).");
+      (p.prayersFrom ? ", " + p.prayersFrom + "'s times" : ", worked out on the TV") + " (the music pauses " + p.prayerPause + " min, in opening hours).");
+    if (s.prayerTimes) facts.push("Prayer times: " + s.prayerTimes + ".");
     if (s.names) facts.push("Song names: " + s.names + ".");
     if (s.weather) facts.push("Weather: " + s.weather + ".");
     if (s.prices) facts.push("Gold and currency prices: " + s.prices + ".");
@@ -672,16 +674,16 @@
     playlist: "", volume: 100, volumeSchedule: {}, openHours: "", noRepeat: 20,
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
     quality: 2160, autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
-    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "",
+    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
-    prayerPause: 5, prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
-    priceItems: ["us", "gold21", "gold18", "ounce"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
+    prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
+    priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
     specialDays: true, hijriAdjust: 0, labels: {}
   };
   var FIELDS = [
     { group: "Gold and currency prices", tab: "screen" },
-    { key: "priceItems", label: "Prices under the video, in this order", type: "prices", tab: "screen",
-      hint: "From Tirezh Index (tirezh.com). The TV box gets them every 5 minutes by itself. None = no prices." },
+    { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", tab: "screen",
+      hint: "From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. More than fit in one row move slowly across. None = no prices." },
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
@@ -722,6 +724,8 @@
     { group: "Call to prayer" },
     { key: "prayerPause", label: "Pause the music for the call to prayer", type: "number", min: 0, max: 15, step: 1, unit: " min",
       hint: "At each of the five prayers, during opening hours only. 0 = never." },
+    { key: "prayerCity", label: "Prayer times from amozhgary.tv for", type: "text", placeholder: "Ranya",
+      hint: "The town as in its address on amozhgary.tv (Ranya for amozhgary.tv/bang/Ranya). The TV box takes the times from there every day. Empty = the TV works them out itself (Muslim World League)." },
     { key: "prayerAdjust", label: "Move a prayer time", type: "adjust", hint: "To match your mosque: minutes later (+) or earlier (−). The times shown are today's." },
     { group: "Between songs" },
     { key: "fadeIn", label: "Fade in", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
@@ -737,24 +741,28 @@
     { key: "brandName", label: "Café name on the café screen", type: "text", rtl: true },
     { group: "This TV box" },
     { key: "tvName", label: "Name of this TV", type: "text", only: true, withOthers: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
-    { key: "tvVolume", label: "Box volume at opening time", type: "range", min: 0, max: 100, step: 5, unit: "%", hint: "Set at opening time and every night. 0 = leave it as it is." },
+    { key: "tvVolume", label: "Box volume", type: "range", min: 0, max: 100, step: 5, unit: "%",
+      hint: "The box's own volume, set again at every new song (whatever the remote did), at opening time and every night. 0 = leave it as it is." },
     { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle" },
     { key: "restartAt", label: "Fresh start every night at", type: "time" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle" },
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
-    { group: "Advanced" },
-    { key: "place", label: "Place, for the weather", type: "text", hint: "Its name on the TV. The weather and the prayer times are for the latitude and longitude below." },
+    { group: "Weather" },
+    { key: "weatherKey", label: "WeatherAPI.com key", type: "text", placeholder: "none: MET Norway",
+      hint: "From a free account at weatherapi.com (no card). With a key the weather comes from WeatherAPI.com, whose “now” is measured; without one, from MET Norway. Keep it here, not in settings.json (that file is public)." },
+    { key: "place", label: "Place, for the weather", type: "text", hint: "Its name on the TV. The weather and the worked-out prayer times are for the latitude and longitude below." },
     { key: "lat", label: "Latitude", type: "decimal" },
     { key: "lon", label: "Longitude", type: "decimal" },
+    { group: "Advanced" },
     { key: "refreshHours", label: "Reload the page every", type: "number", min: 0, max: 48, step: 1, unit: " h", hint: "Keeps the TV fresh and picks up new songs. 0 = never." },
     { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." }
   ];
   // The TV's words, if the TV hasn't reported them yet
   var WORDS = {
     locale: "en-GB", weekdays: "", months: "", hijriMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
-    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Gold and currency prices", pricesSource: "Tirezh Index", buy: "Buy",
-    goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce", high: "High", low: "Low", am: "AM", pm: "PM",
-    weatherCredit: "Weather: MET Norway (CC BY 4.0)", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
+    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Gold and currency prices", pricesSource: "Tirezh Index",
+    goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce", am: "AM", pm: "PM",
+    weatherCredit: "Weather: MET Norway (CC BY 4.0)", weatherApiCredit: "Weather: WeatherAPI.com", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
     newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
     clear: "Clear", fair: "Fair", partlycloudy: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", lightrain: "Light rain", rain: "Rain", heavyrain: "Heavy rain",
     sleet: "Sleet", snow: "Snow", thunder: "Thunderstorm"
@@ -765,7 +773,7 @@
     months: "Month names, January first, separated by commas",
     hijriMonths: "Hijri month names, Muharram first, separated by commas",
     am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)",
-    buy: "Before a buying price", goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)"
+    goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)"
   };
 
   var data = null, local = {}, base = {}, others = [];
@@ -961,10 +969,10 @@
     ["sa", "Saudi riyal"], ["ae", "UAE dirham"], ["jo", "Jordanian dinar"], ["ca", "Canadian dollar"], ["ch", "Swiss franc"],
     ["se", "Swedish krona"], ["no", "Norwegian krone"], ["dk", "Danish krone"], ["au", "Australian dollar"], ["btc", "Bitcoin ($)"]];
 
-  // Up to four prices, first to last as they stand on the TV
+  // Up to eight prices, first to last as they stand on the TV
   function pricesControl(f, id, v) {
-    var wrap = el("div", { class: "picks", id: id }), have = (v instanceof Array ? v : []).slice(0, 4), sels = [];
-    for (var i = 0; i < 4; i++) {
+    var wrap = el("div", { class: "picks", id: id }), have = (v instanceof Array ? v : []).slice(0, 8), sels = [];
+    for (var i = 0; i < 8; i++) {
       var row = el("label", { class: "pick" }), s = el("select", { "aria-label": "Price " + (i + 1) });
       row.appendChild(el("span", { class: "nth" }, String(i + 1)));
       PRICE_ITEMS.forEach(function (o) { s.appendChild(el("option", { value: o[0] }, o[1])); });
@@ -1302,7 +1310,7 @@
   document.querySelectorAll("[data-tool]").forEach(function (b) {
     b.addEventListener("click", function () {
       var what = b.getAttribute("data-tool");
-      if (what === "forget" && !window.confirm("This clears the shuffle history, the song volumes, the zooms and the list of songs that won't play on this TV. Settings stay. Continue?")) return;
+      if (what === "forget" && !window.confirm("This clears the shuffle history, the zooms and the list of songs that won't play on this TV. Settings stay. Continue?")) return;
       b.disabled = true;
       api("/api/cmd?do=" + what, "POST").then(function (r) {
         $("toolMsg").textContent = !r.ok ? "The TV couldn't do that right now." :

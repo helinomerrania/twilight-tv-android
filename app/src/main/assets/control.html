@@ -530,6 +530,7 @@
     if (p && p.prayers && p.prayers.length) facts.push("Call to prayer today: " + p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
       (p.prayersFrom ? ", " + p.prayersFrom + "'s times" : ", worked out on the TV") + " (the music pauses " + p.prayerPause + " min, in opening hours).");
     if (s.prayerTimes) facts.push("Prayer times: " + s.prayerTimes + ".");
+    if (p) facts.push("Hijri date: " + (p.hijriFrom ? p.hijriFrom + "'s, from the same page" : "worked out on the TV (Umm al-Qura calendar)") + ".");
     if (s.names) facts.push("Song names: " + s.names + ".");
     if (s.weather) facts.push("Weather: " + s.weather + ".");
     if (s.prices) facts.push("Gold and currency prices: " + s.prices + ".");
@@ -709,8 +710,8 @@
     { key: "specialDays", label: "Special days' looks", type: "toggle", tab: "screen",
       hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own café screen and a greeting." },
     { looks: true, tab: "screen" },
-    { key: "hijriAdjust", label: "Move Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
-      hint: "If they come a day early or late on the TV compared with Kurdistan's announcement." },
+    { key: "hijriAdjust", label: "Move the Hijri date, Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
+      hint: "The Hijri date comes from amozhgary.tv by itself (from the Umm al-Qura calendar when it can't be reached). Only if it's still a day early or late compared with Kurdistan's announcement." },
     { key: "labels", label: "Words on the TV", type: "labels", tab: "screen",
       hint: "Type this TV's own word for any of these, for example in Kurdish. Empty = the word in grey: settings.json's, or the English one." },
 

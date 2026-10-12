@@ -595,8 +595,9 @@ var SETTINGS = {
   menuUrl: "",
 
   // Special days: Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own
-  // look on the café screen, and a greeting. Eid and Barat Night follow the Umm al-Qura
-  // calendar; if they come a day early or late here, move them with hijriAdjust (days).
+  // look on the café screen, and a greeting. Eid and Barat Night follow the Hijri date:
+  // amozhgary.tv's for the town (prayerCity), else the Umm al-Qura calendar's. If they still
+  // come a day early or late here, move them (and the Hijri date) with hijriAdjust (days).
   specialDays: true,
   hijriAdjust: 0,
 
@@ -710,6 +711,8 @@ var SETTINGS = {
   var UNITS = { ku: { us: "د.ع", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" },
                 en: { us: "IQD", ir: "(100$)", tr: "(100$)", sa: "(100$)", ae: "(100$)", jo: "(100$)" } };
   var NAME_LABELS = { gb: "pound" };             // currencies whose name is one of the words on the TV
+  var HIJRI_EN = ["Muharram", "Safar", "Rabiʻ I", "Rabiʻ II", "Jumada I", "Jumada II", "Rajab", "Shaʻban", "Ramadan", "Shawwal",
+                  "Dhuʻl-Qiʻdah", "Dhuʻl-Hijjah"];
   var CURRENCIES = { us: "US dollar", eu: "Euro", gb: "Pound sterling", ir: "Iranian toman", tr: "Turkish lira", sa: "Saudi riyal",
                      ae: "UAE dirham", jo: "Jordanian dinar", ca: "Canadian dollar", ch: "Swiss franc", se: "Swedish krona",
                      no: "Norwegian krone", dk: "Danish krone", au: "Australian dollar" };
@@ -1953,20 +1956,30 @@ var SETTINGS = {
 
   /* ---------- special days ---------- */
 
-  // The Umm al-Qura (Hijri) date, {d, m, y}, moved by hijriAdjust days
+  // The Hijri date, {d, m, y, site}, moved by hijriAdjust days: amozhgary.tv's for the town (the app reads
+  // its month's table every day, with the prayer times), else worked out by the Umm al-Qura calendar
   function hijri(now) {
-    var t = new Date(now + (Number(S.hijriAdjust) || 0) * DAY), k = t.toDateString();
+    var t = new Date(now + (Number(S.hijriAdjust) || 0) * DAY), k = t.toDateString() + ":" + extrasVersion;
     if (hijriMemo.k === k) return hijriMemo.v;
-    var v = null;
-    try {
+    var v = siteHijri(t);
+    if (!v) try {
       var o = {};
       new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { day: "numeric", month: "numeric", year: "numeric" }).formatToParts(t)
         .forEach(function (p) { o[p.type] = p.value; });
-      v = { d: Number(o.day), m: Number(o.month), y: Number(o.year || o.relatedYear) };
+      v = { d: Number(o.day), m: Number(o.month), y: Number(o.year || o.relatedYear), site: false };
       if (!v.d || !v.m) v = null;
     } catch (e) {}
     hijriMemo = { k: k, v: v };
     return v;
+  }
+
+  // amozhgary.tv's Hijri date for a day of the month it sent, or null
+  function siteHijri(d) {
+    var P = X.prayers, h = null;
+    if (P && P.year === d.getFullYear() && P.month === d.getMonth() + 1 && P.hijri instanceof Array) h = P.hijri[d.getDate() - 1];
+    if (!(h instanceof Array) || h.length !== 3) return null;
+    var v = { d: Number(h[0]), m: Number(h[1]), y: Number(h[2]), site: true };
+    return v.d >= 1 && v.d <= 30 && v.m >= 1 && v.m <= 12 && v.y > 1400 && v.y < 1600 ? v : null;
   }
 
   // Today's special day, if any: newroz, eidFitr, eidAdha, barat (Barat Night), newYear
@@ -2138,7 +2151,7 @@ var SETTINGS = {
     if (!panelOn) return;
     var d = new Date(now), look = [L("locale"), kurdishDigits(), !!S.clock24, L("am"), L("pm")].join("|");
     draw("clock", d.getHours() + ":" + d.getMinutes() + look, drawClock, d);
-    draw("date", d.toDateString() + (S.hijriAdjust || 0) + look + greeting(activeDay()) + L("weekdays") + L("months") + L("hijriMonths") + L("kurdishMonths"), drawDate, d);
+    draw("date", d.toDateString() + JSON.stringify(hijri(now)) + look + greeting(activeDay()) + L("weekdays") + L("months") + L("hijriMonths") + L("kurdishMonths"), drawDate, d);
     draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("weatherCredit"), drawWeather, now);
     draw("music", musicKey(), drawMusic);
     drawProgress();
@@ -2201,6 +2214,7 @@ var SETTINGS = {
       (months ? dmy(d.getDate(), months[d.getMonth()], d.getFullYear())
               : nums(dateFormat(L("locale"), { day: "numeric", month: "long", year: "numeric" }).format(d))));
     if (h && hm) hj = dmy(h.d, hm[h.m - 1], h.y);
+    else if (h && h.site) hj = nums(h.d + " " + HIJRI_EN[h.m - 1] + " " + h.y + " AH");   // as the engine writes them
     else {
       try {
         var opts = { calendar: "islamic-umalqura", day: "numeric", month: "long", year: "numeric" }, f = dateFormat(L("locale"), opts);
@@ -2506,6 +2520,7 @@ var SETTINGS = {
         quietLevel: Math.round(quietShare() * 100),
         prayers: Number(S.prayerPause) > 0 ? todaysPrayers(Date.now()).map(function (p) { return { name: p.name, at: p.at }; }) : [],
         prayersFrom: Number(S.prayerPause) > 0 ? prayerFrom : "",
+        hijriFrom: (hijri(Date.now()) || {}).site ? "amozhgary.tv" : "",
         prayerPause: Number(S.prayerPause) || 0,
         prayerUntil: quiet === "prayer" ? prayerUntil : 0,
         prayerName: quiet === "prayer" ? prayerName : "",

@@ -238,9 +238,11 @@ public class MainActivity extends Activity {
         pictures = new PictureStore(new File(getFilesDir(), "pictures"));
     }
 
-    // The town for the prayer times on amozhgary.tv ("" = the TV works them out), when the music pauses for them
+    // The town on amozhgary.tv ("" = the TV works it all out): its prayer times, when the music pauses for
+    // them, and its Hijri dates, for the info panel
     private String prayerCity() {
-        return settings.number("prayerPause", 5) > 0 ? settings.text("prayerCity", "Ranya").trim() : "";
+        boolean wanted = settings.number("prayerPause", 5) > 0 || settings.flag("infoPanel", true);
+        return wanted ? settings.text("prayerCity", "Ranya").trim() : "";
     }
 
     // Prices only when the panel shows some (the built-in choice: the dollar and gold)

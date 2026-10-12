@@ -8,66 +8,65 @@ plugins {
 def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {
-    namespace 'com.twilightcafe.tvplayer'
-    compileSdk 35
+    namespace = 'com.twilightcafe.tvplayer'
+    compileSdk = 37
 
     defaultConfig {
-        applicationId 'com.twilightcafe.tvplayer'
-        minSdk 21
-        targetSdk 35
-        versionCode 100000 + buildNumber
-        versionName "1.${buildNumber}"
+        applicationId = 'com.twilightcafe.tvplayer'
+        minSdk = 26                                  // Firefox's engine needs Android 8.0 or newer
+        targetSdk = 35
+        versionCode = 100000 + buildNumber
+        versionName = "1.${buildNumber}"
         // The GitHub repository the app is built from: settings.json and updates come from there
         buildConfigField "String", "REPO", "\"" + (System.getenv('GITHUB_REPOSITORY') ?: '') + "\""
         ndk {
-            abiFilters 'armeabi-v7a'               // Firefox's engine for TV boxes: 32-bit ARM runs on all of them
+            abiFilters.add('armeabi-v7a')            // Firefox's engine for TV boxes: 32-bit ARM runs on all of them
         }
     }
 
     packaging {
         resources {
             // the same licence and Java-module files come with several of Firefox's engine's libraries
-            excludes += ['META-INF/versions/9/module-info.class', 'META-INF/LICENSE*', 'META-INF/NOTICE*',
-                         'META-INF/DEPENDENCIES', 'META-INF/*.kotlin_module']
+            excludes.addAll(['META-INF/versions/9/module-info.class', 'META-INF/LICENSE*', 'META-INF/NOTICE*',
+                             'META-INF/DEPENDENCIES', 'META-INF/*.kotlin_module'])
         }
     }
 
     buildFeatures {
-        buildConfig true
+        buildConfig = true
     }
 
     // The same key signs every build; Android only updates an app signed with the same key.
     signingConfigs {
         release {
-            storeFile file('twilight-tv.keystore')
-            storeType 'pkcs12'
-            storePassword 'twilight-tv-key'
-            keyAlias 'twilight-tv'
-            keyPassword 'twilight-tv-key'
+            storeFile = file('twilight-tv.keystore')
+            storeType = 'pkcs12'
+            storePassword = 'twilight-tv-key'
+            keyAlias = 'twilight-tv'
+            keyPassword = 'twilight-tv-key'
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled false
-            signingConfig signingConfigs.release
+            minifyEnabled = false
+            signingConfig = signingConfigs.release
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     lint {
-        checkReleaseBuilds false
-        abortOnError false
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
 dependencies {
     // Firefox's engine (GeckoView), inside the app: the TV boxes' own engine is too old for YouTube's
-    // controls, and they won't take a newer one. 143 is the newest that builds with this project's
-    // Android tools; it supports Android 5 and newer.
-    implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:143.0.20251003115653'
+    // controls, and they won't take a newer one. Mozilla's newest release; it needs Android 8.0 or newer.
+    implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:157.0.20261005135250'
 }

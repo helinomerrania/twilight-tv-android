@@ -13,7 +13,7 @@ Your café TV page as an Android app for the TV boxes. It plays full screen, sta
 - **Updates:** new versions download by themselves; staff install them from the phone page.
 - **Runs by itself:** sound levelling, Wi-Fi at full power, a restart if the page freezes, and a fresh start every night.
 
-It brings its own web engine (Firefox's), so it works the same on old boxes. YouTube's player inside it is left exactly as YouTube sends it.
+It brings its own web engine (Firefox's), so it works the same on old boxes (Android 8.0 or newer). YouTube's player inside it is left exactly as YouTube sends it.
 
 ## Install it on each TV
 

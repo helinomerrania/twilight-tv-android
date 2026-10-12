@@ -77,7 +77,7 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 - **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language mirrors the whole screen.
 - **Numbers on the TV** (Screen tab): in the language's own digits (Kurdish ١٢٣ with Kurdish words), always Kurdish digits, or always 123.
 - **Info panel off** (Screen tab) shows the video full screen as before.
-- **The typeface** is IBM Plex Sans Arabic by IBM (SIL Open Font License), built into the page as "Twilight Sans".
+- **The typeface** is Vazirmatn (by the Vazirmatn Project Authors, SIL Open Font License), built into the page.
 
 ## Between songs: messages and pictures
 

@@ -12,7 +12,7 @@
   "restartAt": "05:00",
   "updates": true,
 
-  "_words": "The words on the TV in Kurdish (Sorani), and the town's name. A word left out shows in English.",
+  "_words": "The words on the TV in Kurdish (Sorani), and the town's name. A word left out shows in English. The price words are tirezh.com's own.",
   "place": "ڕانیە",
   "labels": {
     "locale": "ckb",
@@ -25,8 +25,12 @@
     "menuHint": "سکان بکە بۆ مینیو",
     "wifi": "وایفای",
     "wifiPassword": "وشەی نهێنی",
-    "prices": "نرخەکان",
-    "updated": "نوێکراوەتەوە",
+    "prices": "نرخی زێڕ و دراو",
+    "pricesSource": "تیرێژ ئیندێکس",
+    "buy": "کڕین",
+    "goldOunce": "زێڕ",
+    "silverOunce": "زیو",
+    "perOunce": "بۆ ئۆنسە",
     "high": "بەرزترین",
     "low": "نزمترین",
     "am": "پ.ن",

@@ -2,7 +2,7 @@
 
 Your café TV page as an Android app for the TV boxes. It plays full screen, starts the music with sound by itself, keeps the screen awake, and opens by itself when the box turns on. On top of that:
 
-- **Info panel beside the video:** the time and date (with the Hijri date), Ranya's weather, prices, what's playing and what's next, and QR codes for the Wi-Fi and the menu.
+- **A frame around the video:** the time and date (with the Hijri date), Ranya's weather and forecast, gold and currency prices from tirezh.com, what's playing and what's next, and QR codes for the Wi-Fi and the menu. In Kurdish the whole screen is right to left, with Kurdish digits (١٢٣).
 - **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom, to choose a song or play any YouTube link, and for "Quiet for a minute". It can go on the phone's home screen.
 - **The café's own messages and pictures** on the café screen between songs, uploaded from the phone.
 - **The call to prayer:** the music pauses for 5 minutes at each prayer, during opening hours.
@@ -63,17 +63,21 @@ The **Control** tab has:
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours. During the call to prayer it says **Resume music**, which brings the music back for that prayer.
 
-The **Screen** tab has what the TV shows beside the video and between songs: the prices, the messages, the pictures, the Wi-Fi and the menu link for the QR codes, the info panel and special days, and the words on the TV. **Settings** has everything else.
+The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the Wi-Fi and the menu link for the QR codes, the info panel, numbers and special days, and the words on the TV. **Settings** has everything else.
 
 ## The info panel
 
-The video takes the top left, four fifths of the screen's width. On the right: the time, the date and the Hijri date, the weather in Ranya (now, and the next 24 hours' high and low), and the prices. Along the bottom: the song playing and the one coming next, and QR codes for the menu and the Wi-Fi (scanning the Wi-Fi one joins the network; the name and password are written beside it too).
+The video is a window at the top of the screen, four fifths of its width, and the frame around it is the café's own channel. Beside the video: the time, the day, the date and the Hijri date, the weather in Ranya (now, the next 24 hours' high and low, and every 3 hours ahead), and QR codes for the menu and the Wi-Fi (scanning the Wi-Fi one joins the network; the name and password are written beside it too). Below it: the song playing (how far into it, and how long it is) and the one coming next, and gold and currency prices.
 
-- **Prices:** on the phone, Screen tab, one per line, like `Dollar (100 $) = 147,250`. The TV shows when they were saved. They're typed by hand: tirezh.com's terms don't allow other programs to read its prices without permission. With their permission, the app could fetch them by itself.
-- **Weather:** from MET Norway (the Norwegian Meteorological Institute), refreshed about every 30 minutes while the app is on screen. Their data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/), which asks for the credit shown at the bottom of the panel. The app keeps the next 48 hours, so a short internet cut changes nothing.
+In Kurdish (the words in `settings.json`) the whole screen is mirrored: the video on the right, everything read from the right, and every number the TV writes in Kurdish digits (١٢٣). Song names, the Wi-Fi password and your messages stay exactly as typed.
+
+- **Prices:** from Tirezh Index (tirezh.com), which the app asks every 5 minutes by itself, with tirezh.com's own Kurdish names. Up to four, chosen on the phone (Screen tab): the dollar, gold by karat (per mithqal), world gold or silver per ounce, 13 other currencies, bitcoin. Each shows the selling price, the buying price and whether it went up or down. If the app can't reach tirezh.com for 3 hours, the prices go away rather than show old ones.
+- **Weather:** from MET Norway (the Norwegian Meteorological Institute), refreshed about every 30 minutes while the app is on screen. Their data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/), which asks for the credit shown under the forecast. The app keeps the next 48 hours, so a short internet cut changes nothing. The weather pictures are Meteocons by Bas Milius (MIT license).
 - **Song names** come from YouTube (once per song, then kept). "(Official Video)", "[4K]" and the like are left out on the TV.
-- **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language puts everything on the right.
+- **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language mirrors the whole screen.
+- **Numbers on the TV** (Screen tab): in the language's own digits (Kurdish ١٢٣ with Kurdish words), always Kurdish digits, or always 123.
 - **Info panel off** (Screen tab) shows the video full screen as before.
+- **The typeface** is IBM Plex Sans Arabic by IBM (SIL Open Font License), built into the page as "Twilight Sans".
 
 ## Between songs: messages and pictures
 
@@ -152,7 +156,7 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `restartAt` | Time of the nightly fresh start; `""` = never | `"05:00"` |
 | `updates` | Download new versions by themselves | `true` |
 
-Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `prices`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `numerals`, `priceItems` (for example `["us", "gold21", "gold18", "ounce"]`), `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
 
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 

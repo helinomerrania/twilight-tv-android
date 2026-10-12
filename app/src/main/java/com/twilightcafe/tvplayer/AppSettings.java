@@ -176,4 +176,9 @@ final class AppSettings {
     boolean flag(String key, boolean fallback) {
         return holder(key).optBoolean(key, fallback);
     }
+
+    /** A setting that is a list (e.g. the prices to show), or null if there is none. */
+    org.json.JSONArray list(String key) {
+        return holder(key).optJSONArray(key);
+    }
 }

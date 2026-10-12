@@ -146,6 +146,9 @@
   .adjust .arow { display: grid; grid-template-columns: 5.5rem 3.4rem 1fr; align-items: center; gap: 8px; padding: 4px 0; }
   .adjust .ptime { color: var(--soft); font-variant-numeric: tabular-nums; }
   .looks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .picks { display: grid; gap: 8px; }
+  .pick { display: grid; grid-template-columns: 1.6rem 1fr; align-items: center; gap: 8px; }
+  .pick .nth { color: var(--soft); font-weight: 650; text-align: center; font-variant-numeric: tabular-nums; }
   details.words summary { cursor: pointer; color: var(--sun); padding: 6px 0; }
   .words .lrow { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); }
   .words .lrow:first-of-type { border-top: 0; }
@@ -527,6 +530,7 @@
       " (the music pauses " + p.prayerPause + " min, in opening hours).");
     if (s.names) facts.push("Song names: " + s.names + ".");
     if (s.weather) facts.push("Weather: " + s.weather + ".");
+    if (s.prices) facts.push("Gold and currency prices: " + s.prices + ".");
     if (s.levelling) facts.push("Sound levelling: " + s.levelling + ".");
     if (s.settings) facts.push("Settings: " + s.settings + ".");
     if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
@@ -671,12 +675,13 @@
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
-    prices: "", pricesAt: 0, messages: [], wifiName: "", wifiPassword: "", menuUrl: "", specialDays: true, hijriAdjust: 0, labels: {}
+    priceItems: ["us", "gold21", "gold18", "ounce"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
+    specialDays: true, hijriAdjust: 0, labels: {}
   };
   var FIELDS = [
-    { group: "Prices", tab: "screen" },
-    { key: "prices", label: "Prices beside the video", type: "textarea", tab: "screen", placeholder: "Dollar (100 $) = 147,250\nEuro (100 €) = 160,500",
-      hint: "One per line: a name, then = or :, then the price. The TV shows when you saved them. Empty = no prices." },
+    { group: "Gold and currency prices", tab: "screen" },
+    { key: "priceItems", label: "Prices under the video, in this order", type: "prices", tab: "screen",
+      hint: "From Tirezh Index (tirezh.com). The TV box gets them every 5 minutes by itself. None = no prices." },
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
@@ -687,8 +692,11 @@
     { key: "menuUrl", label: "Link to the menu", type: "text", tab: "screen", placeholder: "https://…", hint: "A QR code for it appears beside the video. Empty = none." },
     { group: "Info panel and special days", tab: "screen" },
     { key: "infoPanel", label: "Info panel beside the video", type: "toggle", tab: "screen",
-      hint: "The time, the weather, prices, what's playing and the QR codes. Off = the video full screen." },
+      hint: "A frame around the video: the time, the weather, prices, what's playing and the QR codes. In Kurdish the whole screen is mirrored. Off = the video full screen." },
     { key: "clock24", label: "24-hour clock", type: "toggle", tab: "screen" },
+    { key: "numerals", label: "Numbers on the TV", type: "select", tab: "screen",
+      options: [["auto", "In the language's own digits"], ["kurdish", "Always Kurdish digits: ١٢٣"], ["latin", "Always 123"]],
+      hint: "With Kurdish words, “own digits” are ١٢٣. Song names, the Wi-Fi password and your messages always stay as typed." },
     { key: "specialDays", label: "Special days' looks", type: "toggle", tab: "screen",
       hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own café screen and a greeting." },
     { looks: true, tab: "screen" },
@@ -744,7 +752,8 @@
   // The TV's words, if the TV hasn't reported them yet
   var WORDS = {
     locale: "en-GB", weekdays: "", months: "", hijriMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
-    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Prices", updated: "Updated", high: "High", low: "Low", am: "AM", pm: "PM",
+    wifi: "Wi-Fi", wifiPassword: "Password", prices: "Gold and currency prices", pricesSource: "Tirezh Index", buy: "Buy",
+    goldOunce: "Gold", silverOunce: "Silver", perOunce: "per ounce", high: "High", low: "Low", am: "AM", pm: "PM",
     weatherCredit: "Weather: MET Norway (CC BY 4.0)", prayerNote: "The music resumes after the call to prayer", prayerBand: "Paused for the call to prayer",
     newroz: "Happy Newroz", eidFitr: "Eid Mubarak", eidAdha: "Eid Mubarak", barat: "Blessed Barat Night", newYear: "Happy New Year",
     clear: "Clear", fair: "Fair", partlycloudy: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", lightrain: "Light rain", rain: "Rain", heavyrain: "Heavy rain",
@@ -755,10 +764,11 @@
     weekdays: "Weekday names, Sunday first, separated by commas",
     months: "Month names, January first, separated by commas",
     hijriMonths: "Hijri month names, Muharram first, separated by commas",
-    am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)"
+    am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)",
+    buy: "Before a buying price", goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)"
   };
 
-  var data = null, local = {}, base = {}, others = [], loadedPrices = null;
+  var data = null, local = {}, base = {}, others = [];
 
   function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
   function copy(v) { return v === undefined ? v : JSON.parse(JSON.stringify(v)); }
@@ -792,7 +802,6 @@
       });
       local = copy(d.local || {});
       others = d.others || [];
-      loadedPrices = copy(value("prices"));
       updateAllBox();
       buildForm();
     }).catch(function (e) {
@@ -918,7 +927,7 @@
       var s = el("select", { id: id });
       f.options.forEach(function (o) { var op = el("option", { value: o[0] }, o[1]); s.appendChild(op); });
       s.value = String(v);
-      s.addEventListener("change", function () { setValue(f.key, Number(s.value)); });
+      s.addEventListener("change", function () { setValue(f.key, typeof f.options[0][0] === "number" ? Number(s.value) : s.value); });
       return s;
     }
     if (f.type === "time") {
@@ -941,7 +950,36 @@
     if (f.type === "list") return listControl(f, id, v);
     if (f.type === "adjust") return adjustControl(f, id, v);
     if (f.type === "labels") return wordsControl(f, id, v);
+    if (f.type === "prices") return pricesControl(f, id, v);
     return el("span", {}, String(v));
+  }
+
+  // What tirezh.com has, in the words of the phone page (the TV shows tirezh.com's Kurdish names)
+  var PRICE_ITEMS = [["", "None"], ["us", "US dollar (IQD)"], ["gold21", "Gold 21 karat (IQD per mithqal)"], ["gold18", "Gold 18 karat (IQD per mithqal)"],
+    ["gold22", "Gold 22 karat (IQD per mithqal)"], ["gold24", "Gold 24 karat (IQD per mithqal)"], ["ounce", "Gold, world price ($ per ounce)"],
+    ["silver", "Silver, world price ($ per ounce)"], ["eu", "Euro"], ["gb", "Pound sterling"], ["tr", "Turkish lira"], ["ir", "Iranian toman"],
+    ["sa", "Saudi riyal"], ["ae", "UAE dirham"], ["jo", "Jordanian dinar"], ["ca", "Canadian dollar"], ["ch", "Swiss franc"],
+    ["se", "Swedish krona"], ["no", "Norwegian krone"], ["dk", "Danish krone"], ["au", "Australian dollar"], ["btc", "Bitcoin ($)"]];
+
+  // Up to four prices, first to last as they stand on the TV
+  function pricesControl(f, id, v) {
+    var wrap = el("div", { class: "picks", id: id }), have = (v instanceof Array ? v : []).slice(0, 4), sels = [];
+    for (var i = 0; i < 4; i++) {
+      var row = el("label", { class: "pick" }), s = el("select", { "aria-label": "Price " + (i + 1) });
+      row.appendChild(el("span", { class: "nth" }, String(i + 1)));
+      PRICE_ITEMS.forEach(function (o) { s.appendChild(el("option", { value: o[0] }, o[1])); });
+      if (have[i] && !PRICE_ITEMS.some(function (o) { return o[0] === have[i]; })) s.appendChild(el("option", { value: have[i] }, have[i]));
+      s.value = have[i] || "";
+      s.addEventListener("change", function () {
+        var out = [];
+        sels.forEach(function (x) { if (x.value && out.indexOf(x.value) < 0) out.push(x.value); });
+        setValue(f.key, out);
+      });
+      row.appendChild(s);
+      wrap.appendChild(row);
+      sels.push(s);
+    }
+    return wrap;
   }
 
   function stepper(f, id, start, onChange) {
@@ -1242,7 +1280,6 @@
       $("saveMsg").className = "bad";
       return;
     }
-    if (!same(value("prices"), loadedPrices)) local.pricesAt = Date.now();   // the TV shows when the prices were typed
     var all = !$("allBox").hidden && $("saveAll").checked;
     $("save").disabled = true;
     $("saveMsg").className = "";

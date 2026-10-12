@@ -72,8 +72,8 @@ import java.util.regex.Pattern;
  *  - the phone control page on the café Wi-Fi (with a PIN),
  *  - the box's own volume at opening time, sound levelling, updates from GitHub,
  *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night,
- *  - for the info panel beside the video: song names (YouTube), the weather (MET Norway)
- *    and the café's own pictures (uploaded from the phone page).
+ *  - for the info panel beside the video: song names (YouTube), the weather (MET Norway),
+ *    gold and currency prices (tirezh.com) and the café's own pictures (uploaded from the phone page).
  *
  * The page runs in Firefox's engine (GeckoView), which comes inside the app: the TV boxes'
  * own engine (Android System WebView) is from 2018, too old for YouTube's controls, and they
@@ -122,6 +122,7 @@ public class MainActivity extends Activity {
     private final List<Object[]> pageCommands = new ArrayList<>();   // {time, command} for the page's next check-in
     private TitleBook titles;                            // song names, from YouTube
     private WeatherFeed weather;                         // from MET Norway
+    private PriceFeed prices;                            // gold and currency prices, from tirezh.com
     private PictureStore pictures;                       // the café's own, from the phone page
     private volatile List<String> pageSongs = Collections.emptyList();   // the page's songs (its playlist first)
     private volatile int songsVersion = 0;
@@ -204,7 +205,19 @@ public class MainActivity extends Activity {
                 return Net.fetch(url, 20000, agent, ifModifiedSince);
             }
         });
+        prices = new PriceFeed(new File(getFilesDir(), "prices.json"), new PriceFeed.Fetcher() {
+            @Override
+            public Net.Reply get(String url) throws IOException {
+                return Net.fetch(url, 20000, agent, null);
+            }
+        });
         pictures = new PictureStore(new File(getFilesDir(), "pictures"));
+    }
+
+    // Prices only when the panel shows some (the built-in choice: the dollar and gold)
+    private boolean wantsPrices() {
+        JSONArray items = settings.list("priceItems");
+        return settings.flag("infoPanel", true) && (items == null || items.length() > 0);
     }
 
     // Where the weather is for: lat/lon from the settings, else the page's built-in place (Ranya)
@@ -678,6 +691,14 @@ public class MainActivity extends Activity {
                     });
                 }
             }
+            if (visible && wantsPrices() && prices.due(now)) {
+                feeds.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        prices.refresh();
+                    }
+                });
+            }
             titles.start();
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
             String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date(now));
@@ -801,6 +822,7 @@ public class MainActivity extends Activity {
         b.append("\nUpdates: ").append(settings.flag("updates", true) ? updater.status : "off in settings.json");
         b.append("\nWi-Fi kept at full power: ").append(wifiLock != null && wifiLock.isHeld() ? "yes" : "no (cable, or no Wi-Fi)");
         b.append("\nWeather: ").append(weather.status);
+        b.append("\nPrices: ").append(wantsPrices() ? prices.status : "none chosen");
         b.append("\nSong names: ").append(titles.describe(pageSongs));
         b.append("\nWeb engine: ").append(engineName.isEmpty() ? "not known" : engineName);
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
@@ -961,7 +983,7 @@ public class MainActivity extends Activity {
 
     // Song names, weather and pictures change now and then; the page gets them again when they do
     private int extrasVersion() {
-        return titles.version() + weather.version() + pictures.version() + songsVersion;
+        return titles.version() + weather.version() + prices.version() + pictures.version() + songsVersion;
     }
 
     private String extras() {
@@ -970,6 +992,8 @@ public class MainActivity extends Activity {
             x.put("titles", titles.forPage(pageSongs));
             JSONObject w = weather.forPage();
             if (w != null) x.put("weather", w);
+            JSONObject p = prices.forPage();
+            if (p != null) x.put("prices", p);
             JSONArray pics = new JSONArray();
             for (String id : pictures.ids()) pics.put(id);
             x.put("pictures", pics);
@@ -1110,6 +1134,7 @@ public class MainActivity extends Activity {
             o.put("levelling", leveller.status);
             o.put("settings", settings.status);
             o.put("weather", settings.flag("infoPanel", true) ? weather.status : "");
+            o.put("prices", wantsPrices() ? prices.status : "");
             o.put("names", titles.describe(pageSongs));
             o.put("updateReady", Updater.shown(updater.readyBuild));
             o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");

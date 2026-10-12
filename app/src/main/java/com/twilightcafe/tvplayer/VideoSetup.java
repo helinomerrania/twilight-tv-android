@@ -34,10 +34,28 @@ final class VideoSetup {
      *  - any: the engine's own choice, AV1 too.
      */
     static String engineConfig(String format) {
-        String f = format(format);
-        if (f.equals("any")) return "prefs: {}\n";
-        return "prefs:\n  media.av1.enabled: false\n" + (f.equals("h264") ? "  media.webm.enabled: false\n" : "");
+        return engineConfig(format, false);
     }
+
+    /**
+     * The same, and with numbers on (engineNumbers) WebRender's own counter over the picture:
+     * frames per second, how many of the page's tiles were drawn again each frame, and whether the
+     * video went to the screen as a layer of its own ("overlays") or was drawn into the page ("blits").
+     */
+    static String engineConfig(String format, boolean numbers) {
+        String f = format(format);
+        StringBuilder y = new StringBuilder();
+        if (!f.equals("any")) y.append("  media.av1.enabled: false\n");
+        if (f.equals("h264")) y.append("  media.webm.enabled: false\n");
+        if (numbers) {
+            y.append("  gfx.webrender.debug.profiler: true\n");
+            y.append("  gfx.webrender.debug.profiler-ui: \"").append(NUMBERS).append("\"\n");
+        }
+        return y.length() == 0 ? "prefs: {}\n" : "prefs:\n" + y;
+    }
+
+    static final String NUMBERS = "FPS,Frame CPU total,Renderer,GPU,Rendered picture tiles,Draw calls,"
+            + "Compositor surface overlays,Compositor surface blits";
 
     /** For the phone page and test mode. */
     static String describe(String format) {

@@ -71,7 +71,7 @@ The video is a card in the top corner (1280x720 on a 1920x1080 screen), with car
 
 In Kurdish (the words in `settings.json`) the whole screen is mirrored: the video on the right, everything read from the right, and every number the TV writes in Kurdish digits (١٢٣). Song names, the Wi-Fi password and your messages stay exactly as typed.
 
-- **Prices:** from Tirezh Index (tirezh.com), which the app asks every 5 minutes by itself, with tirezh.com's own Kurdish names: the dollar, the euro, the Turkish lira, the Iranian toman, gold 21 and 18 to begin with (green going up, red going down). Choose up to eight on the phone (Screen tab): 14 currencies, gold by karat (per mithqal), world gold or silver per ounce, bitcoin. More than fit in one row move slowly across. If the app can't reach tirezh.com for 3 hours, the prices go away rather than show old ones.
+- **Prices:** from Tirezh Index (tirezh.com), which the app asks every 5 minutes by itself, with tirezh.com's own Kurdish names: the dollar, the euro, the Turkish lira, the Iranian toman, gold 21 and 18 to begin with (green going up, red going down). Choose up to eight on the phone (Screen tab): 14 currencies, gold by karat (per mithqal), world gold or silver per ounce, bitcoin. More than fit in one row take turns, a page every 8 seconds. If the app can't reach tirezh.com for 3 hours, the prices go away rather than show old ones.
 - **Weather:** from WeatherAPI.com when its key is on the phone (Settings, Weather; a free account at weatherapi.com, no card), checked every 15 minutes, with the temperature measured now. Without a key, from MET Norway (the Norwegian Meteorological Institute), about every 30 minutes; its data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/). Either is credited under the weather. The app keeps the next 48 hours, so a short internet cut changes nothing. The weather pictures are Meteocons by Bas Milius (MIT license). Keep the key on the phone, not in `settings.json`, which is public.
 - **Song names** come from YouTube (once per song, then kept). "(Official Video)", "[4K]" and the like are left out on the TV.
 - **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language mirrors the whole screen.
@@ -126,6 +126,9 @@ The app asks YouTube for video the box's chip decodes by itself, at 1080p at mos
 - **Screen:** "drawn at 3840x2160" means the box draws in 4K, four times the work. **Screen resolution** (Settings, This TV box) is up to 1080p unless you change it; the TV still fills its screen.
 - **Refresh rate:** if movement jerks slightly in a steady rhythm, the video's frame rate doesn't suit the screen's. Videos made at 25 frames a second move evenly at 50 Hz, and 30 or 60 at 60 Hz: try **Screen refresh rate**.
 - If you chose a quality in YouTube's own menu (above), YouTube keeps using it. On a weak box, do that setup again and choose 720p or **Auto**.
+- **Firefox engine's frame counter on the TV** (Settings, Advanced) shows the engine's own numbers in the top corner of the TV; the app restarts to show or hide them. **FPS** is pictures drawn per second (as many as the video's own, 25 to 60, when all is well). **Rendered picture tiles** should be 0 most of the time: more means parts of the page are drawn again for every frame. **Compositor surface overlays** 1 means the video goes to the screen as a layer of its own; **blits** 1 means it's drawn into the page, which costs far more.
+
+The info panel is drawn so the video can stay its own layer: the video card's rounded corners are painted over the video, not cut out of it, and nothing beside it moves all the time.
 
 ## Settings on the phone
 

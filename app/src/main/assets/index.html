@@ -18,7 +18,16 @@
   /* Where the video and the café screen are: the whole screen, or the video card with the panel */
   #stage { position: fixed; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;
            container-type: size; background: var(--ink); }
-  body.with-panel #stage { border-radius: calc(18 * var(--u)); box-shadow: 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(16 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, .45); }
+  /* The video card's shadow and edge, rounded, behind it. Its rounded corners are painted over the video
+     (#stage .corner, in the page's colours, worked out by the script) rather than cut out of it: a video
+     cut to a rounded shape can't be handed to the screen as a layer of its own, and every video frame
+     then redraws everything around it, more than a TV box's graphics can keep up with. */
+  #stageBack { position: fixed; left: 0; top: 0; z-index: 0; display: none; border-radius: calc(18 * var(--u));
+               box-shadow: 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(16 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, .45); }
+  body.with-panel #stageBack { display: block; }
+  .corner { position: absolute; z-index: 4; display: none; width: calc(18 * var(--u)); height: calc(18 * var(--u)); pointer-events: none; }
+  body.with-panel .corner { display: block; }
+  .corner.tl { left: 0; top: 0; } .corner.tr { right: 0; top: 0; } .corner.bl { left: 0; bottom: 0; } .corner.br { right: 0; bottom: 0; }
   /* The player: drawn big (for quality), scaled to fit exactly, faded in and out by the script */
   #player { position: absolute; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; opacity: 0; }
   /* Invisible layer over everything: taps and clicks can't pause the video or open YouTube */
@@ -133,15 +142,15 @@
   #marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u)); white-space: nowrap; }
   #marketSrc { color: var(--text); }
   #marketAt { color: var(--faint); margin-inline-start: calc(10 * var(--u)); font-weight: 400; }
+  /* More prices than fit: they change page every few seconds (nothing slides: a moving strip would make
+     the box redraw it 60 times a second, beside the video) */
   #ticker { margin-top: calc(6 * var(--u)); overflow: hidden; }
-  #ticker.moving { -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
-                   mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
-  #tiles { display: flex; white-space: nowrap; width: max-content; }
-  #tiles.run { animation: tick var(--tickT, 60s) linear infinite; will-change: transform; }
-  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(var(--tickX, -50%)); } }
+  #tiles { display: flex; white-space: nowrap; width: max-content; transition: opacity .35s ease; }
+  #tiles.turning { opacity: 0; }
   #tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(24 * var(--u));
               border-inline-start: calc(1 * var(--u)) solid var(--line); font-size: calc(24 * var(--u)); line-height: 1.5; }
-  #tiles li:first-child { border-inline-start: 0; padding-inline-start: 0; }
+  #tiles li:first-child, #tiles li.lead { border-inline-start: 0; padding-inline-start: 0; }
+  #tiles li.off { display: none; }
   .tn { font-weight: 600; }
   .tv { font-weight: 600; }
   .tv.up { color: var(--up); } .tv.down { color: var(--down); }
@@ -201,6 +210,7 @@
 </style>
 </head>
 <body>
+<div id="stageBack" aria-hidden="true"></div>
 <div id="stage">
 <div id="brand" aria-hidden="true">
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
@@ -383,6 +393,7 @@
 </svg>
 <div id="vol" dir="auto"></div>
 <div id="note" dir="ltr"></div>
+<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 </div>
 <div id="shield"></div>
 <!-- The frame around the video (the info panel). Beside it: the time, the date, the weather, QR codes... -->
@@ -662,6 +673,7 @@ var SETTINGS = {
   // From the app: song names (YouTube), the weather (MET Norway), the café's pictures
   var X = {}, extrasVersion = -1, pictureList = [], singerCache = {}, busyChannelList = null;
   var softDraw = false;                          // the app says Firefox's engine draws on the box's processor
+  var marketPages = [], marketPage = 0, marketTurnAt = 0;   // prices that don't fit in one row: pages of them
   // The info panel and the café screen's messages and pictures
   var panelOn = false, panelDirty = true, drawn = {}, slideIdx = 0, slideAt = 0, slideShown = "name:", slideTimer = null;
 
@@ -1245,6 +1257,27 @@ var SETTINGS = {
     return S.infoPanel !== false && !SETUP && window.innerWidth >= window.innerHeight * 1.5;
   }
 
+  // The video card's rounded corners, painted over the video: a quarter ring of the card's edge and,
+  // outside it, the colour of what's behind the card there (the page's gradient, darkened by the card's
+  // shadow: a little at the top, more at the bottom). See #stageBack in the CSS for why.
+  function paintCorners(x, y, w, h, u) {
+    var W = window.innerWidth, H = window.innerHeight, r = 18 * u, edge = Math.max(u, 1);
+    // each corner: where its middle is, where its circle's centre is (in the corner piece), the shadow there
+    var spots = { tl: [x + r / 2, y + r / 2, "100% 100%", 0.08], tr: [x + w - r / 2, y + r / 2, "0 100%", 0.08],
+                  bl: [x + r / 2, y + h - r / 2, "100% 0", 0.23], br: [x + w - r / 2, y + h - r / 2, "0 0", 0.23] };
+    var rgb = function (c) { return "rgb(" + c.map(Math.round).join(", ") + ")"; };
+    Object.keys(spots).forEach(function (k) {
+      var p = spots[k];
+      // body.with-panel's background: radial-gradient(110% 80% at 50% 0%, #1b1f27, #0f1217 72%)
+      var t = Math.min(1, Math.sqrt(Math.pow((p[0] - W / 2) / (1.1 * W), 2) + Math.pow(p[1] / (0.8 * H), 2)) / 0.72);
+      var bg = [0x1b, 0x1f, 0x27].map(function (v, i) { return (v + ([0x0f, 0x12, 0x17][i] - v) * t) * (1 - p[3]); });
+      var ring = bg.map(function (v) { return v + (255 - v) * 0.11; });   // the edge: rgba(255, 255, 255, .11)
+      var el = document.querySelector("#stage .corner." + k);
+      if (el) el.style.background = "radial-gradient(circle at " + p[2] + ", transparent " + (r - 0.5) + "px, " + rgb(ring) + " " + (r + 0.5) + "px, " +
+        rgb(ring) + " " + Math.max(r + 0.5, r + edge - 0.5) + "px, " + rgb(bg) + " " + (r + edge + 0.5) + "px)";
+    });
+  }
+
   // The stage (video and café screen): the whole screen, or with the info panel a card of 1280x720
   // (on a 1920x1080 screen) in the top corner: top left, or top right for a right-to-left language.
   // The frame's other cards are placed around it in CSS. --u is one pixel of a 1920x1080 screen; a
@@ -1270,6 +1303,12 @@ var SETTINGS = {
     stage.style.top = y + "px";
     stage.style.width = sw + "px";
     stage.style.height = sh + "px";
+    var back = document.getElementById("stageBack");
+    back.style.left = x + "px";
+    back.style.top = y + "px";
+    back.style.width = sw + "px";
+    back.style.height = sh + "px";
+    if (on) paintCorners(x, y, sw, sh, u);
     root.setProperty("--u", u + "px");
     root.setProperty("--ox", ox + "px");
     root.setProperty("--oy", oy + "px");
@@ -2069,6 +2108,8 @@ var SETTINGS = {
     checkExtras();
     panelTick();
     setInterval(panelTick, 1000);
+    // Once the typeface has arrived, the prices are measured again (how many fit in a row)
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawn.market = ""; }); } catch (e) {}
   }
 
   function panelTick() {
@@ -2098,6 +2139,7 @@ var SETTINGS = {
     draw("codes", JSON.stringify([S.menuUrl, S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
     draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("pricesSource"), L("goldOunce"), L("silverOunce"),
                                    L("perOunce"), L("months"), d.toDateString(), Math.floor(now / 600e3)]), drawMarket);
+    marketTurn(now);
     panelDirty = false;
   }
 
@@ -2305,15 +2347,55 @@ var SETTINGS = {
       return li;
     };
     tiles.forEach(function (t) { list.appendChild(item(t)); });
-    var box = $("ticker"), w = list.scrollWidth;
-    if (w > box.clientWidth + 2 && box.clientWidth > 0) {      // too many for one row: a second copy, and round they go
-      tiles.forEach(function (t) { var li = item(t); li.className = "again"; list.appendChild(li); });
-      var gap = list.scrollWidth - 2 * w, dist = w + gap;
-      list.style.setProperty("--tickX", (rtl() ? dist : -dist) + "px");
-      list.style.setProperty("--tickT", Math.round(dist / (60 * parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--u")) || 60)) + "s");
-      list.className = "run";
-      box.className = "moving";
+    // Too many for one row: pages of them, as even as fit, turned every 8 seconds (marketTurn)
+    var room = $("ticker").clientWidth, lis = [].slice.call(list.children);
+    marketPages = [];
+    if (room > 0 && list.scrollWidth > room + 2) {
+      var widths = lis.map(function (li) { return li.offsetWidth; });   // each with the line before it: a little more than a page's first needs
+      var split = function (perPage) {               // pages of perPage prices (0: as many as fit), or null if one doesn't fit
+        var pages = [], page = [], used = 0;
+        for (var i = 0; i < lis.length; i++) {
+          if (page.length && (perPage ? page.length === perPage : used + widths[i] > room)) { pages.push(page); page = []; used = 0; }
+          page.push(lis[i]);
+          used += widths[i];
+          if (used > room && page.length > 1) return null;
+        }
+        if (page.length) pages.push(page);
+        return pages;
+      };
+      var greedy = split(0);
+      marketPages = split(Math.ceil(lis.length / greedy.length)) || greedy;   // 4 and 4 rather than 7 and 1
+      if (marketTurnAt < Date.now()) marketTurnAt = Date.now() + 8000;
     }
+    showMarketPage(marketPage);
+  }
+
+  // One page of prices (all of them when they fit)
+  function showMarketPage(n) {
+    var all = [].slice.call($("tiles").children);
+    if (marketPages.length < 2) {
+      marketPage = 0;
+      all.forEach(function (li) { li.classList.remove("off", "lead"); });
+      return;
+    }
+    marketPage = n % marketPages.length;
+    var on = marketPages[marketPage];
+    all.forEach(function (li) {
+      li.classList.toggle("off", on.indexOf(li) < 0);
+      li.classList.toggle("lead", li === on[0]);
+    });
+  }
+
+  // Every 8 seconds the next page of prices, with a short fade (from panelTick)
+  function marketTurn(now) {
+    if (marketPages.length < 2 || now < marketTurnAt) return;
+    marketTurnAt = now + 8000;
+    var list = $("tiles");
+    list.classList.add("turning");
+    setTimeout(function () {
+      showMarketPage(marketPage + 1);
+      list.classList.remove("turning");
+    }, 380);
   }
 
   // A Wi-Fi QR code (phones join the network when they scan it); \ ; , : " are escaped

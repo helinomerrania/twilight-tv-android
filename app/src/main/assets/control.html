@@ -681,7 +681,7 @@
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
     quality: "auto", autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
-    videoFormat: "h264", screenSize: "1080", screenRate: "box",
+    videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false,
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
     priceItems: ["us", "eu", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
@@ -690,7 +690,7 @@
   var FIELDS = [
     { group: "Gold and currency prices", tab: "screen" },
     { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", tab: "screen",
-      hint: "From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. More than fit in one row move slowly across. None = no prices." },
+      hint: "From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. More than fit in one row take turns, a page every 8 seconds. None = no prices." },
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
@@ -772,7 +772,9 @@
     { key: "lon", label: "Longitude", type: "decimal" },
     { group: "Advanced" },
     { key: "refreshHours", label: "Reload the page every", type: "number", min: 0, max: 48, step: 1, unit: " h", hint: "Keeps the TV fresh and picks up new songs. 0 = never." },
-    { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." }
+    { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." },
+    { key: "engineNumbers", label: "Firefox engine's frame counter on the TV", type: "toggle",
+      hint: "For finding out why a video stutters: frames per second, how much of the screen is drawn again each frame, and whether the video is its own layer. Changing this restarts the app on the TV." }
   ];
   // The TV's words, if the TV hasn't reported them yet
   var WORDS = {
@@ -1317,7 +1319,7 @@
         pin = r.pin;
         try { localStorage.setItem(KEY, pin); } catch (e) {}
       }
-      var msg = "Saved on " + (r.tv || "this TV") + "." + (r.restarting ? " The app restarts on it for the new video format." : "");
+      var msg = "Saved on " + (r.tv || "this TV") + "." + (r.restarting ? " The app restarts on it to use the change." : "");
       (r.others || []).forEach(function (o) { msg += " " + o.name + ": " + o.result + "."; });
       $("saveMsg").textContent = msg;
       loadSettings();

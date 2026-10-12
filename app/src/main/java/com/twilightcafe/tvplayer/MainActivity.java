@@ -91,6 +91,7 @@ public class MainActivity extends Activity {
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static GeckoRuntime runtime;                 // Firefox's engine: one for the whole app
     private static String formatStarted;                 // the video format it started with (videoFormat)
+    private static String engineStarted;                 // and its whole start-up settings file
     static final int NIGHT_BLUE = 0xFF0B1030;            // the café screen's colour, so start-up never flashes white
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -281,23 +282,35 @@ public class MainActivity extends Activity {
                     .doubleTapZoomingEnabled(false)
                     .inputAutoZoomEnabled(false)
                     .automaticFontSizeAdjustment(false);    // the page sizes its own text for the TV
-            String format = VideoSetup.format(settings.text("videoFormat", "h264"));
+            String format = VideoSetup.format(settings.text("videoFormat", "h264")), yaml = engineYaml();
             File config = new File(getFilesDir(), "engine-config.yaml");
             try {
-                TitleBook.writeFile(config, VideoSetup.engineConfig(format));
+                TitleBook.writeFile(config, yaml);
                 rs.configFilePath(config.getAbsolutePath());
                 formatStarted = format;
+                engineStarted = yaml;
             } catch (IOException e) {
                 formatStarted = "any";                      // couldn't write it: the engine's own choice
+                engineStarted = VideoSetup.engineConfig("any", false);
             }
             runtime = GeckoRuntime.create(getApplicationContext(), rs.build());
         }
         return runtime;
     }
 
-    // The video format setting changed since the engine started: it takes a fresh start of the app
+    // The engine's start-up settings: the video format, and its frame counter on the screen for testing
+    private String engineYaml() {
+        return VideoSetup.engineConfig(settings.text("videoFormat", "h264"), settings.flag("engineNumbers", false));
+    }
+
+    // The video format setting changed since the engine started
     private boolean formatChanged() {
         return formatStarted != null && !formatStarted.equals(VideoSetup.format(settings.text("videoFormat", "h264")));
+    }
+
+    // Any of the engine's start-up settings changed since it started: that takes a fresh start of the app
+    private boolean engineChanged() {
+        return engineStarted != null && !engineStarted.equals(engineYaml());
     }
 
     // The whole app again from scratch, so Firefox's engine starts again too (only while on screen:
@@ -840,7 +853,7 @@ public class MainActivity extends Activity {
             String restartAt = clock(settings.text("restartAt", "05:00"));
             if (visible && time.equals(restartAt) && !today.equals(restartDoneDay)) {
                 restartDoneDay = today;                                   // a fresh start every night:
-                if (formatChanged()) restartApp();                        // the whole app, for a new video format
+                if (engineChanged()) restartApp();                        // the whole app, for the engine's new settings
                 else restartWebView();
                 applyTvVolume();
             }
@@ -1196,6 +1209,7 @@ public class MainActivity extends Activity {
             defaults.put("videoFormat", "h264");
             defaults.put("screenSize", "1080");
             defaults.put("screenRate", "box");
+            defaults.put("engineNumbers", false);
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("autoName", autoName(ip));
@@ -1250,12 +1264,12 @@ public class MainActivity extends Activity {
                 }
             }
             result.put("others", done);
-            if (formatChanged()) {                         // a new video format: the app starts again (after this answer)
+            if (engineChanged()) {                         // the engine's start-up settings: the app starts again (after this answer)
                 result.put("restarting", true);
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        if (formatChanged()) restartApp();
+                        if (engineChanged()) restartApp();
                     }
                 }, 2000);
             }

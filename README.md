@@ -83,7 +83,7 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 
 ## Between songs: messages and pictures
 
-The café screen is the café's own pictures, in `app/src/main/assets/looks`: `cafe.jpg` (every day), `newroz.jpg`, `eid.jpg` (both Eids), `barat.jpg`, `newyear.jpg`, and `plain.jpg`, the room with no words on it, where the TV writes your messages and the call-to-prayer line. To change one, upload a new picture with the same name there on GitHub (16:9, about 1376x768 or 1920x1080, JPG); the TVs get it with the next update.
+The café screen is the café's own pictures: one for every day, one each for Newroz, Eid (both Eids), Barat Night and New Year, and a plain one, the room with no words on it, where the TV writes your messages and the call-to-prayer line. To change one, open **Café screen pictures** on the phone's Screen tab and press **Change** under it, then choose a picture on the phone: 16:9, like 1920x1080 (other shapes are cropped to fit), with your words in it. It goes to every TV at once; **Built-in** puts the app's own back. The built-in ones are in `app/src/main/assets/looks`.
 
 Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn. On a long pause it moves to the next one every 20 seconds.
 

@@ -533,7 +533,8 @@ var SETTINGS = {
   var PER_100 = { ir: 1, tr: 1, sa: 1, ae: 1, jo: 1 };
   var NAME_LABELS = { gb: "pound" };             // currencies whose name is one of the words on the TV
   // The café screen's pictures (looks/): the café's, the special days' (both Eids share one), and the
-  // plain one, with no words on it, for the TV's own words
+  // plain one, with no words on it, for the TV's own words. Built into the app; the café can put its
+  // own in from the phone (the app serves those in their place)
   var LOOKS = { cafe: "cafe", plain: "plain", newroz: "newroz", eidFitr: "eid", eidAdha: "eid", barat: "barat", newYear: "newyear" };
   var HIJRI_EN = ["Muharram", "Safar", "Rabiʻ I", "Rabiʻ II", "Jumada I", "Jumada II", "Rajab", "Shaʻban", "Ramadan", "Shawwal",
                   "Dhuʻl-Qiʻdah", "Dhuʻl-Hijjah"];
@@ -1842,8 +1843,10 @@ var SETTINGS = {
     setText("brandNote", prayer ? L("prayerNote") : "");
   }
 
+  // A picture the café put in from the phone carries when it did (?v=), so a new one shows at once
   function lookSrc(name) {
-    return "looks/" + LOOKS[name] + ".jpg";
+    var file = LOOKS[name], own = X.looks && typeof X.looks === "object" ? Number(X.looks[file]) : 0;
+    return "looks/" + file + ".jpg" + (own > 0 ? "?v=" + own : "");
   }
 
   /* ---------- between songs: the café's picture, messages and pictures ---------- */

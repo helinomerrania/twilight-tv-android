@@ -61,6 +61,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -130,6 +131,7 @@ public class MainActivity extends Activity {
     private PriceFeed prices;                            // gold and currency prices, from tirezh.com
     private PrayerFeed prayerTimes;                      // the call to prayer's times, from amozhgary.tv
     private PictureStore pictures;                       // the café's own, from the phone page
+    private LookStore looks;                             // the café screen's pictures the café put in from the phone
     private volatile List<String> pageSongs = Collections.emptyList();   // the page's songs (its playlist first)
     private volatile int songsVersion = 0;
 
@@ -236,6 +238,7 @@ public class MainActivity extends Activity {
             }
         });
         pictures = new PictureStore(new File(getFilesDir(), "pictures"));
+        looks = new LookStore(new File(getFilesDir(), "looks"));
     }
 
     // The town on amozhgary.tv ("" = the TV works it all out): its prayer times, when the music pauses for
@@ -1090,11 +1093,74 @@ public class MainActivity extends Activity {
 
         @Override
         public byte[] look(String name) {
-            if (!name.matches("[a-z]{1,20}")) return null;
-            byte[] b = readAsset("looks/" + name + ".jpg");
-            return b.length == 0 ? null : b;
+            return lookPicture(name, false);
+        }
+
+        @Override
+        public String looks() {
+            try {
+                JSONArray list = new JSONArray();
+                for (String n : LookStore.NAMES) list.put(new JSONObject().put("name", n).put("at", looks.at(n)));
+                return new JSONObject().put("looks", list).toString();
+            } catch (JSONException e) {
+                return null;
+            }
+        }
+
+        @Override
+        public String setLook(String name, String body, boolean all) {
+            try {
+                JSONObject o = new JSONObject(body);
+                long at = looks.set(name, o.optString("full", ""), o.optString("small", ""));
+                return new JSONObject().put("ok", true).put("at", at).put("tv", tvName)
+                        .put("others", all ? lookOnOthers("name=" + name, body) : new JSONArray()).toString();
+            } catch (IllegalArgumentException e) {
+                return "{\"ok\":false,\"message\":" + JSONObject.quote(e.getMessage()) + "}";
+            } catch (JSONException e) {
+                return "{\"ok\":false,\"message\":\"That picture didn't arrive whole. Try again.\"}";
+            }
+        }
+
+        @Override
+        public String resetLook(String name, boolean all) {
+            if (!LookStore.valid(name)) return "{\"ok\":false,\"message\":\"There's no such picture on the café screen.\"}";
+            looks.reset(name);
+            try {
+                return new JSONObject().put("ok", true).put("at", 0).put("tv", tvName)
+                        .put("others", all ? lookOnOthers("name=" + name + "&reset=1", "") : new JSONArray()).toString();
+            } catch (JSONException e) {
+                return "{\"ok\":true}";
+            }
+        }
+
+        @Override
+        public byte[] lookForPhone(String name, boolean small) {
+            return lookPicture(name, small);
         }
     };
+
+    // One of the café screen's pictures: the café's own, else the one built into the app (and its small copy)
+    private byte[] lookPicture(String name, boolean small) {
+        if (!LookStore.valid(name)) return null;
+        byte[] b = looks.read(name, small);
+        if (b != null) return b;
+        if (small) {
+            b = readAsset("looks/" + name + ".small.jpg");
+            if (b.length > 0) return b;
+        }
+        b = readAsset("looks/" + name + ".jpg");
+        return b.length == 0 ? null : b;
+    }
+
+    // The same café screen picture on the other TVs, through their own phone pages
+    private JSONArray lookOnOthers(String query, String payload) throws JSONException {
+        JSONArray done = new JSONArray();
+        if (finder == null) return done;
+        for (String[] t : finder.others()) {
+            done.put(new JSONObject().put("name", t[0]).put("result", forward(t[1], "api/looks?all=0&" + query, pin, payload)));
+        }
+        return done;
+    }
 
     /* ---------- the link with the page (Firefox's engine has no other way) ---------- */
 
@@ -1172,7 +1238,8 @@ public class MainActivity extends Activity {
 
     // Song names, weather and pictures change now and then; the page gets them again when they do
     private int extrasVersion() {
-        return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + songsVersion + boxVersion;
+        return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + looks.version()
+                + songsVersion + boxVersion;
     }
 
     private String extras() {
@@ -1188,6 +1255,9 @@ public class MainActivity extends Activity {
             JSONArray pics = new JSONArray();
             for (String id : pictures.ids()) pics.put(id);
             x.put("pictures", pics);
+            JSONObject own = new JSONObject();                 // the café screen's pictures the café put in, and when
+            for (Map.Entry<String, Long> e : looks.stamps().entrySet()) own.put(e.getKey(), e.getValue());
+            x.put("looks", own);
             if (box != null) x.put("box", new JSONObject().put("softDraw", softDraw));   // automatic quality: 720p then
             return x.toString();
         } catch (JSONException e) {
@@ -1276,7 +1346,7 @@ public class MainActivity extends Activity {
                 forOthers.remove("tvName");                // each TV keeps its own name
                 String payload = new JSONObject().put("local", forOthers).toString();
                 for (String[] t : finder.others()) {
-                    done.put(new JSONObject().put("name", t[0]).put("result", forward(t[1], oldPin, payload)));
+                    done.put(new JSONObject().put("name", t[0]).put("result", forward(t[1], "api/settings?all=0", oldPin, payload)));
                 }
             }
             result.put("others", done);
@@ -1295,15 +1365,15 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Saves the same settings on another TV, through its own phone page
-    private static String forward(String base, String pin, String payload) {
+    // Saves the same on another TV (settings, a café screen picture), through its own phone page
+    private static String forward(String base, String what, String pin, String payload) {
         HttpURLConnection c = null;
         try {
-            c = (HttpURLConnection) new URL(base + "api/settings?all=0&pin=" + URLEncoder.encode(pin, "UTF-8")).openConnection();
+            c = (HttpURLConnection) new URL(base + what + "&pin=" + URLEncoder.encode(pin, "UTF-8")).openConnection();
             c.setRequestMethod("POST");
             c.setDoOutput(true);
             c.setConnectTimeout(4000);
-            c.setReadTimeout(8000);
+            c.setReadTimeout(20000);
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             byte[] b = payload.getBytes("UTF-8");
             c.setFixedLengthStreamingMode(b.length);

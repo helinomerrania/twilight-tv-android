@@ -28,6 +28,10 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /api/songs?pin=1234        the playlist's songs with their names, to choose one
  *   GET  /api/pictures?pin=1234     the café's pictures; POST adds one (JSON body), POST &delete=id deletes one
  *   GET  /api/picture?pin=1234&id=x one picture (&size=small: its small copy)
+ *   GET  /api/looks?pin=1234        the café screen's pictures: which are the café's own; POST &name=cafe puts
+ *                                   one in (JSON body), POST &name=cafe&reset=1 goes back to the built-in one;
+ *                                   &all=1 also on the other TVs
+ *   GET  /api/look?pin=1234&name=x  the café screen's picture in use (&size=small: its small copy)
  *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
  *                                   so the phone page can go on a phone's home screen with its icon
  *
@@ -91,8 +95,28 @@ final class ControlServer {
             return null;
         }
 
-        /** One of the café screen's pictures (assets/looks/<name>.jpg), or null. */
+        /** One of the café screen's pictures for the TV page: the café's own, else the built-in one (assets/looks), or null. */
         default byte[] look(String name) {
+            return null;
+        }
+
+        /** The café screen's pictures for the phone: which are the café's own (JSON). */
+        default String looks() {
+            return null;
+        }
+
+        /** Puts the café's own picture in for one of them (JSON body with base64 JPEGs); all: on the other TVs too. JSON. */
+        default String setLook(String name, String body, boolean all) {
+            return null;
+        }
+
+        /** Back to the built-in picture; all: on the other TVs too. JSON. */
+        default String resetLook(String name, boolean all) {
+            return null;
+        }
+
+        /** The picture in use for one of them, for the phone (small: its small copy), or null. */
+        default byte[] lookForPhone(String name, boolean small) {
             return null;
         }
     }
@@ -214,7 +238,7 @@ final class ControlServer {
                 }
             }
             // Only a picture from a phone with the right PIN may be big
-            boolean picture = method.equals("POST") && path.equals("/api/pictures");
+            boolean picture = method.equals("POST") && (path.equals("/api/pictures") || path.equals("/api/looks"));
             int limit = picture && pinOk(params, ip) ? MAX_PICTURE_BODY : MAX_BODY;
             if (length < 0 || length > limit) {
                 if (picture && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
@@ -323,6 +347,23 @@ final class ControlServer {
             byte[] b = tv.picture(params.get("id"), "small".equals(params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
             else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");   // a picture never changes
+        } else if (path.equals("/api/looks")) {
+            if (method.equals("GET")) {
+                String s = tv.looks();
+                json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
+            } else if (method.equals("POST")) {
+                String name = params.get("name");
+                boolean all = "1".equals(params.get("all"));
+                String r = "1".equals(params.get("reset")) ? tv.resetLook(name, all) : tv.setLook(name, body, all);
+                if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
+                else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
+            } else {
+                json(out, 405, "{\"error\":\"use GET or POST\"}");
+            }
+        } else if (path.equals("/api/look")) {
+            byte[] b = tv.lookForPhone(params.get("name"), "small".equals(params.get("size")));
+            if (b == null) json(out, 404, "{\"error\":\"not found\"}");
+            else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");                   // it may be changed
         } else {
             json(out, 404, "{\"error\":\"not found\"}");
         }

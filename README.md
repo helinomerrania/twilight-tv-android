@@ -6,7 +6,7 @@ Your café TV page as an Android app for the TV boxes. It plays full screen, sta
 - **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom, to choose a song or play any YouTube link, and for "Quiet for a minute". It can go on the phone's home screen.
 - **The café's own messages and pictures** on the café screen between songs, uploaded from the phone.
 - **The call to prayer:** the music pauses for 5 minutes at each prayer, during opening hours, at amozhgary.tv's times for Ranya.
-- **Special days:** Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year each get their own café screen and a greeting.
+- **Special days:** Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year each get their own picture on the café screen and a greeting.
 - **Settings on the phone:** every setting, on one TV or all of them at once, used straight away.
 - **One settings file:** `settings.json` in this repository reaches every TV, with no reinstalling.
 - **Schedules:** opening hours, a playlist and a volume for each time of day, a fade-out before closing, and the box's own volume reset at opening time. Never two songs by the same singer in a row.
@@ -83,7 +83,9 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 
 ## Between songs: messages and pictures
 
-Whenever the café screen comes up between two songs, it shows the café's name, or one of your messages, or one of your pictures, in turn. On a long pause it moves to the next one every 20 seconds.
+The café screen is the café's own pictures, in `app/src/main/assets/looks`: `cafe.jpg` (every day), `newroz.jpg`, `eid.jpg` (both Eids), `barat.jpg`, `newyear.jpg`, and `plain.jpg`, the room with no words on it, where the TV writes your messages and the call-to-prayer line. To change one, upload a new picture with the same name there on GitHub (16:9, about 1376x768 or 1920x1080, JPG); the TVs get it with the next update.
+
+Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn. On a long pause it moves to the next one every 20 seconds.
 
 - **Messages:** Screen tab, **Add a message**, then Save.
 - **Pictures:** Screen tab, **Add pictures**, and choose photos on the phone. Each is fitted to the TV whole (nothing cut off), on a blurred copy of itself. Up to 30; × deletes one. They're kept on the TV box itself.
@@ -99,7 +101,7 @@ At each of the five prayers, during opening hours only, the music fades out for 
 
 ## Special days
 
-Newroz (20 and 21 March), Eid al-Fitr (1 to 3 Shawwal), Eid al-Adha (10 to 13 Dhu al-Hijjah), Barat Night (14 and 15 Sha'ban) and New Year's Eve (from 18:00) to New Year's Day each get their own café screen (fires on the mountains, the crescent and lanterns, the full moon and candles on the shore, fireworks) and a greeting, on the café screen and in the panel.
+Newroz (20 and 21 March), Eid al-Fitr (1 to 3 Shawwal), Eid al-Adha (10 to 13 Dhu al-Hijjah), Barat Night (14 and 15 Sha'ban) and New Year's Eve (from 18:00) to New Year's Day each get their own picture on the café screen (with its greeting in it), and the greeting under the date in the panel.
 
 The Hijri date, and with it Eid and Barat Night, comes from amozhgary.tv's month for the town (the same page as the prayer times, read every day), so it follows their calendar by itself. When the app can't reach it, the TV works the date out with the Umm al-Qura calendar. If it's still a day early or late compared with Kurdistan's announcement, set **Move the Hijri date, Eid and Barat Night by** on the Screen tab. The Kurdish date needs nothing of the sort: it's a solar calendar, worked out by rule like the ordinary date, so it can't drift. Its year begins on 21 March, Newroz, every year; or, with **Kurdish date: the year begins on** set to the equinox, on the day of the spring equinox, as in Iran's calendar (the engine's, which matches the real equinox every year to 2150). The two give the same dates until 19 March 2028. In years when the equinox comes on 20 March (2028, 2029, 2032, 2033…), they are a day apart all year. The buttons under **See a special day's look on the TV** show each one for 20 seconds, over the video.
 
@@ -140,7 +142,7 @@ On the phone page, open the **Settings** tab. Every setting is there, grouped:
 - **Music:** playlist, playlists by time of day, volume, volume by time of day, opening hours, fading out before closing, never the same singer twice in a row, repeats, the "Quiet for a minute" volume.
 - **Call to prayer:** how long the music pauses, and moving each prayer by minutes.
 - **Between songs:** fades, café screen at the start and end, cut endings.
-- **Picture and YouTube:** video format, quality, automatic zoom, ads, subtitles, café name.
+- **Picture and YouTube:** video format, quality, automatic zoom, ads, subtitles, the café name under the video when no music plays.
 - **This TV box:** its own volume, sound levelling, screen resolution and refresh rate, nightly restart, updates, the PIN (and its name, with more than one box).
 - **Advanced:** the place for the weather and prayer times, reload interval, YouTube API key.
 

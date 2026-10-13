@@ -35,6 +35,7 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /tv/index.html?k=key       the TV page
  *   POST /tv/sync?k=key             the TV page's check-in every second (JSON both ways)
  *   GET  /tv/pictures/<id>.jpg      the café's pictures, for between songs
+ *   GET  /tv/looks/<name>.jpg       the café screen's own pictures, built into the app (assets/looks)
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
  * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in.
@@ -87,6 +88,11 @@ final class ControlServer {
 
         /** The files for the phone's home-screen icon (manifest.webmanifest, icon-192.png, ...), or null. */
         default byte[] asset(String name) {
+            return null;
+        }
+
+        /** One of the café screen's pictures (assets/looks/<name>.jpg), or null. */
+        default byte[] look(String name) {
             return null;
         }
     }
@@ -349,6 +355,11 @@ final class ControlServer {
             String r = tv.tvSync(params.get("k"), body);
             if (r == null) json(out, 403, "{\"error\":\"key\"}");
             else json(out, 200, r);
+        } else if (path.matches("/tv/looks/[a-z]{1,20}\\.jpg") && method.equals("GET")) {
+            byte[] b = tv.look(path.substring("/tv/looks/".length(), path.length() - 4));
+            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            // checked again each time the page loads: a new version of the app may bring new ones
+            else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");
         } else if (path.startsWith("/tv/pictures/") && path.endsWith(".jpg") && method.equals("GET")) {
             String id = path.substring("/tv/pictures/".length(), path.length() - 4);
             byte[] b = tv.picture(id, false);

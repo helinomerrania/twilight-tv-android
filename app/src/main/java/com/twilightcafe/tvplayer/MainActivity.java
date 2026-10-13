@@ -1087,6 +1087,13 @@ public class MainActivity extends Activity {
             byte[] b = readAsset(name);
             return b.length == 0 ? null : b;
         }
+
+        @Override
+        public byte[] look(String name) {
+            if (!name.matches("[a-z]{1,20}")) return null;
+            byte[] b = readAsset("looks/" + name + ".jpg");
+            return b.length == 0 ? null : b;
+        }
     };
 
     /* ---------- the link with the page (Firefox's engine has no other way) ---------- */

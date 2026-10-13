@@ -585,7 +585,7 @@
       if (!r.ok) { if (/^play/.test(what)) say("The TV couldn't take that song right now."); return; }
       if (/^playnext:/.test(what)) say("Comes next: " + (name || "your song"));
       else if (/^playnow:/.test(what)) say("Playing now: " + (name || "your song"));
-      else if (/^look:/.test(what)) say("Look at the TV: 20 seconds of that day's look.");
+      else if (/^look:/.test(what)) say("Look at the TV: 20 seconds of that day's picture.");
       else if (what === "unfreeze") say("Done: the song goes on from the same moment, with the picture moving.");
     }).catch(function () {}).then(function () {
       busy = false;
@@ -712,7 +712,7 @@
       options: [["auto", "In the language's own digits"], ["kurdish", "Always Kurdish digits: ١٢٣"], ["latin", "Always 123"]],
       hint: "With Kurdish words, “own digits” are ١٢٣. Song names, the Wi-Fi password and your messages always stay as typed." },
     { key: "specialDays", label: "Special days' looks", type: "toggle", tab: "screen",
-      hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own café screen and a greeting." },
+      hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own picture on the café screen, and a greeting under the date." },
     { looks: true, tab: "screen" },
     { key: "hijriAdjust", label: "Move the Hijri date, Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
       hint: "The Hijri date comes from amozhgary.tv by itself (from the Umm al-Qura calendar when it can't be reached). Only if it's still a day early or late compared with Kurdistan's announcement." },
@@ -758,7 +758,8 @@
     { key: "autoZoom", label: "Zoom away black bars automatically", type: "toggle" },
     { key: "blockAds", label: "Cover and skip YouTube ads", type: "toggle" },
     { key: "noSubtitles", label: "Keep subtitles off", type: "toggle" },
-    { key: "brandName", label: "Café name on the café screen", type: "text", rtl: true },
+    { key: "brandName", label: "Café name under the video when no music plays", type: "text", rtl: true,
+      hint: "The café screen itself is your pictures, with the name in them." },
     { group: "This TV box" },
     { key: "tvName", label: "Name of this TV", type: "text", only: true, withOthers: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
     { key: "tvVolume", label: "Box volume", type: "range", min: 0, max: 100, step: 5, unit: "%",

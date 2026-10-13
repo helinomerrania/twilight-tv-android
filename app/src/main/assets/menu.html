@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080b26">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="../icon-192.png">
+<title>Twilight</title>
+<!--
+  The café's menu, for customers' phones: the menu code on the TV leads here. The TV box serves it at
+  /menu/ on the café Wi-Fi, with what the phone page's Menu tab put in it (data), its pictures (pics/)
+  and its letters (fonts/). Every address here is relative, so the same page works from anywhere.
+-->
+<style>
+  /* Vazirmatn (the TV's letters too): by the Vazirmatn Project Authors, SIL Open Font License 1.1.
+     The café's name in Aref Ruqaa Bold, only its own letters: by Abdullah Aref, SIL Open Font License 1.1. */
+  @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap; unicode-range: U+0600-06FF, U+200C-200F, U+2010-2011;
+               src: url("fonts/vazirmatn-arabic.woff2") format("woff2"); }
+  @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
+               unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+               src: url("fonts/vazirmatn-latin.woff2") format("woff2"); }
+  @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
+               unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+               src: url("fonts/vazirmatn-latin-ext.woff2") format("woff2"); }
+  @font-face { font-family: "TwilightName"; font-weight: 700; font-display: block; src: url("fonts/twilight-name.woff2") format("woff2"); }
+
+  :root {
+    --night: #0d1030; --deep: #080b26; --dusk: #171a45; --plum: #2c2457;
+    --glow: #f0985c; --sun: #ffcf8a; --cream: #fff1e0;
+    --mist: rgba(255, 241, 224, .66); --faint: rgba(255, 241, 224, .46); --line: rgba(255, 241, 224, .11);
+    --bar: 57px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; background: var(--night); scroll-padding-top: calc(var(--bar) + 6px); }
+  body {
+    margin: 0; min-height: 100vh; overflow-x: hidden; color: var(--cream); background: var(--night);
+    font: 400 16px/1.55 "Vazirmatn", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif;
+    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* The sky over the café: night above, the last of the sun along the horizon, the name in its own letters */
+  .sky {
+    position: relative; overflow: hidden; text-align: center;
+    padding: max(46px, calc(env(safe-area-inset-top) + 30px)) 20px 30px;
+    background:
+      radial-gradient(85% 70% at 50% 128%, rgba(255, 176, 108, .78), rgba(240, 152, 92, .30) 42%, rgba(240, 152, 92, 0) 72%),
+      linear-gradient(180deg, #070a22 0%, #11143b 38%, #251e4f 72%, #3a2754 100%);
+  }
+  .sky::before {                                   /* the first stars */
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .75;
+    background-image:
+      radial-gradient(1.3px 1.3px at 9% 22%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 23% 9%, #fff7ea, transparent 70%),
+      radial-gradient(1.6px 1.6px at 81% 16%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 67% 31%, #fff7ea, transparent 70%),
+      radial-gradient(1.2px 1.2px at 92% 41%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 38% 26%, #fff7ea, transparent 70%);
+  }
+  .sky::after {                                    /* the horizon */
+    content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, rgba(255, 207, 138, 0), rgba(255, 207, 138, .75), rgba(255, 207, 138, 0));
+  }
+  .name {
+    position: relative; margin: 0; font-family: "TwilightName", "Vazirmatn", serif; font-weight: 700;
+    font-size: clamp(30px, 9.4vw, 46px); line-height: 1.55; text-wrap: balance; text-shadow: 0 0 .55em rgba(255, 171, 107, .38);
+  }
+  .word { position: relative; margin: 0; color: var(--mist); font-size: 15px; }
+  .langs {
+    position: relative; display: inline-flex; gap: 2px; margin-top: 18px; padding: 3px; border-radius: 999px;
+    background: rgba(8, 11, 38, .5); border: 1px solid var(--line);
+  }
+  .langs button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--mist); font-size: 14px; }
+  .langs button[aria-pressed="true"] { background: var(--cream); color: #1b1640; font-weight: 700; }
+
+  /* The categories, along the top while scrolling */
+  .bar {
+    position: sticky; top: 0; z-index: 3; min-height: var(--bar);
+    background: rgba(13, 16, 48, .88); border-bottom: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; overscroll-behavior-x: contain;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips button {
+    flex: none; min-height: 36px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--line); background: rgba(255, 241, 224, .05); font-size: 15px; font-weight: 600;
+  }
+  .chips button[aria-current="true"] { background: var(--glow); border-color: var(--glow); color: #2a1406; }
+
+  main { max-width: 40rem; margin: 0 auto; padding: 4px 16px max(48px, calc(env(safe-area-inset-bottom) + 28px)); }
+  section { padding-top: 26px; }
+  h2 { margin: 0; font-size: 25px; line-height: 1.35; font-weight: 800; }
+  h3 { display: flex; align-items: center; gap: 12px; margin: 24px 0 0; color: var(--sun); font-size: 18px; line-height: 1.4; font-weight: 700; }
+  h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), rgba(255, 241, 224, .03)); }
+  [dir="rtl"] h3::after { background: linear-gradient(270deg, var(--line), rgba(255, 241, 224, .03)); }
+  .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
+  .banner {
+    display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin: 14px 0 2px;
+    border-radius: 18px; background: var(--dusk);
+  }
+
+  .items { list-style: none; margin: 4px 0 0; padding: 0; }
+  .items li + li { border-top: 1px solid var(--line); }
+  /* An item: its picture (if any), then its name with the price at the end of the same line, and its note */
+  .row {
+    display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 0; border: 0; background: none; text-align: start;
+  }
+  .row img { flex: none; width: 64px; height: 64px; border-radius: 13px; object-fit: cover; background: var(--dusk); }
+  .txt { flex: 1; min-width: 0; }
+  .top { display: flex; align-items: baseline; gap: 14px; }
+  .nm { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+  .row .note { display: block; margin: 2px 0 0; font-size: 14px; line-height: 1.5; }
+  .pr { flex: none; color: var(--sun); font-size: 16px; font-weight: 700; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pr .u { margin-inline-start: 4px; color: var(--faint); font-size: 12px; font-weight: 600; }
+  button.row:active .nm { color: var(--sun); }
+
+  /* One item, bigger: its picture, name, note and price */
+  .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(4, 6, 22, .66); }
+  .card {
+    position: relative; width: 100%; max-width: 40rem; max-height: 94vh; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--dusk); border-radius: 24px 24px 0 0; padding-bottom: max(22px, env(safe-area-inset-bottom));
+    box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); animation: rise .24s cubic-bezier(.2, .8, .2, 1);
+  }
+  .card img { display: block; width: 100%; max-height: 64vh; object-fit: cover; border-radius: 24px 24px 0 0; background: var(--plum); }
+  .card .body { padding: 18px 20px 0; }
+  .card h2 { font-size: 23px; }
+  .card .note { font-size: 15px; margin-top: 6px; }
+  .card .pr { display: block; margin-top: 12px; font-size: 21px; }
+  .card .pr .u { font-size: 14px; }
+  .close {
+    position: absolute; top: 12px; inset-inline-end: 12px; z-index: 1; width: 42px; height: 42px; border-radius: 50%;
+    border: 1px solid var(--line); background: rgba(8, 11, 38, .72); color: var(--cream); display: grid; place-items: center;
+  }
+  .close svg { width: 18px; height: 18px; }
+  @keyframes rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .wait { display: grid; place-items: center; padding: 64px 0; }
+  .ring { width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(255, 207, 138, .2); border-top-color: var(--sun); animation: spin .9s linear infinite; }
+  .again { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); background: var(--plum); color: var(--sun); display: grid; place-items: center; }
+  .again svg { width: 26px; height: 26px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } .ring { animation-duration: 2.4s; } }
+</style>
+</head>
+<body>
+<header class="sky">
+  <h1 class="name" id="name" dir="auto"></h1>
+  <p class="word" id="word" dir="auto"></p>
+  <div class="langs" id="langs" role="group" hidden></div>
+</header>
+<nav class="bar" id="bar" hidden><div class="chips" id="chips"></div></nav>
+<main id="menu">
+  <div class="wait" id="wait"><div class="ring" id="ring" hidden></div>
+    <button class="again" id="again" type="button" aria-label="Try again" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+    </button>
+  </div>
+</main>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  // [key, its own name, lang, direction]
+  var LANGS = [["ku", "کوردی", "ckb", "rtl"], ["ar", "العربية", "ar", "rtl"], ["en", "English", "en", "ltr"]];
+  var KEY = "twilight-menu-lang";
+  var data = null, lang = "ku", spyOff = 0, ticking = false, lastFocus = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // A name or note in the chosen language, else Kurdish, English, Arabic
+  function pick(o) {
+    if (!o) return "";
+    return o[lang] || o.ku || o.en || o.ar || "";
+  }
+
+  // The café's numbers: "auto" = ١٢٣ with Kurdish and Arabic, 123 with English
+  function easternDigits() {
+    var n = String(data && data.numerals || "auto").toLowerCase();
+    if (n === "kurdish" || n === "arabic") return true;
+    if (n === "latin") return false;
+    return lang !== "en";
+  }
+
+  function money(v) {
+    var s = String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (easternDigits()) s = s.replace(/\d/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".charAt(Number(d)); }).replace(/,/g, "٬");
+    return s;
+  }
+
+  function price(v) {
+    var p = el("span", "pr");
+    var n = el("bdi", null, money(v));
+    p.appendChild(n);
+    p.appendChild(el("span", "u", lang === "en" ? "IQD" : "د.ع"));
+    return p;
+  }
+
+  function picture(id, small) { return "pics/" + encodeURIComponent(id) + (small ? ".small.jpg" : ".jpg"); }
+
+  // Every category, subcategory and item
+  function each(fn) {
+    (data.categories || []).forEach(function (c) {
+      fn(c);
+      (c.items || []).forEach(fn);
+      (c.subs || []).forEach(function (s) { fn(s); (s.items || []).forEach(fn); });
+    });
+  }
+
+  // The languages the menu is written in (a switch when there's more than one)
+  function langsIn() {
+    var has = {};
+    each(function (n) { for (var k in n.name || {}) if (n.name[k]) has[k] = true; });
+    return LANGS.filter(function (l) { return has[l[0]]; });
+  }
+
+  function load() {
+    $("again").hidden = true;
+    var slow = setTimeout(function () { $("ring").hidden = false; }, 400);
+    fetch("data", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (d) {
+      clearTimeout(slow);
+      data = d || {};
+      var have = langsIn(), saved = "";
+      try { saved = localStorage.getItem(KEY) || ""; } catch (e) {}
+      var codes = have.map(function (l) { return l[0]; });
+      lang = codes.indexOf(saved) >= 0 ? saved : codes.indexOf("ku") >= 0 || !codes.length ? "ku" : codes[0];
+      render();
+    }).catch(function () {
+      clearTimeout(slow);
+      $("ring").hidden = true;
+      $("again").hidden = false;
+    });
+  }
+  $("again").addEventListener("click", load);
+
+  function setLang(code) {
+    lang = code;
+    try { localStorage.setItem(KEY, code); } catch (e) {}
+    var y = window.scrollY;
+    render();
+    window.scrollTo(0, y);
+  }
+
+  function render() {
+    var l = LANGS.filter(function (x) { return x[0] === lang; })[0] || LANGS[0];
+    document.documentElement.lang = l[2];
+    document.documentElement.dir = l[3];
+    var name = data.name || "Twilight", word = lang === "en" ? "Menu" : data.word || "";
+    $("name").textContent = name;
+    $("word").textContent = word;
+    $("word").hidden = !word;
+    document.title = name + (word ? " · " + word : "");
+
+    var have = langsIn(), box = $("langs");
+    box.innerHTML = "";
+    box.hidden = have.length < 2;
+    have.forEach(function (x) {
+      var b = el("button", null, x[1]);
+      b.type = "button";
+      b.lang = x[2];
+      b.setAttribute("aria-pressed", String(x[0] === lang));
+      b.addEventListener("click", function () { if (x[0] !== lang) setLang(x[0]); });
+      box.appendChild(b);
+    });
+
+    var main = $("menu"), chips = $("chips");
+    main.innerHTML = "";
+    chips.innerHTML = "";
+    var cats = data.categories || [];
+    $("bar").hidden = cats.length < 2;
+    cats.forEach(function (c) {
+      var sec = el("section");
+      sec.id = "c-" + c.id;
+      sec.appendChild(heading("h2", c.name));
+      note(sec, c.note);
+      if (c.picture) {
+        var img = el("img", "banner");
+        img.src = picture(c.picture, false);
+        img.alt = "";
+        img.loading = "lazy";
+        img.decoding = "async";
+        sec.appendChild(img);
+      }
+      if ((c.items || []).length) sec.appendChild(list(c.items));
+      (c.subs || []).forEach(function (s) {
+        sec.appendChild(heading("h3", s.name));
+        note(sec, s.note);
+        if (s.picture) {
+          var si = el("img", "banner");
+          si.src = picture(s.picture, false);
+          si.alt = "";
+          si.loading = "lazy";
+          sec.appendChild(si);
+        }
+        sec.appendChild(list(s.items || []));
+      });
+      main.appendChild(sec);
+
+      var chip = el("button", null, pick(c.name));
+      chip.type = "button";
+      chip.dir = "auto";
+      chip.setAttribute("data-to", sec.id);
+      chip.addEventListener("click", function () { jump(sec, chip); });
+      chips.appendChild(chip);
+    });
+    spy();
+  }
+
+  function heading(tag, name) {
+    var h = el(tag, null, pick(name));
+    h.dir = "auto";
+    return h;
+  }
+
+  function note(parent, o) {
+    var t = pick(o);
+    if (!t) return;
+    var p = el("p", "note", t);
+    p.dir = "auto";
+    parent.appendChild(p);
+  }
+
+  function list(items) {
+    var ul = el("ul", "items");
+    items.forEach(function (it) {
+      var li = el("li"), row = el(it.picture ? "button" : "div", "row" + (it.picture ? " pic" : ""));
+      if (it.picture) {
+        row.type = "button";
+        var img = el("img");
+        img.src = picture(it.picture, true);
+        img.alt = "";
+        img.width = 64;
+        img.height = 64;
+        img.loading = "lazy";
+        img.decoding = "async";
+        row.appendChild(img);
+        row.addEventListener("click", function () { open(it, row); });
+      }
+      var txt = el("span", "txt"), top = el("span", "top"), nm = el("span", "nm", pick(it.name));
+      nm.dir = "auto";
+      top.appendChild(nm);
+      if (it.price != null) top.appendChild(price(it.price));
+      txt.appendChild(top);
+      var t = pick(it.note);
+      if (t) {
+        var n = el("span", "note", t);
+        n.dir = "auto";
+        txt.appendChild(n);
+      }
+      row.appendChild(txt);
+      li.appendChild(row);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  /* ---------- the categories along the top ---------- */
+
+  function jump(sec, chip) {
+    spyOff = Date.now() + 900;                       // while the page glides there, the chips stay as tapped
+    mark(chip);
+    var smooth = !window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    sec.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }
+
+  function mark(chip) {
+    var all = $("chips").children;
+    for (var i = 0; i < all.length; i++) all[i].setAttribute("aria-current", String(all[i] === chip));
+    if (chip && chip.scrollIntoView) chip.scrollIntoView({ block: "nearest", inline: "center" });
+  }
+
+  // The category on screen: the last one whose heading has passed under the bar (at the very end of the
+  // page, the last one: a short one never gets that far up)
+  function spy() {
+    ticking = false;
+    if (Date.now() < spyOff || $("bar").hidden) return;
+    var secs = document.querySelectorAll("main section"), line = $("bar").getBoundingClientRect().bottom + 24, on = secs[0];
+    for (var i = 0; i < secs.length; i++) if (secs[i].getBoundingClientRect().top <= line) on = secs[i];
+    var end = window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+    if (end && secs.length) on = secs[secs.length - 1];
+    if (!on) return;
+    var chip = document.querySelector('#chips [data-to="' + on.id + '"]');
+    if (chip && chip.getAttribute("aria-current") !== "true") mark(chip);
+  }
+  window.addEventListener("scroll", function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(spy); }
+  }, { passive: true });
+
+  /* ---------- one item, bigger ---------- */
+
+  function open(it, from) {
+    lastFocus = from;
+    var sheet = $("sheet"), card = el("div", "card");
+    sheet.innerHTML = "";
+    var x = el("button", "close");
+    x.type = "button";
+    x.setAttribute("aria-label", "Close");
+    x.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+    x.addEventListener("click", shut);
+    card.appendChild(x);
+    var img = el("img");
+    img.src = picture(it.picture, false);
+    img.alt = pick(it.name);
+    card.appendChild(img);
+    var body = el("div", "body");
+    var h = el("h2", null, pick(it.name));
+    h.dir = "auto";
+    h.id = "sheetName";
+    body.appendChild(h);
+    note(body, it.note);
+    if (it.price != null) body.appendChild(price(it.price));
+    card.appendChild(body);
+    sheet.appendChild(card);
+    sheet.setAttribute("aria-labelledby", "sheetName");
+    sheet.hidden = false;
+    document.body.style.overflow = "hidden";
+    x.focus();
+  }
+
+  function shut() {
+    $("sheet").hidden = true;
+    $("sheet").innerHTML = "";
+    document.body.style.overflow = "";
+    if (lastFocus) lastFocus.focus();
+  }
+  $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) shut(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("sheet").hidden) shut(); });
+
+  load();
+})();
+</script>
+</body>
+</html>

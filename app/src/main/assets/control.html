@@ -36,7 +36,7 @@
   .tvs a, .tvs span { padding: 5px 12px; border-radius: 999px; font-size: .9rem; text-decoration: none; color: var(--cream);
                       border: 1px solid var(--line); }
   .tvs span { background: var(--glow); border-color: var(--glow); color: #2a1406; font-weight: 650; }
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin: 0 0 16px; border-radius: 14px;
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; margin: 0 0 16px; border-radius: 14px;
           background: rgba(11, 16, 48, .6); border: 1px solid var(--line); }
   .tabs button { min-height: 42px; border-radius: 10px; background: transparent; color: var(--soft); font-weight: 600; }
   .tabs button[aria-selected="true"] { background: var(--plum); color: var(--cream); }
@@ -103,7 +103,7 @@
   .notice { background: rgba(255, 207, 138, .14); border-color: rgba(255, 207, 138, .5); }
   #say { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 4;
          max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 14px; background: var(--sun); color: #2a1406; font-weight: 600;
-         box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+         box-shadow: 0 6px 24px rgba(0, 0, 0, .35); pointer-events: none; }   /* taps go through to what's under it */
 
   /* Settings and Screen */
   .intro { color: var(--soft); font-size: .9rem; margin: 0 4px 14px; }
@@ -182,6 +182,47 @@
   .tools button:first-child { margin-top: 0; }
   .danger { color: var(--alert); border-color: rgba(255, 143, 122, .45) !important; }
 
+  /* The Menu tab: the café's menu for customers, each category a card */
+  .mcat { padding: 14px 16px 12px; }
+  .mhead { display: flex; align-items: center; gap: 12px; width: 100%; padding: 2px 0; text-align: start; background: none; }
+  .mhead .t, .mitem .t { flex: 1; min-width: 0; text-align: left; }          /* Kurdish names too, in line with the English under them */
+  .mhead .t > b { display: block; font-size: 1.12rem; font-weight: 650; overflow-wrap: anywhere; }
+  .mhead .t > span { display: block; color: var(--soft); font-size: .82rem; overflow-wrap: anywhere; }
+  .mhead .edit { flex: none; color: var(--sun); font-size: .85rem; text-decoration: underline; }
+  .msub { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .msub > .mhead .t > b { font-size: 1rem; color: var(--sun); }
+  .mitem { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 8px 0;
+           text-align: start; background: none; border-top: 1px solid var(--line); }
+  .mitem.nopic { grid-template-columns: minmax(0, 1fr) auto; }
+  .mitem .t > b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .mitem .t > span { display: block; color: var(--soft); font-size: .8rem; overflow-wrap: anywhere; }
+  .mitem img, .mhead img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: var(--dusk); flex: none; }
+  .mitem .price { font-weight: 650; color: var(--sun); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mitem.off, .mhead.off { opacity: .55; }
+  .tag { display: inline-block; margin-inline-start: 6px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--line);
+         color: var(--soft); font-size: .72rem; font-weight: 500; vertical-align: 2px; }
+  .madd { display: block; background: none; color: var(--sun); padding: 10px 0 2px; text-decoration: underline; font-size: .92rem; }
+  .mempty { color: var(--soft); font-size: .85rem; padding: 6px 0 0; }
+  #menuInfo a { color: var(--sun); }
+  /* Editing one thing on the menu */
+  #editor { position: fixed; inset: 0; z-index: 6; display: flex; align-items: flex-end; justify-content: center; background: rgba(5, 8, 28, .72); }
+  #editor form { width: 100%; max-width: 34rem; max-height: 94vh; overflow-y: auto; overscroll-behavior: contain; background: #12163d;
+                 scroll-padding-bottom: 96px;          /* a field scrolled to stays clear of the Save bar */
+                 border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; padding: 18px 16px 0; }
+  #editor h2 { margin: 0 0 4px; font-size: 1.2rem; }
+  #editor .field:first-of-type { padding-top: 10px; }
+  .names { display: grid; gap: 10px; }
+  .names label { display: grid; gap: 4px; color: var(--soft); font-size: .85rem; }
+  .names textarea { min-height: 4.6rem; }
+  .epic { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .epic img { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: var(--dusk); }
+  .epic .mini { min-height: 44px; }
+  .two3 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .eacts { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin: 6px -16px 0;
+           padding: 12px 16px max(14px, env(safe-area-inset-bottom)); background: #12163d; border-top: 1px solid var(--line); }
+  .eacts .primary { min-height: 52px; border-radius: 14px; background: linear-gradient(160deg, #f6b06c, #e0784e); color: #2a1406; font-weight: 700; }
+  .eacts .wide { min-height: 52px; }
+
   [hidden] { display: none !important; }
   #pin { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(11, 16, 48, .96); z-index: 5; }
   #pin form { width: 100%; max-width: 22rem; text-align: center; }
@@ -205,6 +246,7 @@
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tabControl" aria-selected="true" aria-controls="controlView">Control</button>
     <button type="button" role="tab" id="tabScreen" aria-selected="false" aria-controls="screenView">Screen</button>
+    <button type="button" role="tab" id="tabMenu" aria-selected="false" aria-controls="menuView">Menu</button>
     <button type="button" role="tab" id="tabSettings" aria-selected="false" aria-controls="settingsView">Settings</button>
   </div>
 
@@ -326,6 +368,13 @@
     <div id="screenForm"><p class="intro">Loading…</p></div>
   </div>
 
+  <div id="menuView" role="tabpanel" hidden>
+    <p class="intro">The menu customers open by scanning the menu code on the TV. Tap anything to change it. Each change is saved on the TV at once.</p>
+    <section class="card" id="menuInfo" aria-live="polite"><p class="label">Loading the menu…</p></section>
+    <div id="menuList"></div>
+    <button class="wide" id="addCat" type="button" hidden>Add a category</button>
+  </div>
+
   <div id="settingsView" role="tabpanel" hidden>
     <p class="intro">Changes are saved on this TV and used straight away. Each setting shows where its value comes from:
       <b>built-in</b>, <b>settings.json</b> (shared by every TV, on GitHub) or <b>this TV</b>.</p>
@@ -352,6 +401,7 @@
 </main>
 
 <div id="say" role="status" hidden></div>
+<div id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden></div>
 
 <div id="pin" hidden>
   <form id="pinForm" autocomplete="off">
@@ -403,7 +453,8 @@
     try { localStorage.setItem(KEY, pin); } catch (err) {}
     $("pin").hidden = true;
     poll();
-    if (view !== "control") loadSettings();
+    if (view === "screen" || view === "settings") loadSettings();
+    if (view === "menu") loadMenu();
   });
 
   function api(path, method, body) {
@@ -704,14 +755,17 @@
     view = which;
     $("controlView").hidden = which !== "control";
     $("screenView").hidden = which !== "screen";
+    $("menuView").hidden = which !== "menu";
     $("settingsView").hidden = which !== "settings";
-    $("savebar").hidden = which === "control";
-    ["Control", "Screen", "Settings"].forEach(function (n) { $("tab" + n).setAttribute("aria-selected", String(which === n.toLowerCase())); });
-    if (which !== "control" && !data) loadSettings();
+    $("savebar").hidden = which === "control" || which === "menu";
+    ["Control", "Screen", "Menu", "Settings"].forEach(function (n) { $("tab" + n).setAttribute("aria-selected", String(which === n.toLowerCase())); });
+    if ((which === "screen" || which === "settings") && !data) loadSettings();
     if (which === "screen") { loadPictures(); loadLooks(); }
+    if (which === "menu") loadMenu();
   }
   $("tabControl").addEventListener("click", function () { show("control"); });
   $("tabScreen").addEventListener("click", function () { show("screen"); });
+  $("tabMenu").addEventListener("click", function () { show("menu"); });
   $("tabSettings").addEventListener("click", function () { show("settings"); });
 
   /* ---------- Settings (and the Screen tab, which is settings too) ---------- */
@@ -742,7 +796,8 @@
     { group: "QR codes", tab: "screen" },
     { key: "wifiName", label: "Wi-Fi name", type: "text", tab: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
     { key: "wifiPassword", label: "Wi-Fi password", type: "text", tab: "screen", hint: "Empty for a network with no password." },
-    { key: "menuUrl", label: "Link to the menu", type: "text", tab: "screen", placeholder: "https://…", hint: "A QR code for it appears beside the video. Empty = none." },
+    { key: "menuUrl", label: "Link to another menu", type: "text", tab: "screen", placeholder: "https://…",
+      hint: "Only for a menu somewhere else: a QR code for it appears beside the video. Empty = the café's own menu from the Menu tab, once something is on it." },
     { group: "Info panel and special days", tab: "screen" },
     { key: "infoPanel", label: "Info panel beside the video", type: "toggle", tab: "screen",
       hint: "A frame around the video: the time, the weather, prices, what's playing and the QR codes. In Kurdish the whole screen is mirrored. Off = the video full screen." },
@@ -814,7 +869,7 @@
     { key: "restartAt", label: "Fresh start every night at", type: "time" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle" },
     { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle",
-      hint: "Whatever else is opened on the box is sent away within two seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Tools, below) or hold Back for 10 seconds." },
+      hint: "Whatever else is opened on the box is sent away in a few seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Tools, below) or hold Back for 10 seconds." },
     { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus",
       hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
@@ -1446,6 +1501,455 @@
     }).then(function () {
       looksBusy = false;
       loadLooks();
+    });
+  }
+
+  /* ---------- The menu for customers ---------- */
+
+  var menu = null, menuBusy = false, ed = null;
+  var MENU_LANGS = [["ku", "Kurdish", "rtl"], ["ar", "Arabic", "rtl"], ["en", "English", "ltr"]];
+  var KINDS = { category: "category", sub: "subcategory", item: "item" };
+
+  function loadMenu() {
+    if (!pin) return askPin("");
+    api("/api/menu").then(function (m) {
+      if (!m || !m.categories) throw new Error("menu");
+      menu = m;
+      drawMenu();
+    }).catch(function (e) {
+      if (e.message === "pin" || e.message === "locked") return;
+      if (!menu) { $("menuInfo").innerHTML = ""; $("menuInfo").appendChild(el("p", { class: "label" }, "Couldn't load the menu. Check the Wi-Fi and try again.")); }
+    });
+  }
+
+  // A name in Kurdish if it has one, else English, else Arabic; and the others, for under it
+  function mainName(n) { var x = n.name || {}; return x.ku || x.en || x.ar || "(no name)"; }
+  function otherNames(n) {
+    var x = n.name || {}, main = mainName(n);
+    return MENU_LANGS.map(function (l) { return x[l[0]]; }).filter(function (v) { return v && v !== main; }).join(" / ");
+  }
+  function dinars(v) { return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function menuPic(id, small) { return "/menu/pics/" + encodeURIComponent(id) + (small ? ".small.jpg" : ".jpg"); }
+
+  function countItems(n) {
+    var k = (n.items || []).length;
+    (n.subs || []).forEach(function (s) { k += (s.items || []).length; });
+    return k;
+  }
+
+  function drawMenu() {
+    if (!menu) return;
+    var info = $("menuInfo"), cats = menu.categories || [], all = 0;
+    cats.forEach(function (c) { all += countItems(c); });
+    info.innerHTML = "";
+    info.appendChild(el("p", { class: "title" }, menu.shown ? menu.shown + (menu.shown === 1 ? " item" : " items") + " on the menu for customers" :
+      all ? "Nothing customers can see yet" : "Nothing on the menu yet"));
+    var p = el("p", { class: "label", style: "margin-top:6px" });
+    if (menu.link) {
+      p.textContent = "The TV shows the code for your other menu (Screen tab, Link to another menu). Empty that link to show this menu instead.";
+    } else if (menu.address) {
+      p.appendChild(document.createTextNode("The menu code is on the TV. Phones on the café Wi-Fi open it. "));
+      p.appendChild(el("a", { href: "/menu/", target: "_blank", rel: "noopener" }, "See it as customers do"));
+    } else {
+      p.textContent = all ? "Everything on it is hidden. The menu code appears on the TV once customers can see an item." :
+        "Add items below. The menu code appears on the TV with the first one.";
+    }
+    info.appendChild(p);
+
+    var box = $("menuList");
+    box.innerHTML = "";
+    cats.forEach(function (c) {
+      var card = el("section", { class: "card mcat" });
+      card.appendChild(head(c, "category", countItems(c) + (countItems(c) === 1 ? " item" : " items")));
+      card.appendChild(itemList(c.items || []));
+      card.appendChild(addLink("Add an item", function () { openEditor("item", null, "c:" + c.id); }));
+      (c.subs || []).forEach(function (s) {
+        var sub = el("div", { class: "msub" });
+        sub.appendChild(head(s, "sub", (s.items || []).length + ((s.items || []).length === 1 ? " item" : " items")));
+        sub.appendChild(itemList(s.items || []));
+        sub.appendChild(addLink("Add an item to " + mainName(s), function () { openEditor("item", null, "s:" + s.id); }));
+        card.appendChild(sub);
+      });
+      card.appendChild(addLink("Add a subcategory", function () { openEditor("sub", null, "c:" + c.id); }));
+      box.appendChild(card);
+    });
+    $("addCat").hidden = false;
+  }
+
+  // A category's or subcategory's heading: tap it to change it
+  function head(n, kind, count) {
+    var b = el("button", { type: "button", class: "mhead" + (n.hidden ? " off" : ""), "aria-label": "Change " + KINDS[kind] + " " + mainName(n) });
+    if (n.picture) b.appendChild(el("img", { src: menuPic(n.picture, true), alt: "", loading: "lazy" }));
+    var t = el("span", { class: "t" }), name = el("b", { dir: "auto" }, mainName(n));
+    if (n.hidden) name.appendChild(el("span", { class: "tag" }, "hidden"));
+    t.appendChild(name);
+    var sub = [otherNames(n), count].filter(Boolean).join(". ");
+    t.appendChild(el("span", { dir: "auto" }, sub));
+    b.appendChild(t);
+    b.appendChild(el("span", { class: "edit", "aria-hidden": "true" }, "Change"));
+    b.addEventListener("click", function () { openEditor(kind, n.id); });
+    return b;
+  }
+
+  function itemList(items) {
+    var box = el("div", { class: "mitems" });
+    items.forEach(function (it) {
+      var b = el("button", { type: "button", class: "mitem" + (it.picture ? "" : " nopic") + (it.hidden ? " off" : "") });
+      if (it.picture) b.appendChild(el("img", { src: menuPic(it.picture, true), alt: "", loading: "lazy" }));
+      var t = el("span", { class: "t" }), name = el("b", { dir: "auto" }, mainName(it));
+      if (it.hidden) name.appendChild(el("span", { class: "tag" }, "hidden"));
+      t.appendChild(name);
+      var o = otherNames(it);
+      if (o) t.appendChild(el("span", { dir: "auto" }, o));
+      b.appendChild(t);
+      b.appendChild(el("span", { class: "price" }, it.price != null ? dinars(it.price) : ""));
+      b.addEventListener("click", function () { openEditor("item", it.id); });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
+  function addLink(text, fn) {
+    var b = el("button", { type: "button", class: "madd" }, "+ " + text);
+    b.addEventListener("click", fn);
+    return b;
+  }
+  $("addCat").addEventListener("click", function () { openEditor("category", null, "top"); });
+
+  // Where something is on the menu: the list it's in, its place there, and what that list belongs to
+  function locate(cats, id) {
+    for (var i = 0; i < cats.length; i++) {
+      var c = cats[i];
+      if (c.id === id) return { list: cats, at: i, home: "top", node: c };
+      var items = c.items || [], subs = c.subs || [];
+      for (var j = 0; j < items.length; j++) if (items[j].id === id) return { list: items, at: j, home: "c:" + c.id, node: items[j] };
+      for (var k = 0; k < subs.length; k++) {
+        if (subs[k].id === id) return { list: subs, at: k, home: "c:" + c.id, node: subs[k] };
+        var si = subs[k].items || [];
+        for (var m = 0; m < si.length; m++) if (si[m].id === id) return { list: si, at: m, home: "s:" + subs[k].id, node: si[m] };
+      }
+    }
+    return null;
+  }
+
+  // The list a category, subcategory or item goes in: "top", "c:<category>" or "s:<subcategory>"
+  function listAt(cats, kind, home) {
+    if (kind === "category") return cats;
+    var id = home.slice(2);
+    for (var i = 0; i < cats.length; i++) {
+      var c = cats[i];
+      if (home.charAt(0) === "c" && c.id === id) {
+        if (kind === "sub") return c.subs || (c.subs = []);
+        return c.items || (c.items = []);
+      }
+      var subs = c.subs || [];
+      for (var k = 0; k < subs.length; k++) if (home.charAt(0) === "s" && subs[k].id === id) return subs[k].items || (subs[k].items = []);
+    }
+    return null;
+  }
+
+  // Where an item or subcategory can go, for the editor's "In" list
+  function homes(kind) {
+    var out = [];
+    (menu.categories || []).forEach(function (c) {
+      out.push(["c:" + c.id, mainName(c)]);
+      if (kind === "item") (c.subs || []).forEach(function (s) { out.push(["s:" + s.id, mainName(c) + " › " + mainName(s)]); });
+    });
+    return out;
+  }
+
+  function newMenuId() { return "n" + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36); }
+
+  // Kurdish or Arabic digits typed in the price: 0-9; separators dropped
+  function typedPrice(s) {
+    s = String(s || "").replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x660); })
+                       .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x6F0); });
+    s = s.split(/[.٫]/)[0].replace(/\D/g, "");
+    return s ? Number(s) : null;
+  }
+
+  /* ---------- changing one thing on the menu ---------- */
+
+  function openEditor(kind, id, home) {
+    if (!menu) return;
+    var loc = id ? locate(menu.categories, id) : null;
+    if (id && !loc) return;
+    var n = loc ? loc.node : {};
+    ed = { kind: kind, id: id, isNew: !id, home: loc ? loc.home : home, uploading: false,
+           draft: { name: copy(n.name || {}), note: copy(n.note || {}), price: n.price, picture: n.picture || null, hidden: !!n.hidden } };
+    var listNow = listAt(menu.categories, kind, ed.home) || [];
+    ed.place = loc ? loc.at : listNow.length;
+    ed.startHome = ed.home;
+    drawEditor();
+  }
+
+  function drawEditor() {
+    var box = $("editor"), d = ed.draft, kind = ed.kind;
+    box.innerHTML = "";
+    var f = el("form", { autocomplete: "off", novalidate: "" });
+    f.appendChild(el("h2", { id: "edTitle" }, (ed.isNew ? "New " : "Change ") + KINDS[kind]));
+    if (ed.isNew && kind !== "category") {
+      var where = (homes(kind).filter(function (h) { return h[0] === ed.home; })[0] || [])[1];
+      if (where) f.appendChild(el("p", { class: "label" }, "In " + where));
+    }
+
+    var names = el("div", { class: "field" }), ng = el("div", { class: "names" });
+    names.appendChild(el("p", { class: "fhead" }, "Name (one language is enough)"));
+    MENU_LANGS.forEach(function (l) {
+      var lab = el("label", {}, l[1]), inp = el("input", { type: "text", dir: l[2], lang: l[0] === "ku" ? "ckb" : l[0], maxlength: "80", "data-name": l[0] });
+      inp.value = d.name[l[0]] || "";
+      inp.addEventListener("input", function () { d.name[l[0]] = inp.value; $("edErr").hidden = true; });
+      lab.appendChild(inp);
+      ng.appendChild(lab);
+    });
+    names.appendChild(ng);
+    f.appendChild(names);
+
+    if (kind === "item") {
+      var pf = el("div", { class: "field" });
+      pf.appendChild(el("label", { class: "fhead", for: "edPrice" }, "Price in dinars"));
+      var pi = el("input", { type: "text", id: "edPrice", inputmode: "numeric", placeholder: "e.g. 5000", dir: "ltr" });
+      pi.value = d.price != null ? dinars(d.price) : "";
+      var shown = el("p", { class: "hint" });
+      var showPrice = function () {
+        var v = typedPrice(pi.value);
+        shown.textContent = v == null ? "Empty: no price is shown." : v > 999999999 ? "That's too big." : "Customers see " + dinars(v) + " IQD.";
+      };
+      pi.addEventListener("input", function () { d.price = typedPrice(pi.value); showPrice(); $("edErr").hidden = true; });
+      showPrice();
+      pf.appendChild(pi);
+      pf.appendChild(shown);
+      f.appendChild(pf);
+    }
+
+    var pic = el("div", { class: "field" }), row = el("div", { class: "epic" });
+    pic.appendChild(el("p", { class: "fhead" }, "Picture"));
+    var img = el("img", { alt: "", id: "edPic" });
+    if (d.picture) img.src = d.preview || menuPic(d.picture, true);
+    img.hidden = !d.picture;
+    row.appendChild(img);
+    var up = el("label", { class: "mini upload" }), input = el("input", { type: "file", accept: "image/*", "aria-label": "Choose a picture" });
+    up.appendChild(input);
+    up.appendChild(el("span", { id: "edPicText" }, d.picture ? "Change" : "Choose a picture"));
+    input.addEventListener("change", function () { var file = input.files && input.files[0]; input.value = ""; if (file) putMenuPicture(file); });
+    row.appendChild(up);
+    var rm = el("button", { type: "button", class: "mini x", "aria-label": "Remove the picture", id: "edPicOff" }, "×");
+    rm.hidden = !d.picture;
+    rm.addEventListener("click", function () { d.picture = null; d.preview = null; drawEditor(); });
+    row.appendChild(rm);
+    pic.appendChild(row);
+    pic.appendChild(el("p", { class: "hint", id: "edPicMsg", role: "status" }, kind === "item" ? "Shown small beside it, and big when a customer taps it." :
+      "Shown wide under its name."));
+    f.appendChild(pic);
+
+    var notes = el("details", { class: "field words" }), sum = el("summary", {}, "Description (optional)"), nb = el("div", { class: "names" });
+    notes.appendChild(sum);
+    if (MENU_LANGS.some(function (l) { return d.note[l[0]]; })) notes.open = true;
+    MENU_LANGS.forEach(function (l) {
+      var lab = el("label", {}, l[1]), ta = el("textarea", { dir: l[2], maxlength: "400", rows: "2", "data-note": l[0] });
+      ta.value = d.note[l[0]] || "";
+      ta.addEventListener("input", function () { d.note[l[0]] = ta.value; });
+      lab.appendChild(ta);
+      nb.appendChild(lab);
+    });
+    notes.appendChild(nb);
+    f.appendChild(notes);
+
+    var vis = el("div", { class: "field" }), sw = el("label", { class: "switch" }), cb = el("input", { type: "checkbox", role: "switch", id: "edShown" });
+    sw.appendChild(el("span", { style: "color:var(--cream);font-size:1rem;font-weight:600" }, "On the menu for customers"));
+    cb.checked = !d.hidden;
+    cb.addEventListener("change", function () { d.hidden = !cb.checked; });
+    sw.appendChild(cb);
+    vis.appendChild(sw);
+    vis.appendChild(el("p", { class: "hint" }, kind === "item" ? "Off: hidden from customers (sold out, say), and kept here for later." :
+      "Off: hidden from customers with everything in it, and kept here for later."));
+    f.appendChild(vis);
+
+    var place = el("div", { class: "field" }), pg = el("div", { class: kind === "category" ? "" : "two3" });
+    place.appendChild(el("p", { class: "fhead" }, "Place on the menu"));
+    if (kind !== "category") {
+      var inSel = el("select", { "aria-label": "In", id: "edIn" });
+      homes(kind).forEach(function (h) { inSel.appendChild(el("option", { value: h[0] }, h[1])); });
+      inSel.value = ed.home;
+      inSel.addEventListener("change", function () {
+        ed.home = inSel.value;
+        ed.place = (listAt(menu.categories, kind, ed.home) || []).length - (ed.home === ed.startHome && !ed.isNew ? 1 : 0);
+        drawPlaces();
+      });
+      pg.appendChild(inSel);
+    }
+    var posSel = el("select", { "aria-label": "Place in the list", id: "edPlace" });
+    posSel.addEventListener("change", function () { ed.place = Number(posSel.value); });
+    pg.appendChild(posSel);
+    place.appendChild(pg);
+    f.appendChild(place);
+
+    if (!ed.isNew) {
+      var del = el("button", { type: "button", class: "wide danger", style: "margin:14px 0 4px" }, "Delete this " + KINDS[kind]);
+      del.addEventListener("click", deleteNode);
+      f.appendChild(del);
+    }
+    f.appendChild(el("p", { class: "err", id: "edErr", role: "alert", hidden: "" }));
+    var acts = el("div", { class: "eacts" });
+    var cancel = el("button", { type: "button", class: "wide" }, "Cancel");
+    cancel.addEventListener("click", closeEditor);
+    acts.appendChild(cancel);
+    acts.appendChild(el("button", { type: "submit", class: "primary", id: "edSave" }, ed.isNew ? "Add" : "Save"));
+    f.appendChild(acts);
+    f.addEventListener("submit", function (e) { e.preventDefault(); saveNode(); });
+    box.appendChild(f);
+    box.hidden = false;
+    document.body.style.overflow = "hidden";
+    drawPlaces();
+    var first = f.querySelector("input[data-name=ku]");
+    if (ed.isNew && first) setTimeout(function () { first.focus(); }, 60);
+  }
+
+  // The places in the chosen list: 1 (the top) to the last
+  function drawPlaces() {
+    var sel = $("edPlace");
+    if (!sel) return;
+    var list = listAt(menu.categories, ed.kind, ed.home) || [], n = list.length + (ed.isNew || ed.home !== ed.startHome ? 1 : 0);
+    sel.innerHTML = "";
+    for (var i = 0; i < n; i++) sel.appendChild(el("option", { value: String(i) }, i === 0 ? "1, at the top" : i === n - 1 ? n + ", last" : String(i + 1)));
+    ed.place = Math.max(0, Math.min(ed.place, n - 1));
+    sel.value = String(ed.place);
+  }
+
+  function closeEditor() {
+    ed = null;
+    $("editor").hidden = true;
+    $("editor").innerHTML = "";
+    document.body.style.overflow = "";
+  }
+  $("editor").addEventListener("click", function (e) { if (e.target === $("editor") && !menuBusy) closeEditor(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && ed && !menuBusy) closeEditor(); });
+
+  function edError(msg) {
+    var e = $("edErr");
+    if (!e) return say(msg);
+    e.textContent = msg;
+    e.hidden = false;
+  }
+
+  // The menu with one change made, sent to the TV; back comes the menu as the TV keeps it
+  function commit(change) {
+    var cats = copy(menu.categories);
+    change(cats);
+    menuBusy = true;
+    if ($("edSave")) $("edSave").disabled = true;
+    return api("/api/menu", "POST", { base: menu.v, menu: { categories: cats } }).then(function (r) {
+      if (r && r.menu) { menu = r.menu; drawMenu(); }
+      if (r && r.ok) return true;
+      if (r && r.conflict) { closeEditor(); say(r.message || "The menu was changed on another phone. Here it is now."); return false; }
+      edError((r && r.message) || "Not saved. Try again.");
+      return false;
+    }).catch(function (e) {
+      if (e.message !== "pin" && e.message !== "locked") edError("The TV couldn't be reached. Check the Wi-Fi and try again.");
+      return false;
+    }).then(function (ok) {
+      menuBusy = false;
+      if ($("edSave")) $("edSave").disabled = false;
+      return ok;
+    });
+  }
+
+  function words(o) {
+    var out = {};
+    MENU_LANGS.forEach(function (l) { var v = String(o[l[0]] || "").trim(); if (v) out[l[0]] = v; });
+    return out;
+  }
+
+  function saveNode() {
+    if (!ed || menuBusy) return;
+    if (ed.uploading) return edError("Wait for the picture to finish.");
+    var d = ed.draft, name = words(d.name), kind = ed.kind;
+    if (!Object.keys(name).length) return edError("Give it a name, in at least one language.");
+    if (kind === "item" && d.price != null && d.price > 999999999) return edError("That price is too big.");
+    var e = ed, label = name.ku || name.en || name.ar;
+    commit(function (cats) {
+      var node;
+      if (e.isNew) {
+        node = { id: newMenuId() };
+        if (kind === "category") { node.items = []; node.subs = []; }
+        if (kind === "sub") node.items = [];
+      } else {
+        var loc = locate(cats, e.id);
+        node = loc.list.splice(loc.at, 1)[0];
+      }
+      node.name = name;
+      var note = words(d.note);
+      if (Object.keys(note).length) node.note = note; else delete node.note;
+      if (d.picture) node.picture = d.picture; else delete node.picture;
+      if (d.hidden) node.hidden = true; else delete node.hidden;
+      if (kind === "item") { if (d.price != null) node.price = d.price; else delete node.price; }
+      var list = listAt(cats, kind, e.home);
+      list.splice(Math.max(0, Math.min(e.place, list.length)), 0, node);
+    }).then(function (ok) {
+      if (!ok) return;
+      closeEditor();
+      say((e.isNew ? "Added: " : "Saved: ") + label);
+    });
+  }
+
+  function deleteNode() {
+    if (!ed || menuBusy) return;
+    var e = ed, loc = locate(menu.categories, e.id);
+    if (!loc) return closeEditor();
+    var n = loc.node, items = countItems(n), subs = (n.subs || []).length;
+    var what = "Delete “" + mainName(n) + "”" + (e.kind === "category" ? (subs ? ", its " + subs + (subs === 1 ? " subcategory" : " subcategories") : "") +
+      " and its " + items + (items === 1 ? " item" : " items") : e.kind === "sub" ? " and its " + items + (items === 1 ? " item" : " items") : "") + " from the menu?";
+    if (!window.confirm(what)) return;
+    commit(function (cats) {
+      var l = locate(cats, e.id);
+      if (l) l.list.splice(l.at, 1);
+    }).then(function (ok) {
+      if (!ok) return;
+      closeEditor();
+      say("Deleted: " + mainName(n));
+    });
+  }
+
+  // A photo for the menu: up to 1200 pixels for when it's shown big, and a small copy for the lists
+  function prepareMenuPicture(file) {
+    return loadImage(file).then(function (img) {
+      var iw = img.width, ih = img.height;
+      if (!iw || !ih) throw new Error("empty");
+      var draw = function (max, q) {
+        var k = Math.min(1, max / Math.max(iw, ih)), c = el("canvas"), g;
+        c.width = Math.max(1, Math.round(iw * k));
+        c.height = Math.max(1, Math.round(ih * k));
+        g = c.getContext("2d");
+        g.imageSmoothingEnabled = true;
+        g.imageSmoothingQuality = "high";
+        g.drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg", q);
+      };
+      return { full: draw(1200, 0.84), small: draw(360, 0.8) };
+    });
+  }
+
+  function putMenuPicture(file) {
+    if (!ed) return;
+    var e = ed;
+    e.uploading = true;
+    $("edPicMsg").textContent = "Sending the picture to the TV…";
+    $("edSave").disabled = true;
+    prepareMenuPicture(file).then(function (p) {
+      return api("/api/menu/picture", "POST", p).then(function (r) {
+        if (!r || !r.ok) throw new Error((r && r.message) || "Not saved.");
+        e.draft.picture = r.id;
+        e.draft.preview = p.small;
+      });
+    }).then(function () {
+      e.uploading = false;
+      if (ed === e) { drawEditor(); $("edPicMsg").textContent = "Picture ready. Press " + (e.isNew ? "Add" : "Save") + " to put it on the menu."; }
+    }, function (err) {
+      e.uploading = false;
+      if (ed !== e) return;
+      $("edSave").disabled = false;
+      $("edPicMsg").textContent = err.message === "pin" || err.message === "locked" ? "" :
+        err.message === "empty" || err.message === "not a picture" ? (file.name || "That file") + " couldn't be read as a picture." : err.message;
     });
   }
 

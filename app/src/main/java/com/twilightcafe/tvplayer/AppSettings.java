@@ -197,6 +197,14 @@ final class AppSettings {
         return holder(key).optBoolean(key, fallback);
     }
 
+    /** One of the TV's words (labels), as settings.json or this TV has it, else the fallback. */
+    String label(String word, String fallback) {
+        JSONObject l = effective.optJSONObject("labels");
+        Object v = l == null ? null : l.opt(word);
+        String t = v instanceof String ? ((String) v).trim() : "";
+        return t.isEmpty() ? fallback : t;
+    }
+
     /** A setting that is a list (e.g. the prices to show), or null if there is none. */
     org.json.JSONArray list(String key) {
         return holder(key).optJSONArray(key);

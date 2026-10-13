@@ -33,8 +33,17 @@ import java.util.concurrent.RejectedExecutionException;
  *                                   one in (JSON body), POST &name=cafe&reset=1 goes back to the built-in one;
  *                                   &all=1 also on the other TVs
  *   GET  /api/look?pin=1234&name=x  the café screen's picture in use (&size=small: its small copy)
+ *   GET  /api/menu?pin=1234         the café's menu, hidden things too; POST saves it (JSON body: the whole
+ *                                   menu and the version it was changed from)
+ *   POST /api/menu/picture?pin=1234 a picture for the menu (JSON body); back comes its id
  *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
  *                                   so the phone page can go on a phone's home screen with its icon
+ *
+ * For customers, with no PIN (the menu code on the TV leads here):
+ *   GET  /menu/                     the menu page (/menu goes there: the page's own addresses are relative to it)
+ *   GET  /menu/data                 the menu, without what's hidden (JSON)
+ *   GET  /menu/pics/<id>.jpg        its pictures (<id>.small.jpg: the small copies)
+ *   GET  /menu/fonts/<name>.woff2   its letters (assets/fonts)
  *
  * And for the TV box itself only (the app shows the TV page from here, at http://localhost):
  *   GET  /tv/index.html?k=key       the TV page
@@ -43,7 +52,9 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /tv/looks/<name>.jpg       the café screen's own pictures, built into the app (assets/looks)
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
- * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in.
+ * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in. The box's
+ * own requests (the TV page) have threads of their own, so customers reading the menu
+ * never hold up the TV.
  * Plain Java only (no Android classes), so it can be tested on a computer.
  */
 final class ControlServer {
@@ -120,10 +131,44 @@ final class ControlServer {
         default byte[] lookForPhone(String name, boolean small) {
             return null;
         }
+
+        /** The customers' menu page (assets/menu.html), or null. */
+        default byte[] menuPage() {
+            return null;
+        }
+
+        /** The menu for customers, without what's hidden (JSON), or null. */
+        default String menuForCustomers() {
+            return null;
+        }
+
+        /** One of the menu's pictures (small: its small copy), or null. */
+        default byte[] menuPicture(String id, boolean small) {
+            return null;
+        }
+
+        /** The whole menu for the phone, hidden things too (JSON), or null. */
+        default String menu() {
+            return null;
+        }
+
+        /**
+         * Saves the menu from the phone (JSON body). JSON back: {"ok":true,...}; {"ok":false,"conflict":true,...}
+         * when another phone changed it in between; {"ok":false,"message":...}.
+         */
+        default String saveMenu(String body) {
+            return null;
+        }
+
+        /** Keeps a picture for the menu (JSON body with base64 JPEGs). JSON: {"ok":true,"id":...} or {"ok":false,"message":...}. */
+        default String addMenuPicture(String body) {
+            return null;
+        }
     }
 
     static final int MAX_BODY = 64 * 1024;
     static final int MAX_PICTURE_BODY = 9 << 20;          // a picture from the phone, as text (base64)
+    static final int MAX_MENU_BODY = 2 << 20;             // the whole menu from the phone
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
@@ -132,7 +177,7 @@ final class ControlServer {
     private final Map<String, Integer> fails = new HashMap<>();
     private final Map<String, Long> lockedUntil = new HashMap<>();
     private ServerSocket socket;
-    private ExecutorService pool;
+    private ExecutorService pool, boxPool;
     private volatile boolean running;
     private volatile int port;
     long lockMillis = 10 * 60 * 1000L;
@@ -162,7 +207,8 @@ final class ControlServer {
         }
         if (socket == null) return 0;
         running = true;
-        pool = Executors.newFixedThreadPool(4);
+        pool = Executors.newFixedThreadPool(6);
+        boxPool = Executors.newFixedThreadPool(2);
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -183,6 +229,7 @@ final class ControlServer {
         }
         socket = null;
         if (pool != null) pool.shutdownNow();
+        if (boxPool != null) boxPool.shutdownNow();
     }
 
     private void acceptLoop() {
@@ -190,8 +237,10 @@ final class ControlServer {
             try {
                 final Socket c = socket.accept();
                 c.setSoTimeout(8000);
+                // the box's own (the TV page's check-in every second) apart from the phones'
+                ExecutorService p = isLoopback(c.getInetAddress().getHostAddress()) ? boxPool : pool;
                 try {
-                    pool.execute(new Runnable() {
+                    p.execute(new Runnable() {
                         @Override
                         public void run() {
                             handle(c);
@@ -238,11 +287,12 @@ final class ControlServer {
                     }
                 }
             }
-            // Only a picture from a phone with the right PIN may be big
-            boolean picture = method.equals("POST") && (path.equals("/api/pictures") || path.equals("/api/looks"));
-            int limit = picture && pinOk(params, ip) ? MAX_PICTURE_BODY : MAX_BODY;
+            // Only a picture or the menu from a phone with the right PIN may be big
+            boolean picture = method.equals("POST") && (path.equals("/api/pictures") || path.equals("/api/looks") || path.equals("/api/menu/picture"));
+            boolean big = picture || (method.equals("POST") && path.equals("/api/menu"));
+            int limit = big && pinOk(params, ip) ? (picture ? MAX_PICTURE_BODY : MAX_MENU_BODY) : MAX_BODY;
             if (length < 0 || length > limit) {
-                if (picture && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
+                if (big && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
                 else send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
                 return;
             }
@@ -285,6 +335,10 @@ final class ControlServer {
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             else send(out, 200, asset.endsWith(".png") ? "image/png" : "application/manifest+json; charset=utf-8", b,
                     "no-referrer", "public, max-age=86400");
+            return;
+        }
+        if (path.equals("/menu") || path.startsWith("/menu/")) {
+            menuRequest(out, method, path);
             return;
         }
         if (!path.startsWith("/api/")) {
@@ -365,8 +419,62 @@ final class ControlServer {
             byte[] b = tv.lookForPhone(params.get("name"), "small".equals(params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
             else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");                   // it may be changed
+        } else if (path.equals("/api/menu")) {
+            if (method.equals("GET")) {
+                String m = tv.menu();
+                json(out, m == null ? 503 : 200, m == null ? "{\"error\":\"not ready\"}" : m);
+            } else if (method.equals("POST")) {
+                String r = tv.saveMenu(body);
+                if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't save the menu right now.\"}");
+                else json(out, r.contains("\"ok\":true") ? 200 : r.contains("\"conflict\":true") ? 409 : 400, r);
+            } else {
+                json(out, 405, "{\"error\":\"use GET or POST\"}");
+            }
+        } else if (path.equals("/api/menu/picture")) {
+            if (!method.equals("POST")) {
+                json(out, 405, "{\"error\":\"use POST\"}");
+                return;
+            }
+            String r = tv.addMenuPicture(body);
+            if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
+            else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
         } else {
             json(out, 404, "{\"error\":\"not found\"}");
+        }
+    }
+
+    // The menu for customers: open to anyone on the café Wi-Fi, nothing to change, nothing private in it
+    private void menuRequest(OutputStream out, String method, String path) throws IOException {
+        if (!method.equals("GET")) {
+            send(out, 405, "text/plain; charset=utf-8", "Use GET".getBytes(UTF8));
+            return;
+        }
+        if (path.equals("/menu")) {
+            String head = "HTTP/1.1 301 Moved Permanently\r\nLocation: /menu/\r\nContent-Length: 0\r\nCache-Control: no-cache\r\n"
+                    + "Referrer-Policy: no-referrer\r\nConnection: close\r\n\r\n";
+            out.write(head.getBytes(LATIN1));
+            out.flush();
+        } else if (path.equals("/menu/")) {
+            byte[] page = tv.menuPage();
+            if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            else send(out, 200, "text/html; charset=utf-8", page, "no-referrer", "no-cache");
+        } else if (path.equals("/menu/data")) {
+            String m = tv.menuForCustomers();
+            if (m == null) json(out, 503, "{\"error\":\"not ready\"}");
+            else send(out, 200, "application/json; charset=utf-8", m.getBytes(UTF8), "no-referrer", "no-cache");
+        } else if (path.matches("/menu/pics/[a-z0-9]{4,24}(\\.small)?\\.jpg")) {
+            String name = path.substring("/menu/pics/".length(), path.length() - 4);
+            boolean small = name.endsWith(".small");
+            byte[] b = tv.menuPicture(small ? name.substring(0, name.length() - 6) : name, small);
+            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            // a picture never changes: a new one gets a new id
+            else send(out, 200, "image/jpeg", b, "no-referrer", "public, max-age=31536000, immutable");
+        } else if (path.matches("/menu/fonts/[a-z0-9-]{1,40}\\.woff2")) {
+            byte[] b = tv.asset("fonts/" + path.substring("/menu/fonts/".length()));
+            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            else send(out, 200, "font/woff2", b, "no-referrer", "public, max-age=2592000");
+        } else {
+            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
         }
     }
 
@@ -474,6 +582,7 @@ final class ControlServer {
             case 403: return "Forbidden";
             case 404: return "Not Found";
             case 405: return "Method Not Allowed";
+            case 409: return "Conflict";
             case 413: return "Payload Too Large";
             case 429: return "Too Many Requests";
             case 503: return "Service Unavailable";

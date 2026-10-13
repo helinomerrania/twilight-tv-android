@@ -421,7 +421,8 @@ var SETTINGS = {
   wifiName: "",
   wifiPassword: "",
 
-  // A link to the menu, for a QR code. "" = none.
+  // A link to the menu, for a QR code. "" = the café's own menu from the phone page's Menu tab, once
+  // customers would see something in it (the TV box serves it on the café Wi-Fi); else no menu code.
   menuUrl: "",
 
   // Special days: Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own
@@ -2116,7 +2117,7 @@ var SETTINGS = {
     draw("weather", extrasVersion + ":" + d.getHours() + look + S.place + L("weatherCredit"), drawWeather, now);
     draw("music", musicKey(), drawMusic);
     drawProgress();
-    draw("codes", JSON.stringify([S.menuUrl, S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
+    draw("codes", JSON.stringify([menuLink(), S.wifiName, S.wifiPassword, L("menu"), L("menuHint"), L("wifi"), L("wifiPassword")]), drawCodes);
     draw("market", JSON.stringify([extrasVersion, S.priceItems, look, L("prices"), L("goldOunce"), L("silverOunce"), L("bitcoin"), own("pound"),
                                    L("perOunce"), L("months"), d.toDateString(), Math.floor(now / 600e3)]), drawMarket);
     panelDirty = false;
@@ -2408,9 +2409,15 @@ var SETTINGS = {
     }
   }
 
+  // The menu's link: menuUrl, else the café's own menu on the TV box (from the app, once it has something in it)
+  function menuLink() {
+    var own = String(S.menuUrl || "").trim();
+    return own || (typeof X.menu === "string" && /^https?:\/\//.test(X.menu) ? X.menu : "");
+  }
+
   // The menu's and the Wi-Fi's QR codes; the Wi-Fi's name and password exactly as typed (they get typed in)
   function drawCodes() {
-    var menu = String(S.menuUrl || "").trim(), wifi = String(S.wifiName || "").trim(), pw = String(S.wifiPassword || "");
+    var menu = menuLink(), wifi = String(S.wifiName || "").trim(), pw = String(S.wifiPassword || "");
     $("menuCode").hidden = !menu;
     if (menu) {
       $("menuCode").querySelector(".qr").innerHTML = qrSvg(menu);

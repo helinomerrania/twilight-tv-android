@@ -138,6 +138,7 @@ public class MainActivity extends Activity {
     private volatile String notice = "";
     private volatile long noticeAt = 0;
     private byte[] controlPage;
+    private byte[] menuPage;                             // assets/menu.html, the customers' menu
     private byte[] tvPageHtml;                           // assets/index.html
     private String bridgeJs;                             // assets/bridge.js
     // The link with the page: only the page this app opened knows the key
@@ -152,6 +153,8 @@ public class MainActivity extends Activity {
     private PrayerFeed prayerTimes;                      // the call to prayer's times, from amozhgary.tv
     private PictureStore pictures;                       // the café's own, from the phone page
     private LookStore looks;                             // the café screen's pictures the café put in from the phone
+    private MenuStore menus;                             // the café's menu for customers' phones, made on the phone page
+    private volatile int netVersion = 0;                 // the box's network address changed (the menu code shows it)
     private volatile List<String> pageSongs = Collections.emptyList();   // the page's songs (its playlist first)
     private volatile int songsVersion = 0;
 
@@ -261,6 +264,7 @@ public class MainActivity extends Activity {
         });
         pictures = new PictureStore(new File(getFilesDir(), "pictures"));
         looks = new LookStore(new File(getFilesDir(), "looks"));
+        menus = new MenuStore(new File(getFilesDir(), "menu"));
     }
 
     // The town on amozhgary.tv ("" = the TV works it all out): its prayer times, when the music pauses for
@@ -983,6 +987,7 @@ public class MainActivity extends Activity {
         String own = settings.text("tvName", "");
         String name = own.isEmpty() ? autoName(now) : own;
         if (!force && now.equals(ip) && name.equals(tvName) && finder != null) return;
+        if (!now.equals(ip)) netVersion++;
         ip = now;
         tvName = name;
         if (finder != null) finder.stop();
@@ -1180,7 +1185,68 @@ public class MainActivity extends Activity {
         public byte[] lookForPhone(String name, boolean small) {
             return lookPicture(name, small);
         }
+
+        @Override
+        public byte[] menuPage() {
+            if (menuPage == null) menuPage = readAsset("menu.html");
+            return menuPage.length == 0 ? null : menuPage;
+        }
+
+        @Override
+        public String menuForCustomers() {
+            return menus.forCustomers(settings.text("brandName", ""), settings.label("menu", ""), settings.text("numerals", "auto"));
+        }
+
+        @Override
+        public byte[] menuPicture(String id, boolean small) {
+            return menus.picture(id, small);
+        }
+
+        @Override
+        public String menu() {
+            return withAddress(menus.full());
+        }
+
+        @Override
+        public String saveMenu(String body) {
+            String r = menus.save(body);
+            try {
+                JSONObject o = new JSONObject(r);
+                if (o.optJSONObject("menu") != null) o.put("menu", new JSONObject(withAddress(o.getJSONObject("menu").toString())));
+                return o.toString();
+            } catch (JSONException e) {
+                return r;
+            }
+        }
+
+        @Override
+        public String addMenuPicture(String body) {
+            try {
+                JSONObject o = new JSONObject(body);
+                String id = menus.addPicture(o.optString("full", ""), o.optString("small", ""));
+                return new JSONObject().put("ok", true).put("id", id).toString();
+            } catch (IllegalArgumentException e) {
+                return "{\"ok\":false,\"message\":" + JSONObject.quote(e.getMessage()) + "}";
+            } catch (JSONException e) {
+                return "{\"ok\":false,\"message\":\"That picture didn't arrive whole. Try again.\"}";
+            }
+        }
     };
+
+    // The menu for the phone, with where customers find it (and the link that the TV shows instead, if any)
+    private String withAddress(String menu) {
+        try {
+            return new JSONObject(menu).put("address", menuAddress()).put("link", settings.text("menuUrl", "")).put("shown", menus.shownItems()).toString();
+        } catch (JSONException e) {
+            return menu;
+        }
+    }
+
+    // The menu's address for customers' phones, for the TV's menu code: "" until customers would see something in it
+    private String menuAddress() {
+        int port = server == null ? 0 : server.port();
+        return menus.shownItems() > 0 && !ip.isEmpty() && port > 0 ? "http://" + ip + ":" + port + "/menu/" : "";
+    }
 
     // One of the café screen's pictures: the café's own, else the one built into the app (and its small copy)
     private byte[] lookPicture(String name, boolean small) {
@@ -1282,7 +1348,7 @@ public class MainActivity extends Activity {
     // Song names, weather and pictures change now and then; the page gets them again when they do
     private int extrasVersion() {
         return titles.version() + weather.version() + prices.version() + prayerTimes.version() + pictures.version() + looks.version()
-                + songsVersion + boxVersion;
+                + menus.version() + songsVersion + boxVersion + netVersion;
     }
 
     private String extras() {
@@ -1301,6 +1367,7 @@ public class MainActivity extends Activity {
             JSONObject own = new JSONObject();                 // the café screen's pictures the café put in, and when
             for (Map.Entry<String, Long> e : looks.stamps().entrySet()) own.put(e.getKey(), e.getValue());
             x.put("looks", own);
+            x.put("menu", menuAddress());                   // the café's own menu, for the menu code (when there's no menuUrl)
             if (box != null) x.put("box", new JSONObject().put("softDraw", softDraw));   // automatic quality: 720p then
             return x.toString();
         } catch (JSONException e) {

@@ -5,6 +5,7 @@ Your café TV page as an Android app for the TV boxes. It plays full screen, sta
 - **The video in a frame of cards:** what's playing and what's next (with their pictures), the time and date (with the Hijri and Kurdish dates), Ranya's weather, QR codes for the Wi-Fi and the menu, and gold and currency prices from tirezh.com. In Kurdish the whole screen is right to left, with Kurdish digits (١٢٣).
 - **Phone control:** staff use a page on their phone (café Wi-Fi) for next song, pause, volume and zoom, to choose a song or play any YouTube link, and for "Quiet for a minute". It can go on the phone's home screen.
 - **The café's own messages and pictures** on the café screen between songs, uploaded from the phone.
+- **The café's menu:** customers scan the menu code on the TV and the menu opens on their phone: categories, items, prices and pictures, in Kurdish, Arabic or English. Staff change it on the phone page's Menu tab.
 - **The call to prayer:** the music pauses for 5 minutes at each prayer, during opening hours, at amozhgary.tv's times for Ranya.
 - **Special days:** Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year each get their own picture on the café screen and a greeting.
 - **Settings on the phone:** every setting, on one TV or all of them at once, used straight away.
@@ -76,7 +77,24 @@ The **Control** tab has:
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours. During the call to prayer it says **Resume music**, which brings the music back for that prayer.
 
-The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the Wi-Fi and the menu link for the QR codes, the info panel, numbers and special days, and the words on the TV. **Settings** has everything else.
+The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the Wi-Fi for its QR code (and a link to another menu, if you have one), the info panel, numbers and special days, and the words on the TV. The **Menu** tab has the café's menu for customers (below). **Settings** has everything else.
+
+## The café's menu
+
+Customers scan the menu code on the TV (beside the Wi-Fi code) and the menu opens on their phone: the café's name over a twilight sky, the categories along the top, and each item with its price and picture. It's in Kurdish, with Arabic and English to choose from when you've written names in them. Prices are in dinars, in Kurdish digits (١٢٣) unless **Numbers on the TV** says otherwise. Tapping an item's picture shows it big.
+
+The menu comes from the TV box itself, on the café Wi-Fi, so phones need to be on the Wi-Fi to open it (the Wi-Fi code beside it joins them). The code on the TV always has the box's address of the moment, so it keeps working when the router gives the box a new one. A code printed for the tables would need the box to keep one address: reserve it for the box in the router.
+
+To change it, open the phone page's **Menu** tab. At first it has the café's categories (Hookah Flavors; Drink, with Energy, Fresh, Hot, Milkshake and Soft Drinks; Ice Cream; Nuts; Others), with nothing in them. Tap anything to change it:
+- **+ Add an item**, **+ Add a subcategory** and **Add a category** add one.
+- Each has a name in Kurdish, Arabic and English: one is enough. Customers see the name in their language, else the Kurdish one. Each can also have a description and a picture from the phone. Items have a price in dinars; Kurdish digits are fine.
+- **On the menu for customers** switched off hides it (sold out, say) and keeps it for later. A hidden category hides everything in it.
+- **Place on the menu** moves it up or down, or an item to another category or subcategory.
+- **Delete** removes it.
+
+Each change is saved on the TV at once. If two phones change the menu at the same moment, the second is told and sees the menu as it is now. The menu code appears on the TV once customers can see something on the menu. **Link to another menu** (Screen tab, `menuUrl`) is only for a menu somewhere else: while it's set, the TV shows its code instead.
+
+The menu and its pictures are kept on the TV box; they aren't in `settings.json`.
 
 ## The info panel
 
@@ -220,7 +238,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 - `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi. Put the Wi-Fi password on the phone's Screen tab rather than in `settings.json`, so it stays off GitHub.
 - If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
-- The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only; phones on the café Wi-Fi only get the phone page. The page checks in with the app every second, which is how settings and the phone's commands reach it.
+- The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only. Phones on the café Wi-Fi get the phone page (with the PIN) and the menu at `/menu/` (without one: it can only be read). The box's own requests have threads of their own, so a café full of phones reading the menu never holds up the TV. The page checks in with the app every second, which is how settings and the phone's commands reach it.
 - Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when each TV moved to it.
 - After using ADB or Developer options on a box, turn **USB debugging** and any network debugging off again: otherwise anyone on the café Wi-Fi could control the box.
 - Changes on any other branch than `main` are only built as a test. They're never published to the TVs.

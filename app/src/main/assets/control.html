@@ -695,7 +695,7 @@
     tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
     videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false, pricesUrl: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
-    prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false,
+    prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false, videoColors: true,
     priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
     specialDays: true, hijriAdjust: 0, kurdishNewYear: "21march", labels: {}
   };
@@ -718,6 +718,8 @@
     { key: "infoPanel", label: "Info panel beside the video", type: "toggle", tab: "screen",
       hint: "A frame around the video: the time, the weather, prices, what's playing and the QR codes. In Kurdish the whole screen is mirrored. Off = the video full screen." },
     { key: "clock24", label: "24-hour clock", type: "toggle", tab: "screen" },
+    { key: "videoColors", label: "Frame in each song's colour", type: "toggle", tab: "screen",
+      hint: "A soft glow around the video, and the room and the progress line, in the song's main colour, taken from YouTube's pictures of it. It changes with a slow fade at each new song. Off = the same dark frame always." },
     { key: "numerals", label: "Numbers on the TV", type: "select", tab: "screen",
       options: [["auto", "In the language's own digits"], ["kurdish", "Always Kurdish digits: ١٢٣"], ["latin", "Always 123"]],
       hint: "With Kurdish words, “own digits” are ١٢٣. Song names, the Wi-Fi password and your messages always stay as typed." },

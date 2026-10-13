@@ -78,6 +78,7 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 - **Song names** come from YouTube (once per song, then kept). "(Official Video)", "[4K]" and the like are left out on the TV.
 - **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language mirrors the whole screen.
 - **Numbers on the TV** (Screen tab): in the language's own digits (Kurdish ١٢٣ with Kurdish words), always Kurdish digits, or always 123.
+- **Frame in each song's colour** (Screen tab, on unless you turn it off): the frame takes each song's main colour from YouTube's still pictures of it (the same ones the TV reads to find black bars): a soft glow around the video, the room and the cards tinted with it, and the progress line in it. It changes with a slow fade at each new song, while the café screen is up. A song with no clear colour (black and white, or every colour at once) gets the usual dark frame.
 - **Info panel off** (Screen tab) shows the video full screen as before.
 - **The typeface** is Vazirmatn (by the Vazirmatn Project Authors, SIL Open Font License), built into the page.
 
@@ -179,7 +180,7 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `screenRate` | `"50"` or `"60"` Hz; `"box"` = the box's own | `"box"` |
 | `pricesUrl` | Where the prices come from: the tirezh worker at another address (`/api/economy` is added to a bare address); `""` = tirezh.com | `"https://tirezh.example.workers.dev"` |
 
-Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
 
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 

@@ -81,7 +81,7 @@ The **Screen** tab has what the TV shows around the video and between songs: whi
 
 ## The café's menu
 
-Customers scan the menu code on the TV (beside the Wi-Fi code) and the menu opens on their phone: the café's name over a twilight sky, the categories along the top, and each item with its price and picture. It's in Kurdish, with Arabic and English to choose from when you've written names in them. Prices are in dinars, in Kurdish digits (١٢٣) unless **Numbers on the TV** says otherwise. Tapping an item's picture shows it big.
+Customers scan the menu code on the TV (beside the Wi-Fi code) and the menu opens on their phone: the café's name over a twilight sky, the categories along the top, and each item with its price and picture. It's in Kurdish, with Arabic and English to choose from when you've written names in them (so phones' browsers are told not to offer to translate it). Prices are in dinars, in Kurdish digits (١٢٣) unless **Numbers on the TV** says otherwise. Tapping an item's picture shows it big.
 
 The menu comes from the TV box itself, on the café Wi-Fi, so phones need to be on the Wi-Fi to open it (the Wi-Fi code beside it joins them). It has an address of its own (port 8090, like `http://192.168.1.23:8090/menu/`) with nothing else on it: a customer who takes `/menu/` off the address gets the menu again, never the phone page. The code on the TV always has the box's address of the moment, so it keeps working when the router gives the box a new one. A code printed for the tables would need the box to keep one address: reserve it for the box in the router.
 

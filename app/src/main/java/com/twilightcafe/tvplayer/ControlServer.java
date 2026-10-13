@@ -22,7 +22,8 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /                          the control page
  *   GET  /api/status?pin=1234       what the TV is doing (JSON)
  *   POST /api/cmd?pin=1234&do=next  next, pause, resume, vol+, vol-, zoom+, zoom-, tvvol+, tvvol-, identify, update,
- *                                   testmode, restart, forget, checkupdate, unfreeze
+ *                                   testmode, restart, forget, checkupdate, unfreeze, otherapp (My TV Plus),
+ *                                   backhome (Twilight TV back on screen), unlock (the box free for 15 minutes), lock
  *   GET  /api/settings?pin=1234     the settings: built-in, from settings.json, and this TV's own
  *   POST /api/settings?pin=1234     this TV's own settings (JSON body); &all=1 also on the other TVs
  *   GET  /api/songs?pin=1234        the playlist's songs with their names, to choose one

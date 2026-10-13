@@ -3,10 +3,17 @@ package com.twilightcafe.tvplayer;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.AppOpsManager;
+import android.app.usage.UsageEvents;
+import android.app.usage.UsageStatsManager;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -18,6 +25,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.TypedValue;
@@ -31,6 +39,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -58,10 +67,12 @@ import java.util.ArrayList;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -106,6 +117,15 @@ public class MainActivity extends Activity {
     private float pointerX, pointerY;
     private boolean visible = false;                     // the app is on screen
     private boolean testMode = false;                    // hold OK for 3 seconds to switch it on or off
+    // Keeping the box in Twilight TV (lockApps, see AppLock): the one other app allowed (otherApp)
+    private String[] otherApp;                           // {name, package}, or null if it isn't on the box
+    private long otherAppAt = 0;                         // when it was looked for
+    private volatile boolean otherOpened = false;        // opened from here: its turn, until the home screen shows
+    private volatile long turnSince = 0;                 // when it was opened
+    private volatile Set<String> homeApps = new HashSet<>();   // the box's home screen
+    private volatile long unlockedUntil = 0, settingsUntil = 0;
+    private String lastFront = null;                     // the app on screen, from Android's usage events
+    private long frontSince = 0;                         // usage events read from here on
 
     private AppSettings settings;
     private Updater updater;
@@ -204,7 +224,9 @@ public class MainActivity extends Activity {
         server = new ControlServer(phone);
         server.start();
         refreshNetwork(false);
-        askToStartWithTv();
+        if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(this)) askToStartWithTv();
+        else askForUsageAccess();
+        listenForHome();
         handler.postDelayed(maintenance, 3000);
     }
 
@@ -679,6 +701,8 @@ public class MainActivity extends Activity {
     protected void onStart() {
         super.onStart();
         visible = true;
+        otherOpened = false;                             // the other app's turn is over
+        handler.removeCallbacks(lockCheck);
         if (wifiLock != null) wifiLock.acquire();       // Wi-Fi at full power while playing
         open();
         hideSystemBars();
@@ -688,6 +712,10 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         visible = false;
+        lastFront = null;
+        frontSince = System.currentTimeMillis() - 2000;
+        handler.removeCallbacks(lockCheck);
+        handler.postDelayed(lockCheck, 1500);            // locked: anything but the other app is sent away
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
         // Left the app (Home, another app, the TV going to sleep): stop the music.
         // The page starts again when the app comes back.
@@ -700,6 +728,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        try {
+            unregisterReceiver(homeKey);
+        } catch (RuntimeException e) {
+            // it wasn't listening
+        }
         work.shutdownNow();
         feeds.shutdownNow();
         if (server != null) server.stop();
@@ -713,10 +746,19 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
-        // Back does nothing, so the music can't be stopped by accident. Home leaves the app.
+        // Back does nothing, so the music can't be stopped by accident. Home leaves the app (with the lock on,
+        // only for a moment).
         // During quality setup, Back ends the setup.
+        // Held for 2 seconds: the other app (My TV Plus); for 10 seconds: the box unlocked for 15 minutes.
         if (key == KeyEvent.KEYCODE_BACK) {
-            if (inQualitySetup() && event.getAction() == KeyEvent.ACTION_UP) endQualitySetup();
+            if (event.getAction() != KeyEvent.ACTION_UP) return true;
+            if (inQualitySetup()) {
+                endQualitySetup();
+                return true;
+            }
+            int held = AppLock.backHeld(event.getEventTime() - event.getDownTime());
+            if (held == 1) openOtherApp(true);
+            else if (held == 2) unlock(true);
             return true;
         }
         // Quality setup: arrows move the pointer, OK clicks
@@ -879,6 +921,7 @@ public class MainActivity extends Activity {
 
     private void settingsChanged() {
         pin = choosePin();
+        otherAppAt = 0;                              // otherApp may have changed
         leveller.apply(settings.flag("levelSound", true));
         int v = settings.number("tvVolume", 0);
         if (v != tvVolumeSetting) {                  // only when that setting itself changed
@@ -1296,6 +1339,8 @@ public class MainActivity extends Activity {
             defaults.put("screenRate", "box");
             defaults.put("engineNumbers", false);
             defaults.put("pricesUrl", "");
+            defaults.put("lockApps", true);
+            defaults.put("otherApp", "My TV Plus");
             JSONObject o = new JSONObject();
             o.put("tv", tvName);
             o.put("autoName", autoName(ip));
@@ -1405,6 +1450,17 @@ public class MainActivity extends Activity {
             if (bx != null) o.put("box", bx);
             o.put("screen", screenFacts());
             o.put("onScreen", visible);
+            JSONObject lock = new JSONObject();
+            String[] other = otherApp();
+            long now = System.currentTimeMillis();
+            lock.put("on", lockOn());
+            lock.put("unlockedUntil", unlockedUntil > now ? unlockedUntil : 0);
+            lock.put("other", other == null ? JSONObject.NULL : other[0]);
+            lock.put("otherWanted", settings.text("otherApp", "My TV Plus"));
+            lock.put("otherOpen", !visible && otherOpened);
+            lock.put("sees", usageAccess());                           // "Usage access"
+            lock.put("canReturn", Build.VERSION.SDK_INT < 29 || Settings.canDrawOverlays(this));   // "Display over other apps"
+            o.put("lock", lock);
             o.put("qualitySetup", inQualitySetup());
             String page = pageNow();
             o.put("page", page == null ? JSONObject.NULL : new JSONObject(page));
@@ -1460,7 +1516,31 @@ public class MainActivity extends Activity {
                     }
                 });
                 return true;
+            case "otherapp":
+                final boolean[] opened = { false };
+                runOnMain(new Runnable() {
+                    @Override
+                    public void run() {
+                        opened[0] = openOtherApp(false);
+                    }
+                });
+                return opened[0];
+            case "backhome":
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        comeBack();
+                    }
+                });
+                return true;
+            case "unlock":
+                unlock(false);
+                return true;
+            case "lock":
+                unlockedUntil = 0;
+                return true;
             case "update":
+                settingsUntil = System.currentTimeMillis() + AppLock.SETTINGS;   // Android's install question, and its settings
                 final String[] message = { null };
                 runOnMain(new Runnable() {
                     @Override
@@ -1571,6 +1651,227 @@ public class MainActivity extends Activity {
         }
     }
 
+    /* ---------- keeping the box in Twilight TV ---------- */
+
+    private boolean lockOn() {
+        return settings != null && settings.flag("lockApps", true);
+    }
+
+    // While Twilight TV is off the screen with the lock on, every 1.5 seconds: what's on screen? Anything but
+    // the other app (and, in its turn, what it opens), or Android's own questions, is sent away: Twilight TV
+    // comes back (see AppLock).
+    private final Runnable lockCheck = new Runnable() {
+        @Override
+        public void run() {
+            if (visible || !lockOn()) return;
+            if (!awake()) {                              // the box asleep (the TV off): nothing to send away
+                handler.postDelayed(this, 1500);
+                return;
+            }
+            long now = System.currentTimeMillis();
+            if (unlockedUntil != 0 && now >= unlockedUntil) {   // locked again: whatever was opened meanwhile goes too
+                unlockedUntil = 0;
+                otherOpened = false;
+            }
+            String[] other = otherApp();
+            String otherPkg = other == null ? null : other[1], front = frontApp(now, otherPkg);
+            if (AppLock.bringBack(front, getPackageName(), otherPkg, otherOpened, AppLock.homeScreen(front, homeApps), now, unlockedUntil, settingsUntil)) {
+                comeBack();
+            }
+            handler.postDelayed(this, 1500);
+        }
+    };
+
+    // Home pressed, wherever: the other app's turn is over, and Twilight TV comes back (unless the box is
+    // unlocked). Android tells every app, so this works without "Usage access" too.
+    private final BroadcastReceiver homeKey = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!AppLock.homeKey(intent.getStringExtra("reason"))) return;
+            otherOpened = false;
+            if (!lockOn() || System.currentTimeMillis() < unlockedUntil) return;   // unlocked: Home is just Home
+            handler.removeCallbacks(homeBack);
+            handler.postDelayed(homeBack, 700);          // once the home screen is up
+        }
+    };
+
+    private final Runnable homeBack = new Runnable() {
+        @Override
+        public void run() {
+            if (!visible) comeBack();
+        }
+    };
+
+    private void listenForHome() {
+        try {
+            IntentFilter filter = new IntentFilter("android.intent.action.CLOSE_SYSTEM_DIALOGS");
+            if (Build.VERSION.SDK_INT >= 33) registerReceiver(homeKey, filter, Context.RECEIVER_EXPORTED);   // it comes from Android
+            else registerReceiver(homeKey, filter);
+        } catch (RuntimeException e) {
+            // this box doesn't say: the checks above still bring Twilight TV back
+        }
+    }
+
+    private boolean awake() {
+        try {
+            PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            return power == null || power.isInteractive();
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    // Twilight TV back on screen (Android 10 and newer allow it with "Display over other apps")
+    private void comeBack() {
+        try {
+            startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+        } catch (RuntimeException e) {
+            // not allowed on this box
+        }
+    }
+
+    // The app on screen, from Android's usage events ("Usage access"); null when Android won't say
+    @SuppressWarnings("deprecation")
+    private String frontApp(long now, String otherPkg) {
+        if (!usageAccess()) return null;
+        try {
+            UsageStatsManager usage = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+            UsageEvents events = usage.queryEvents(frontSince, now + 1000);
+            UsageEvents.Event e = new UsageEvents.Event();
+            while (events.hasNextEvent()) {
+                events.getNextEvent(e);
+                if (e.getEventType() != UsageEvents.Event.MOVE_TO_FOREGROUND) continue;
+                lastFront = e.getPackageName();
+                // the home screen since the other app was opened (Home, or the other app closed): its turn is over
+                if (e.getTimeStamp() > turnSince && AppLock.turnOver(lastFront, otherPkg, homeApps)) otherOpened = false;
+            }
+            frontSince = now - 1000;
+        } catch (RuntimeException e) {
+            return null;
+        }
+        return lastFront;
+    }
+
+    private boolean usageAccess() {
+        try {
+            AppOpsManager ops = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+            int mode = ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), getPackageName());
+            if (mode == AppOpsManager.MODE_DEFAULT) {
+                return checkCallingOrSelfPermission("android.permission.PACKAGE_USAGE_STATS") == PackageManager.PERMISSION_GRANTED;
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    // The other app allowed (otherApp, by its name or package), looked for among the box's apps now and then,
+    // with the box's home screen
+    private synchronized String[] otherApp() {
+        long now = System.currentTimeMillis();
+        if (now - otherAppAt > 60000L) {
+            otherAppAt = now;
+            otherApp = AppLock.find(boxApps(), settings.text("otherApp", "My TV Plus"));
+            homeApps = homeAppsNow();
+        }
+        return otherApp;
+    }
+
+    private Set<String> homeAppsNow() {
+        Set<String> out = new HashSet<>();
+        try {
+            for (ResolveInfo r : getPackageManager().queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)) {
+                if (!r.activityInfo.packageName.equals(getPackageName())) out.add(r.activityInfo.packageName);
+            }
+        } catch (RuntimeException e) {
+            // AppLock.homeScreen knows the usual ones by name
+        }
+        return out;
+    }
+
+    // The box's apps but this one: {name, package}
+    private List<String[]> boxApps() {
+        List<String[]> out = new ArrayList<>();
+        HashSet<String> seen = new HashSet<>();
+        PackageManager pm = getPackageManager();
+        for (String kind : new String[] { Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER }) {
+            try {
+                for (ResolveInfo r : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(kind), 0)) {
+                    String p = r.activityInfo.packageName;
+                    if (p.equals(getPackageName()) || !seen.add(p)) continue;
+                    out.add(new String[] { String.valueOf(r.loadLabel(pm)), p });
+                }
+            } catch (RuntimeException e) {
+                // that kind of app list isn't there on this box
+            }
+        }
+        return out;
+    }
+
+    // The other app, from the remote (Back held for 2 seconds) or the phone. Home brings Twilight TV back.
+    private boolean openOtherApp(boolean fromRemote) {
+        String[] app = otherApp();
+        if (app == null) {
+            if (fromRemote) say("\"" + settings.text("otherApp", "My TV Plus") + "\" isn't on this box.");
+            return false;
+        }
+        PackageManager pm = getPackageManager();
+        Intent i = pm.getLeanbackLaunchIntentForPackage(app[1]);
+        if (i == null) i = pm.getLaunchIntentForPackage(app[1]);
+        if (i == null) return false;
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        turnSince = System.currentTimeMillis();
+        otherOpened = true;
+        try {
+            startActivity(i);
+        } catch (RuntimeException e) {
+            otherOpened = false;
+            return false;
+        }
+        if (fromRemote) say(app[0] + ": press Home to come back to Twilight TV.");
+        return true;
+    }
+
+    // The box free for 15 minutes (its settings, another app), then locked again by itself
+    private void unlock(boolean fromRemote) {
+        unlockedUntil = System.currentTimeMillis() + AppLock.UNLOCK;
+        if (fromRemote) say("Unlocked for 15 minutes: other apps and the box's settings can be opened.");
+    }
+
+    private void say(String text) {
+        try {
+            Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+        } catch (RuntimeException e) {
+            // no message, then
+        }
+    }
+
+    // With the lock on: Android needs "Usage access" to tell the app which app is on screen, so it also
+    // comes back when the other app is closed with Back (Home it hears anyway), and nothing can be opened
+    // from the home screen on the way. Asked once, after "start with the TV".
+    private void askForUsageAccess() {
+        if (!lockOn() || usageAccess() || (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(this))) return;
+        final SharedPreferences prefs = getSharedPreferences("player", MODE_PRIVATE);
+        if (prefs.getBoolean("dontAskUsage", false)) return;
+        String other = settings.text("otherApp", "My TV Plus");
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Keep the box in Twilight TV")
+                .setMessage("Twilight TV brings itself back whenever someone leaves it, except for " + other + ". To see which app is "
+                        + "on screen, Android needs one more permission: \"Usage access\". On the next screen, choose Twilight TV and "
+                        + "switch it on.")
+                .setPositiveButton("Open settings", (dialog, which) -> {
+                    settingsUntil = System.currentTimeMillis() + AppLock.SETTINGS;
+                    try {
+                        startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                    } catch (ActivityNotFoundException e) {
+                        prefs.edit().putBoolean("dontAskUsage", true).apply();
+                    }
+                })
+                .setNegativeButton("Not now", null)
+                .setNeutralButton("Don't ask again", (dialog, which) -> prefs.edit().putBoolean("dontAskUsage", true).apply())
+                .show();
+    }
+
     /* ---------- starting by itself when the TV turns on ---------- */
 
     // Android 9 and older start the app at power-on with no questions. Android 10 and
@@ -1591,6 +1892,7 @@ public class MainActivity extends Activity {
     }
 
     private void openOverlaySettings(SharedPreferences prefs) {
+        settingsUntil = System.currentTimeMillis() + AppLock.SETTINGS;
         try {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
             return;

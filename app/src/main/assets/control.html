@@ -209,7 +209,8 @@
   </div>
 
   <div class="banner" id="offline" hidden>Can't reach this TV. Check that your phone is on the café Wi-Fi.</div>
-  <div class="banner" id="notOn" hidden>The Twilight TV app isn't on screen on this TV. Open it with the TV remote.</div>
+  <div class="banner" id="notOn" hidden><span id="notOnText">The Twilight TV app isn't on screen on this TV. Open it with the TV remote.</span>
+    <button class="wide" id="backHome" data-cmd="backhome" type="button" style="margin-top:10px" hidden>Back to Twilight TV</button></div>
   <div class="banner notice" id="notice" hidden></div>
 
   <div id="controlView" role="tabpanel">
@@ -237,6 +238,7 @@
       <span id="quietText">Quiet for a minute</span>
     </button>
     <button class="wide" id="unfreeze" data-cmd="unfreeze" type="button" style="margin-top:10px">Picture stuck? Get it moving again</button>
+    <button class="wide" id="otherApp" data-cmd="otherapp" type="button" style="margin-top:10px" hidden>Open My TV Plus</button>
 
     <section class="card">
       <div class="row">
@@ -334,6 +336,9 @@
       <button class="wide" type="button" data-tool="testmode">Show or hide details on the TV (test mode)</button>
       <button class="wide" type="button" data-tool="restart">Restart the app on the TV</button>
       <button class="wide" type="button" data-tool="checkupdate">Look for a new version now</button>
+      <button class="wide" type="button" data-tool="unlock" id="unlockBox" hidden>Unlock the box for 15 minutes</button>
+      <button class="wide" type="button" data-tool="lock" id="lockBox" hidden>Lock the box again now</button>
+      <p class="hint" id="lockMsg"></p>
       <button class="wide danger" type="button" data-tool="forget">Forget this TV's memory</button>
       <p class="hint" id="toolMsg"></p>
     </section>
@@ -442,6 +447,7 @@
   function render(s) {
     var p = s.page || null;
     $("notOn").hidden = !!s.onScreen;
+    drawLock(s);
     if (p && p.name) $("cafe").textContent = p.name;
     document.title = (s.tv || "TV") + " · Twilight";
 
@@ -585,6 +591,27 @@
     return li;
   }
 
+  // The box kept in Twilight TV: the other app's button, the way back, and the state in Tools
+  function drawLock(s) {
+    var k = s.lock || {}, other = k.other || "", unlocked = k.unlockedUntil > 0;
+    $("otherApp").hidden = !other || !s.onScreen;
+    $("otherApp").textContent = "Open " + (other || "the other app");
+    $("backHome").hidden = !!s.onScreen;
+    $("notOnText").textContent = k.otherOpen ? other + " is on the TV. Press Home on the remote, or the button below, to bring the music back." :
+      unlocked ? "The box is unlocked until " + clock(k.unlockedUntil) + ". Twilight TV isn't on screen." :
+      k.on && k.canReturn ? "Twilight TV isn't on screen. It comes back by itself in a moment." :
+      "The Twilight TV app isn't on screen on this TV. Open it with the TV remote, or press the button below.";
+    var m = $("lockMsg");
+    if (!m) return;
+    $("unlockBox").hidden = !k.on || unlocked;
+    $("lockBox").hidden = !k.on || !unlocked;
+    m.textContent = !k.on ? "The box isn't kept in Twilight TV (Settings, This TV box)." :
+      (unlocked ? "Unlocked until " + clock(k.unlockedUntil) + ". " : "Locked: only Twilight TV and " + (other || "no other app") + ". ") +
+      (other ? "" : "“" + (k.otherWanted || "") + "” isn't on the box. ") +
+      (k.canReturn ? "" : "Switch on “Display over other apps” for Twilight TV on the box, or it can't come back by itself. ") +
+      (k.sees ? "" : "With “Usage access” for Twilight TV switched on at the box, it also comes back when " + (other || "the other app") + " is closed with Back.");
+  }
+
   function cmd(what, button) {
     if (!what || busy) return;
     busy = true;
@@ -596,6 +623,8 @@
       else if (/^playnow:/.test(what)) say("Playing now: " + (name || "your song"));
       else if (/^look:/.test(what)) say("Look at the TV: 20 seconds of that day's picture.");
       else if (what === "unfreeze") say("Done: the song goes on from the same moment, with the picture moving.");
+      else if (what === "otherapp") say("Look at the TV: " + ((last && last.lock && last.lock.other) || "the other app") + ". Press Home on the remote to come back.");
+      else if (what === "backhome") say("Twilight TV is coming back on the TV.");
     }).catch(function () {}).then(function () {
       busy = false;
       if (button) button.disabled = false;
@@ -692,7 +721,7 @@
     playlist: "", volume: 100, volumeSchedule: {}, openHours: "", noRepeat: 20,
     fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
     quality: "auto", autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
-    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "",
+    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "", lockApps: true, otherApp: "My TV Plus",
     videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false, pricesUrl: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false, videoColors: true,
@@ -784,6 +813,10 @@
       hint: "Videos made at 25 frames a second (TV, and many music videos here) move evenly at 50 Hz, and 30 or 60 at 60 Hz. The wrong one makes movement jerk slightly." },
     { key: "restartAt", label: "Fresh start every night at", type: "time" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle" },
+    { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle",
+      hint: "Whatever else is opened on the box is sent away within two seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Tools, below) or hold Back for 10 seconds." },
+    { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus",
+      hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
     { group: "Weather" },
     { key: "weatherKey", label: "WeatherAPI.com key", type: "text", placeholder: "none: MET Norway",
@@ -1478,8 +1511,10 @@
           what === "testmode" ? "Done: look at the TV." :
           what === "restart" ? "The app is restarting on the TV." :
           what === "checkupdate" ? "Looking for a new version. If there is one, Install update appears on the Control tab within a minute." :
+          what === "unlock" ? "Unlocked for 15 minutes: other apps and the box's settings can be opened. Then it locks again by itself." :
+          what === "lock" ? "Locked again: only Twilight TV and the other app." :
           "This TV's memory is cleared. The music starts again.";
-      }).catch(function () {}).then(function () { b.disabled = false; });
+      }).catch(function () {}).then(function () { b.disabled = false; if (what === "unlock" || what === "lock") poll(); });
     });
   });
 

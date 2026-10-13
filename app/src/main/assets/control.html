@@ -373,6 +373,18 @@
     <section class="card" id="menuInfo" aria-live="polite"><p class="label">Loading the menu…</p></section>
     <div id="menuList"></div>
     <button class="wide" id="addCat" type="button" hidden>Add a category</button>
+    <p class="group">Import and export</p>
+    <section class="card" id="ioCard">
+      <p class="label">The whole menu as a spreadsheet: write names and prices in Excel or Google Sheets, then import the file here. Rows keep their ID, so pictures stay with them.</p>
+      <div class="two">
+        <button class="wide" type="button" id="ioXlsx">Save as Excel</button>
+        <button class="wide" type="button" id="ioCsv">Save as CSV</button>
+      </div>
+      <button class="wide" type="button" id="ioBackup" style="margin-top:10px">Save a backup with the pictures</button>
+      <label class="wide upload" style="margin-top:10px"><input type="file" id="ioFile" accept=".xlsx,.csv,.txt,.json,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><span>Import a file</span></label>
+      <p class="hint">An Excel or CSV file, or a backup. What's in it takes the place of the menu on the TV, after you say yes.</p>
+      <p class="hint" id="ioMsg" role="status"></p>
+    </section>
   </div>
 
   <div id="settingsView" role="tabpanel" hidden>
@@ -1549,7 +1561,7 @@
       p.textContent = "The TV shows the code for your other menu (Screen tab, Link to another menu). Empty that link to show this menu instead.";
     } else if (menu.address) {
       p.appendChild(document.createTextNode("The menu code is on the TV. Phones on the café Wi-Fi open it. "));
-      p.appendChild(el("a", { href: "/menu/", target: "_blank", rel: "noopener" }, "See it as customers do"));
+      p.appendChild(el("a", { href: menu.address || "/menu/", target: "_blank", rel: "noopener" }, "See it as customers do"));
     } else {
       p.textContent = all ? "Everything on it is hidden. The menu code appears on the TV once customers can see an item." :
         "Add items below. The menu code appears on the TV with the first one.";
@@ -1738,8 +1750,9 @@
     rm.addEventListener("click", function () { d.picture = null; d.preview = null; drawEditor(); });
     row.appendChild(rm);
     pic.appendChild(row);
-    pic.appendChild(el("p", { class: "hint", id: "edPicMsg", role: "status" }, kind === "item" ? "Shown small beside it, and big when a customer taps it." :
-      "Shown wide under its name."));
+    pic.appendChild(el("p", { class: "hint", id: "edPicMsg", role: "status" }, kind === "item" ?
+      "Square is best, like 1200×1200: shown small beside it (cut to a square from the middle), and big when a customer taps it." :
+      "Wide is best, 16:9 like 1200×675: shown across the menu under its name, cut to that shape."));
     f.appendChild(pic);
 
     var notes = el("details", { class: "field words" }), sum = el("summary", {}, "Description (optional)"), nb = el("div", { class: "names" });
@@ -1832,8 +1845,10 @@
     e.hidden = false;
   }
 
-  // The menu with one change made, sent to the TV; back comes the menu as the TV keeps it
-  function commit(change) {
+  // The menu with one change made, sent to the TV; back comes the menu as the TV keeps it. What went wrong is
+  // said in the editor, or by report.
+  function commit(change, report) {
+    report = report || edError;
     var cats = copy(menu.categories);
     change(cats);
     menuBusy = true;
@@ -1842,10 +1857,10 @@
       if (r && r.menu) { menu = r.menu; drawMenu(); }
       if (r && r.ok) return true;
       if (r && r.conflict) { closeEditor(); say(r.message || "The menu was changed on another phone. Here it is now."); return false; }
-      edError((r && r.message) || "Not saved. Try again.");
+      report((r && r.message) || "Not saved. Try again.");
       return false;
     }).catch(function (e) {
-      if (e.message !== "pin" && e.message !== "locked") edError("The TV couldn't be reached. Check the Wi-Fi and try again.");
+      if (e.message !== "pin" && e.message !== "locked") report("The TV couldn't be reached. Check the Wi-Fi and try again.");
       return false;
     }).then(function (ok) {
       menuBusy = false;
@@ -1920,6 +1935,8 @@
         c.width = Math.max(1, Math.round(iw * k));
         c.height = Math.max(1, Math.round(ih * k));
         g = c.getContext("2d");
+        g.fillStyle = "#171a45";                    // a transparent picture (PNG): on the menu's own blue, not black
+        g.fillRect(0, 0, c.width, c.height);
         g.imageSmoothingEnabled = true;
         g.imageSmoothingQuality = "high";
         g.drawImage(img, 0, 0, c.width, c.height);
@@ -1952,6 +1969,386 @@
         err.message === "empty" || err.message === "not a picture" ? (file.name || "That file") + " couldn't be read as a picture." : err.message;
     });
   }
+
+  /* ---------- the menu in and out: a spreadsheet, or a backup with the pictures ---------- */
+
+  var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "Picture", "ID"];
+  var SHEET_KEYS = ["type", "ku", "ar", "en", "price", "nku", "nar", "nen", "shown", "picture", "id"];
+
+  function today() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+
+  function ioSay(msg) { $("ioMsg").textContent = msg; }
+
+  function download(blob, name) {
+    var a = el("a", { href: URL.createObjectURL(blob), download: name });
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.parentNode.removeChild(a); }, 5000);
+  }
+
+  // One row for each category, then its items, then each subcategory with its items: the order of the menu
+  function menuRows(cats) {
+    var rows = [SHEET_COLUMNS.slice()];
+    var row = function (type, n) {
+      var nm = n.name || {}, nt = n.note || {};
+      return [type, nm.ku || "", nm.ar || "", nm.en || "", type === "item" && n.price != null ? Number(n.price) : "", nt.ku || "", nt.ar || "", nt.en || "",
+              n.hidden ? "no" : "yes", n.picture || "", n.id || ""];
+    };
+    cats.forEach(function (c) {
+      rows.push(row("category", c));
+      (c.items || []).forEach(function (it) { rows.push(row("item", it)); });
+      (c.subs || []).forEach(function (s) {
+        rows.push(row("subcategory", s));
+        (s.items || []).forEach(function (it) { rows.push(row("item", it)); });
+      });
+    });
+    return rows;
+  }
+
+  // CSV, with the mark that tells Excel it's UTF-8 (or Kurdish comes out as nonsense)
+  function toCsv(rows) {
+    return "﻿" + rows.map(function (r) {
+      return r.map(function (v) {
+        v = String(v);
+        return /[",;\r\n\t]|^\s|\s$/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      }).join(",");
+    }).join("\r\n") + "\r\n";
+  }
+
+  // An Excel file (.xlsx): a few XML files in a zip, stored as they are. The first row in bold, kept in sight.
+  function toXlsx(rows) {
+    var esc = function (s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    };
+    var colName = function (i) { var s = ""; i++; while (i) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+    var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    var widths = [14, 26, 26, 26, 11, 30, 30, 30, 10, 18, 18];
+    var sheet = head + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">' +
+      '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' +
+      widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join("") + "</cols><sheetData>";
+    rows.forEach(function (r, ri) {
+      sheet += '<row r="' + (ri + 1) + '">';
+      r.forEach(function (v, ci) {
+        var ref = colName(ci) + (ri + 1), style = ri === 0 ? ' s="1"' : "";
+        if (typeof v === "number") sheet += '<c r="' + ref + '"' + style + "><v>" + v + "</v></c>";
+        else if (v !== "") sheet += '<c r="' + ref + '"' + style + ' t="inlineStr"><is><t xml:space="preserve">' + esc(v) + "</t></is></c>";
+      });
+      sheet += "</row>";
+    });
+    sheet += "</sheetData></worksheet>";
+    var rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships", pkg = "http://schemas.openxmlformats.org/package/2006/relationships";
+    var type = "application/vnd.openxmlformats-officedocument.spreadsheetml";
+    return zip([
+      ["[Content_Types].xml", head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="' + type + '.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="' + type + '.worksheet+xml"/>' +
+        '<Override PartName="/xl/styles.xml" ContentType="' + type + '.styles+xml"/></Types>'],
+      ["_rels/.rels", head + '<Relationships xmlns="' + pkg + '"><Relationship Id="rId1" Type="' + rel + '/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+      ["xl/workbook.xml", head + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="' + rel + '">' +
+        '<sheets><sheet name="Menu" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+      ["xl/_rels/workbook.xml.rels", head + '<Relationships xmlns="' + pkg + '"><Relationship Id="rId1" Type="' + rel + '/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '<Relationship Id="rId2" Type="' + rel + '/styles" Target="styles.xml"/></Relationships>'],
+      ["xl/styles.xml", head + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+        '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+        '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>' +
+        '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+      ["xl/worksheets/sheet1.xml", sheet]
+    ], type + ".sheet");
+  }
+
+  var CRC = null;
+  function crc32(b) {
+    if (!CRC) {
+      CRC = [];
+      for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CRC[n] = c >>> 0; }
+    }
+    var x = 0xFFFFFFFF;
+    for (var i = 0; i < b.length; i++) x = CRC[(x ^ b[i]) & 0xFF] ^ (x >>> 8);
+    return (x ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  // A zip of [name, text] files, stored (not compressed), names in UTF-8
+  function zip(files, mime) {
+    var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+    files.forEach(function (f) {
+      var name = enc.encode(f[0]), data = enc.encode(f[1]), crc = crc32(data);
+      var local = new Uint8Array(30 + name.length), v = new DataView(local.buffer);
+      v.setUint32(0, 0x04034b50, true); v.setUint16(4, 20, true); v.setUint16(6, 0x0800, true); v.setUint16(8, 0, true);
+      v.setUint16(10, 0, true); v.setUint16(12, 0x21, true); v.setUint32(14, crc, true); v.setUint32(18, data.length, true);
+      v.setUint32(22, data.length, true); v.setUint16(26, name.length, true); v.setUint16(28, 0, true);
+      local.set(name, 30);
+      var c = new Uint8Array(46 + name.length), w = new DataView(c.buffer);
+      w.setUint32(0, 0x02014b50, true); w.setUint16(4, 20, true); w.setUint16(6, 20, true); w.setUint16(8, 0x0800, true); w.setUint16(10, 0, true);
+      w.setUint16(12, 0, true); w.setUint16(14, 0x21, true); w.setUint32(16, crc, true); w.setUint32(20, data.length, true); w.setUint32(24, data.length, true);
+      w.setUint16(28, name.length, true); w.setUint32(42, offset, true);
+      c.set(name, 46);
+      parts.push(local, data);
+      central.push(c);
+      offset += local.length + data.length;
+    });
+    var size = 0;
+    central.forEach(function (c) { size += c.length; });
+    var end = new Uint8Array(22), e = new DataView(end.buffer);
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+    e.setUint32(12, size, true); e.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [end]), { type: mime });
+  }
+
+  // The files in a zip (an .xlsx), unpacked by the browser itself
+  function unzip(buf) {
+    var u = new Uint8Array(buf), v = new DataView(buf), i = u.length - 22, dec = new TextDecoder(), jobs = [], out = {};
+    while (i >= 0 && v.getUint32(i, true) !== 0x06054b50) i--;
+    if (i < 0) return Promise.reject(new Error("That file isn't an Excel file (.xlsx)."));
+    var count = v.getUint16(i + 10, true), at = v.getUint32(i + 16, true);
+    for (var n = 0; n < count; n++) {
+      if (v.getUint32(at, true) !== 0x02014b50) return Promise.reject(new Error("That Excel file is damaged."));
+      var method = v.getUint16(at + 10, true), size = v.getUint32(at + 20, true), nlen = v.getUint16(at + 28, true);
+      var more = v.getUint16(at + 30, true) + v.getUint16(at + 32, true), local = v.getUint32(at + 42, true);
+      var name = dec.decode(u.subarray(at + 46, at + 46 + nlen));
+      var start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+      if (/\.xml$|\.rels$/.test(name)) jobs.push(inflate(method, u.subarray(start, start + size)).then(function (nm) { return function (d) { out[nm] = d; }; }(name)));
+      at += 46 + nlen + more;
+    }
+    return Promise.all(jobs).then(function () { return out; });
+  }
+
+  function inflate(method, data) {
+    if (method === 0) return Promise.resolve(data);
+    if (method !== 8 || !window.DecompressionStream || !window.Response) {
+      return Promise.reject(new Error("This phone's browser can't open Excel files. Save the sheet as CSV (UTF-8) and import that."));
+    }
+    var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); });
+  }
+
+  // The first sheet of an Excel file, as rows of text
+  function readXlsx(buf) {
+    return unzip(buf).then(function (files) {
+      var dec = new TextDecoder();
+      var xml = function (n) { return files[n] ? new DOMParser().parseFromString(dec.decode(files[n]), "application/xml") : null; };
+      var wb = xml("xl/workbook.xml"), rels = xml("xl/_rels/workbook.xml.rels"), target = "worksheets/sheet1.xml";
+      if (wb && rels) {
+        var first = wb.getElementsByTagName("sheet")[0], rid = first ? first.getAttribute("r:id") : null;
+        [].forEach.call(rels.getElementsByTagName("Relationship"), function (r) { if (r.getAttribute("Id") === rid) target = r.getAttribute("Target"); });
+      }
+      var sheet = xml("xl/" + target.replace(/^\/?(xl\/)?/, ""));
+      if (!sheet) throw new Error("That Excel file has no sheet in it.");
+      var shared = [], ss = xml("xl/sharedStrings.xml");
+      if (ss) [].forEach.call(ss.getElementsByTagName("si"), function (si) {
+        shared.push([].map.call(si.getElementsByTagName("t"), function (t) { return t.textContent; }).join(""));
+      });
+      var rows = [];
+      [].forEach.call(sheet.getElementsByTagName("row"), function (row) {
+        var out = [];
+        [].forEach.call(row.getElementsByTagName("c"), function (c) {
+          var letters = (c.getAttribute("r") || "").replace(/\d+/g, ""), ci = 0;
+          for (var k = 0; k < letters.length; k++) ci = ci * 26 + letters.charCodeAt(k) - 64;
+          ci = ci ? ci - 1 : out.length;
+          var t = c.getAttribute("t"), v = c.getElementsByTagName("v")[0];
+          out[ci] = t === "s" ? shared[Number(v && v.textContent)] || "" :
+            t === "inlineStr" ? [].map.call(c.getElementsByTagName("t"), function (x) { return x.textContent; }).join("") : v ? v.textContent : "";
+        });
+        for (var z = 0; z < out.length; z++) if (out[z] == null) out[z] = "";
+        rows.push(out);
+      });
+      return rows;
+    });
+  }
+
+  // A CSV file as rows: commas, semicolons or tabs (whichever the first row has most of), quotes as Excel writes them
+  function readCsv(text) {
+    text = text.replace(/^﻿/, "");
+    var first = text.split(/\r?\n/)[0] || "", delim = ",";
+    [";", "\t"].forEach(function (d) { if (first.split(d).length > first.split(delim).length) delim = d; });
+    var rows = [], row = [], f = "", q = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (q) {
+        if (ch === '"') { if (text.charAt(i + 1) === '"') { f += '"'; i++; } else q = false; }
+        else f += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(f); f = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text.charAt(i + 1) === "\n") i++;
+        row.push(f); rows.push(row); row = []; f = "";
+      } else f += ch;
+    }
+    if (f !== "" || row.length) { row.push(f); rows.push(row); }
+    return rows;
+  }
+
+  // Rows (the first: the columns' names, in any order) -> the menu. Each row says what it is; a subcategory
+  // belongs to the category above it, an item to the subcategory or category above it.
+  function rowsToMenu(rows) {
+    var names = { type: ["type", "kind"], ku: ["kurdish", "kurdish name", "name in kurdish", "ku"], ar: ["arabic", "arabic name", "name in arabic", "ar"],
+                  en: ["english", "english name", "name in english", "en", "name"], price: ["price", "price in dinars", "price (iqd)"],
+                  nku: ["kurdish description"], nar: ["arabic description"], nen: ["english description", "description"],
+                  shown: ["on menu", "on the menu", "shown"], picture: ["picture"], id: ["id"] };
+    var h = 0;
+    while (h < rows.length && !rows[h].join("").trim()) h++;
+    if (h >= rows.length) throw new Error("That file is empty.");
+    var at = {};
+    rows[h].forEach(function (cell, i) {
+      var c = String(cell).trim().toLowerCase();
+      for (var k in names) if (names[k].indexOf(c) >= 0 && at[k] == null) at[k] = i;
+    });
+    if (at.type == null || (at.ku == null && at.ar == null && at.en == null)) {
+      throw new Error("The first row needs the columns' names: " + SHEET_COLUMNS.join(", ") + ". Save the menu as Excel first, and change that file.");
+    }
+    var cats = [], cat = null, sub = null, counts = { c: 0, s: 0, i: 0, p: 0 };
+    for (var r = h + 1; r < rows.length; r++) {
+      var row = rows[r], n = r + 1;
+      if (!row.join("").trim()) continue;
+      var get = function (k) { return at[k] == null || row[at[k]] == null ? "" : String(row[at[k]]).trim(); };
+      var type = get("type").toLowerCase(), name = {}, note = {};
+      ["ku", "ar", "en"].forEach(function (l) { if (get(l)) name[l] = get(l); if (get("n" + l)) note[l] = get("n" + l); });
+      if (!Object.keys(name).length) throw new Error("Row " + n + " has no name, in any language.");
+      var node = { name: name };
+      if (Object.keys(note).length) node.note = note;
+      if (/^(no|false|0|hidden|off|x)$/i.test(get("shown"))) node.hidden = true;
+      if (get("picture")) { node.picture = get("picture"); counts.p++; }
+      if (get("id")) node.id = get("id");
+      if (/^c/.test(type)) {
+        node.items = []; node.subs = [];
+        cats.push(node); cat = node; sub = null; counts.c++;
+      } else if (/^s/.test(type)) {
+        if (!cat) throw new Error("Row " + n + ": a subcategory with no category above it.");
+        node.items = [];
+        cat.subs.push(node); sub = node; counts.s++;
+      } else if (/^i/.test(type) || !type) {
+        if (!cat) throw new Error("Row " + n + ": an item with no category above it.");
+        var p = get("price");
+        if (p) {
+          var v = typedPrice(p);
+          if (v == null) throw new Error("Row " + n + ": “" + p + "” isn't a price.");
+          node.price = v;
+        }
+        (sub || cat).items.push(node); counts.i++;
+      } else {
+        throw new Error("Row " + n + ": its Type should be category, subcategory or item.");
+      }
+    }
+    if (!cats.length) throw new Error("That file has no categories.");
+    return { categories: cats, counts: counts };
+  }
+
+  function described(c) {
+    return c.c + (c.c === 1 ? " category, " : " categories, ") + c.s + (c.s === 1 ? " subcategory and " : " subcategories and ") +
+      c.i + (c.i === 1 ? " item" : " items");
+  }
+
+  function saveSheet(kind) {
+    if (!menu) return;
+    var rows = menuRows(menu.categories || []);
+    if (kind === "csv") download(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }), "twilight-menu-" + today() + ".csv");
+    else download(toXlsx(rows), "twilight-menu-" + today() + ".xlsx");
+    ioSay("Saved on this phone: " + (kind === "csv" ? "twilight-menu-" + today() + ".csv" : "twilight-menu-" + today() + ".xlsx") +
+      ". Change it in Excel or Google Sheets, then import it here.");
+  }
+
+  // A picture from the TV as text (base64), for the backup
+  function pictureText(url) {
+    return fetch(url, { cache: "force-cache" }).then(function (r) {
+      if (!r.ok) throw new Error("picture");
+      return r.blob();
+    }).then(function (b) {
+      return new Promise(function (ok, no) { var f = new FileReader(); f.onload = function () { ok(f.result); }; f.onerror = no; f.readAsDataURL(b); });
+    });
+  }
+
+  function saveBackup() {
+    if (!menu || menuBusy) return;
+    var cats = copy(menu.categories || []), ids = [], pics = {};
+    var note = function (n) { if (n.picture && ids.indexOf(n.picture) < 0) ids.push(n.picture); };
+    cats.forEach(function (c) { note(c); (c.items || []).forEach(note); (c.subs || []).forEach(function (s) { note(s); (s.items || []).forEach(note); }); });
+    menuBusy = true;
+    var i = 0;
+    (function next() {
+      if (i >= ids.length) {
+        var file = JSON.stringify({ twilightMenu: 1, saved: new Date().toISOString(), menu: { categories: cats }, pictures: pics });
+        download(new Blob([file], { type: "application/json" }), "twilight-menu-backup-" + today() + ".json");
+        menuBusy = false;
+        return ioSay("Saved on this phone: twilight-menu-backup-" + today() + ".json, the whole menu with its " + ids.length +
+          (ids.length === 1 ? " picture." : " pictures.") + " Keep it somewhere safe.");
+      }
+      ioSay("Collecting the pictures: " + (i + 1) + " of " + ids.length + "…");
+      var id = ids[i];
+      Promise.all([pictureText(menuPic(id, false)), pictureText(menuPic(id, true))]).then(function (two) {
+        pics[id] = { full: two[0], small: two[1] };
+      }, function () {}).then(function () { i++; next(); });
+    })();
+  }
+
+  function readBackup(text) {
+    var j;
+    try { j = JSON.parse(text); } catch (e) { throw new Error("That file isn't a menu backup."); }
+    if (!j || j.twilightMenu !== 1 || !j.menu || !(j.menu.categories instanceof Array)) throw new Error("That file isn't a Twilight menu backup.");
+    var counts = { c: 0, s: 0, i: 0, p: Object.keys(j.pictures || {}).length };
+    j.menu.categories.forEach(function (c) {
+      counts.c++;
+      counts.i += (c.items || []).length;
+      (c.subs || []).forEach(function (s) { counts.s++; counts.i += (s.items || []).length; });
+    });
+    return { categories: j.menu.categories, pictures: j.pictures || {}, counts: counts, backup: true };
+  }
+
+  // A spreadsheet or a backup in place of the menu, after a yes
+  function importFile(file) {
+    if (!menu || menuBusy) return;
+    var name = String(file.name || "").toLowerCase();
+    ioSay("Reading " + (file.name || "the file") + "…");
+    var job = /\.json$/.test(name) ? file.text().then(readBackup) :
+      /\.xlsx$/.test(name) ? file.arrayBuffer().then(readXlsx).then(rowsToMenu) :
+      /\.(csv|txt|tsv)$/.test(name) ? file.text().then(readCsv).then(rowsToMenu) :
+      Promise.reject(new Error("Choose an Excel file (.xlsx), a CSV file or a menu backup (.json)."));
+    job.then(function (m) {
+      var what = described(m.counts) + (m.backup ? ", with " + m.counts.p + (m.counts.p === 1 ? " picture" : " pictures") : "");
+      if (!window.confirm("Put the menu from " + (file.name || "this file") + " on the TV, in place of the one there now?\n\n" + what + ".")) {
+        return ioSay("Nothing changed.");
+      }
+      return (m.backup ? restorePictures(m) : Promise.resolve(m)).then(function (ready) {
+        return commit(function (cats) {
+          cats.splice.apply(cats, [0, cats.length].concat(ready.categories));
+        }, ioSay).then(function (ok) {
+          if (ok) ioSay("Done: the menu from " + (file.name || "the file") + " is on the TV. " + what.charAt(0).toUpperCase() + what.slice(1) + ".");
+        });
+      });
+    }).catch(function (e) {
+      menuBusy = false;
+      if (e.message !== "pin" && e.message !== "locked") ioSay(e.message || "That file couldn't be read.");
+    });
+  }
+
+  // A backup's pictures, sent to the TV one by one; the menu then points at them by their new names
+  function restorePictures(m) {
+    var ids = Object.keys(m.pictures), done = {}, i = 0;
+    menuBusy = true;
+    return new Promise(function (ok) {
+      (function next() {
+        if (i >= ids.length) return ok();
+        ioSay("Putting the pictures on the TV: " + (i + 1) + " of " + ids.length + "…");
+        var p = m.pictures[ids[i]] || {};
+        api("/api/menu/picture", "POST", { full: p.full || "", small: p.small || "" }).then(function (r) {
+          if (r && r.ok) done[ids[i]] = r.id;
+        }, function () {}).then(function () { i++; next(); });
+      })();
+    }).then(function () {
+      menuBusy = false;
+      var swap = function (n) { if (n.picture) { if (done[n.picture]) n.picture = done[n.picture]; else delete n.picture; } };
+      m.categories.forEach(function (c) { swap(c); (c.items || []).forEach(swap); (c.subs || []).forEach(function (s) { swap(s); (s.items || []).forEach(swap); }); });
+      return m;
+    });
+  }
+
+  $("ioXlsx").addEventListener("click", function () { saveSheet("xlsx"); });
+  $("ioCsv").addEventListener("click", function () { saveSheet("csv"); });
+  $("ioBackup").addEventListener("click", saveBackup);
+  $("ioFile").addEventListener("change", function () { var f = $("ioFile").files && $("ioFile").files[0]; $("ioFile").value = ""; if (f) importFile(f); });
 
   /* ---------- Saving ---------- */
 

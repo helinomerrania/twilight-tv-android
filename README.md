@@ -83,7 +83,7 @@ The **Screen** tab has what the TV shows around the video and between songs: whi
 
 Customers scan the menu code on the TV (beside the Wi-Fi code) and the menu opens on their phone: the café's name over a twilight sky, the categories along the top, and each item with its price and picture. It's in Kurdish, with Arabic and English to choose from when you've written names in them. Prices are in dinars, in Kurdish digits (١٢٣) unless **Numbers on the TV** says otherwise. Tapping an item's picture shows it big.
 
-The menu comes from the TV box itself, on the café Wi-Fi, so phones need to be on the Wi-Fi to open it (the Wi-Fi code beside it joins them). The code on the TV always has the box's address of the moment, so it keeps working when the router gives the box a new one. A code printed for the tables would need the box to keep one address: reserve it for the box in the router.
+The menu comes from the TV box itself, on the café Wi-Fi, so phones need to be on the Wi-Fi to open it (the Wi-Fi code beside it joins them). It has an address of its own (port 8090, like `http://192.168.1.23:8090/menu/`) with nothing else on it: a customer who takes `/menu/` off the address gets the menu again, never the phone page. The code on the TV always has the box's address of the moment, so it keeps working when the router gives the box a new one. A code printed for the tables would need the box to keep one address: reserve it for the box in the router.
 
 To change it, open the phone page's **Menu** tab. At first it has the café's categories (Hookah Flavors; Drink, with Energy, Fresh, Hot, Milkshake and Soft Drinks; Ice Cream; Nuts; Others), with nothing in them. Tap anything to change it:
 - **+ Add an item**, **+ Add a subcategory** and **Add a category** add one.
@@ -91,6 +91,14 @@ To change it, open the phone page's **Menu** tab. At first it has the café's ca
 - **On the menu for customers** switched off hides it (sold out, say) and keeps it for later. A hidden category hides everything in it.
 - **Place on the menu** moves it up or down, or an item to another category or subcategory.
 - **Delete** removes it.
+
+**Pictures:** square for items, 1200×1200 is best: the list shows them small, cut to a square from the middle, and big when a customer taps one. Wide for categories and subcategories, 16:9, 1200×675 is best: shown across the menu under the name, cut to that shape. Any photo works; the phone makes it smaller (1200 pixels at most) before sending it. A picture with a see-through background (a PNG) gets the menu's dark blue behind it.
+
+**Import and export,** at the bottom of the Menu tab:
+- **Save as Excel** (or **Save as CSV**) gives the whole menu as a spreadsheet: a row for each category, subcategory and item, in the menu's order, with the columns Type, Kurdish, Arabic, English, Price, the three descriptions, On menu (yes or no), Picture and ID. Change names and prices there, or add rows (a new row needs no ID; an item belongs to the category or subcategory above it), then **Import a file** with it.
+- Keep the Picture and ID columns as they are, so pictures stay with their items. Keep it as an Excel file (.xlsx); a CSV from Excel must be saved as **CSV UTF-8**, or the Kurdish letters are lost.
+- **Save a backup with the pictures** gives one file with everything. Importing it puts the whole menu, pictures too, on this TV or another one.
+- An imported file takes the place of the menu on the TV, after you say yes to what's in it.
 
 Each change is saved on the TV at once. If two phones change the menu at the same moment, the second is told and sees the menu as it is now. The menu code appears on the TV once customers can see something on the menu. **Link to another menu** (Screen tab, `menuUrl`) is only for a menu somewhere else: while it's set, the TV shows its code instead.
 
@@ -238,7 +246,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 - `settings.json` is public too, including `controlPin` if you set one. The PIN only works from the café Wi-Fi. Put the Wi-Fi password on the phone's Screen tab rather than in `settings.json`, so it stays off GitHub.
 - If a TV switches itself off after a few hours, turn off its own "Auto power off" or sleep timer. Some TVs turn off after hours without a remote press.
 - The app needs internet for YouTube. If the internet drops, it shows the café screen and tries again by itself.
-- The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only. Phones on the café Wi-Fi get the phone page (with the PIN) and the menu at `/menu/` (without one: it can only be read). The box's own requests have threads of their own, so a café full of phones reading the menu never holds up the TV. The page checks in with the app every second, which is how settings and the phone's commands reach it.
+- The app's small web server hands the TV page to Firefox's engine at `http://localhost`, to the box itself only. Phones on the café Wi-Fi get the phone page (with the PIN, port 8080) and the menu (without one, port 8090: a server with nothing else on it, so it can only be read). The box's own requests have threads of their own, so a café full of phones reading the menu never holds up the TV. The page checks in with the app every second, which is how settings and the phone's commands reach it.
 - Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when each TV moved to it.
 - After using ADB or Developer options on a box, turn **USB debugging** and any network debugging off again: otherwise anyone on the café Wi-Fi could control the box.
 - Changes on any other branch than `main` are only built as a test. They're never published to the TVs.

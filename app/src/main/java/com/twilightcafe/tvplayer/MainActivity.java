@@ -131,6 +131,7 @@ public class MainActivity extends Activity {
     private Updater updater;
     private final Leveller leveller = new Leveller();
     private ControlServer server;
+    private ControlServer menuServer;                    // the menu for customers' phones, on a port of its own
     private TvFinder finder;
     private AudioManager audio;
     private WifiManager.WifiLock wifiLock;
@@ -226,6 +227,8 @@ public class MainActivity extends Activity {
         }, 4000);
         server = new ControlServer(phone);
         server.start();
+        menuServer = new ControlServer(phone, true);       // customers' phones: the menu alone, on a port of its own
+        menuServer.start(8090, 8099);
         refreshNetwork(false);
         if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(this)) askToStartWithTv();
         else askForUsageAccess();
@@ -740,6 +743,7 @@ public class MainActivity extends Activity {
         work.shutdownNow();
         feeds.shutdownNow();
         if (server != null) server.stop();
+        if (menuServer != null) menuServer.stop();
         if (finder != null) finder.stop();
         leveller.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
@@ -1242,9 +1246,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    // The menu's address for customers' phones, for the TV's menu code: "" until customers would see something in it
+    // The menu's address for customers' phones, for the TV's menu code: "" until customers would see something in it.
+    // Its own server and port, with nothing else on it: the phone page's address stays with the staff.
     private String menuAddress() {
-        int port = server == null ? 0 : server.port();
+        int port = menuServer == null ? 0 : menuServer.port();
         return menus.shownItems() > 0 && !ip.isEmpty() && port > 0 ? "http://" + ip + ":" + port + "/menu/" : "";
     }
 

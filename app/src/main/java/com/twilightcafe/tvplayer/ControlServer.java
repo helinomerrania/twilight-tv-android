@@ -39,7 +39,9 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
  *                                   so the phone page can go on a phone's home screen with its icon
  *
- * For customers, with no PIN (the menu code on the TV leads here):
+ * For customers, with no PIN: the menu code on the TV leads to a second server, on a port of its own (8090),
+ * that has nothing but these (and sends / on to /menu/), so the phone page's address is never shown to them.
+ * The phone page's own server has them too, for its pictures and "See it as customers do".
  *   GET  /menu/                     the menu page (/menu goes there: the page's own addresses are relative to it)
  *   GET  /menu/data                 the menu, without what's hidden (JSON)
  *   GET  /menu/pics/<id>.jpg        its pictures (<id>.small.jpg: the small copies)
@@ -174,6 +176,7 @@ final class ControlServer {
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
 
     private final Tv tv;
+    private final boolean menuOnly;                       // the customers' server: the menu and nothing else
     private final Map<String, Integer> fails = new HashMap<>();
     private final Map<String, Long> lockedUntil = new HashMap<>();
     private ServerSocket socket;
@@ -184,17 +187,27 @@ final class ControlServer {
     int maxFails = 10;
 
     ControlServer(Tv tv) {
+        this(tv, false);
+    }
+
+    ControlServer(Tv tv, boolean menuOnly) {
         this.tv = tv;
+        this.menuOnly = menuOnly;
     }
 
     int port() {
         return port;
     }
 
-    /** Starts on the first free port from 8080 to 8090. Returns the port, or 0 if none was free. */
+    /** Starts on the first free port from 8080 to 8089. Returns the port, or 0 if none was free. */
     synchronized int start() {
+        return start(8080, 8089);
+    }
+
+    /** Starts on the first free port from..to. Returns the port, or 0 if none was free. */
+    synchronized int start(int from, int to) {
         if (running) return port;
-        for (int p = 8080; p <= 8090 && socket == null; p++) {
+        for (int p = from; p <= to && socket == null; p++) {
             try {
                 ServerSocket s = new ServerSocket();
                 s.setReuseAddress(true);
@@ -321,6 +334,20 @@ final class ControlServer {
     }
 
     void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
+        if (menuOnly) {                                        // customers: the menu, its icon, and that's all
+            if (path.equals("/") || path.equals("/index.html")) {
+                redirect(out, "/menu/");
+            } else if (path.equals("/menu") || path.startsWith("/menu/")) {
+                menuRequest(out, method, path);
+            } else if (ASSETS.containsKey(path) && ASSETS.get(path).endsWith(".png")) {
+                byte[] b = tv.asset(ASSETS.get(path));
+                if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+                else send(out, 200, "image/png", b, "no-referrer", "public, max-age=86400");
+            } else {
+                send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            }
+            return;
+        }
         if (path.startsWith("/tv/")) {
             tvRequest(out, method, path, params, ip, body);
             return;
@@ -450,10 +477,7 @@ final class ControlServer {
             return;
         }
         if (path.equals("/menu")) {
-            String head = "HTTP/1.1 301 Moved Permanently\r\nLocation: /menu/\r\nContent-Length: 0\r\nCache-Control: no-cache\r\n"
-                    + "Referrer-Policy: no-referrer\r\nConnection: close\r\n\r\n";
-            out.write(head.getBytes(LATIN1));
-            out.flush();
+            redirect(out, "/menu/");
         } else if (path.equals("/menu/")) {
             byte[] page = tv.menuPage();
             if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
@@ -546,6 +570,13 @@ final class ControlServer {
 
     private synchronized void rightPin(String ip) {
         fails.remove(ip);
+    }
+
+    private static void redirect(OutputStream out, String to) throws IOException {
+        String head = "HTTP/1.1 301 Moved Permanently\r\nLocation: " + to + "\r\nContent-Length: 0\r\nCache-Control: no-cache\r\n"
+                + "Referrer-Policy: no-referrer\r\nConnection: close\r\n\r\n";
+        out.write(head.getBytes(LATIN1));
+        out.flush();
     }
 
     private static void json(OutputStream out, int code, String body) throws IOException {

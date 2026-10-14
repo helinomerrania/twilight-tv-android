@@ -98,14 +98,28 @@
   h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), rgba(255, 241, 224, .03)); }
   [dir="rtl"] h3::after { background: linear-gradient(270deg, var(--line), rgba(255, 241, 224, .03)); }
   .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
-  .banner {
-    display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin: 14px 0 2px;
+  /* A category's or subcategory's picture with its name on it, at the bottom, over a dark fade: the picture
+     clear above, the name easy to read */
+  .cover {
+    position: relative; display: flex; align-items: flex-end; overflow: hidden; aspect-ratio: 16 / 9;
     border-radius: 18px; background: var(--dusk);
   }
+  .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cover h2, .cover h3 {
+    position: relative; display: block; width: 100%; margin: 0; padding: 64px 18px 14px; color: var(--cream);
+    background: linear-gradient(0deg, rgba(8, 11, 38, .9) 0%, rgba(8, 11, 38, .66) 42%, rgba(8, 11, 38, 0) 100%);
+    text-shadow: 0 1px 2px rgba(4, 6, 22, .55), 0 0 18px rgba(4, 6, 22, .6);
+  }
+  .cover h2 { font-size: 26px; }
+  .cover.sub { margin-top: 24px; }
+  .cover h3 { padding: 52px 16px 12px; font-size: 20px; color: var(--sun); }
+  .cover h3::after { display: none; }
+  .cover + .note { margin-top: 10px; }
 
   .items { list-style: none; margin: 4px 0 0; padding: 0; }
   .items li + li { border-top: 1px solid var(--line); }
-  /* An item: its picture (if any), then its name with the price at the end of the same line, and its note */
+  /* An item: its picture (if any), then its name with the price at the end of the same line. Its description
+     is for when it's tapped. */
   .row {
     display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 0; border: 0; background: none; text-align: start;
   }
@@ -113,12 +127,11 @@
   .txt { flex: 1; min-width: 0; }
   .top { display: flex; align-items: baseline; gap: 14px; }
   .nm { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
-  .row .note { display: block; margin: 2px 0 0; font-size: 14px; line-height: 1.5; }
   .pr { flex: none; color: var(--sun); font-size: 16px; font-weight: 700; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .pr .u { margin-inline-start: 4px; color: var(--faint); font-size: 12px; font-weight: 600; }
   button.row:active .nm { color: var(--sun); }
 
-  /* One item, bigger: its picture, name, note and price */
+  /* One item, bigger: its picture, name, description and price (no picture: the name clear of the × ) */
   .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(4, 6, 22, .66); }
   .card {
     position: relative; width: 100%; max-width: 40rem; max-height: 94vh; overflow-y: auto; overscroll-behavior: contain;
@@ -127,7 +140,9 @@
   }
   .card img { display: block; width: 100%; max-height: 64vh; object-fit: cover; border-radius: 24px 24px 0 0; background: var(--plum); }
   .card .body { padding: 18px 20px 0; }
+  .card.bare .body { padding-top: 24px; }
   .card h2 { font-size: 23px; }
+  .card.bare h2 { margin-inline-end: 52px; }
   .card .note { font-size: 15px; margin-top: 6px; }
   .card .pr { display: block; margin-top: 12px; font-size: 21px; }
   .card .pr .u { font-size: 14px; }
@@ -285,28 +300,10 @@
     cats.forEach(function (c) {
       var sec = el("section");
       sec.id = "c-" + c.id;
-      sec.appendChild(heading("h2", c.name));
-      note(sec, c.note);
-      if (c.picture) {
-        var img = el("img", "banner");
-        img.src = picture(c.picture, false);
-        img.alt = "";
-        img.loading = "lazy";
-        img.decoding = "async";
-        sec.appendChild(img);
-      }
+      head(sec, "h2", c);
       if ((c.items || []).length) sec.appendChild(list(c.items));
       (c.subs || []).forEach(function (s) {
-        sec.appendChild(heading("h3", s.name));
-        note(sec, s.note);
-        if (s.picture) {
-          var si = el("img", "banner");
-          si.src = picture(s.picture, false);
-          si.alt = "";
-          si.loading = "lazy";
-          si.decoding = "async";
-          sec.appendChild(si);
-        }
+        head(sec, "h3", s);
         sec.appendChild(list(s.items || []));
       });
       main.appendChild(sec);
@@ -327,6 +324,25 @@
     return h;
   }
 
+  // A category's (h2) or subcategory's (h3) name: on its picture, or a heading of its own when it has none;
+  // its description under it
+  function head(parent, tag, node) {
+    var h = heading(tag, node.name);
+    if (node.picture) {
+      var box = el("div", tag === "h2" ? "cover" : "cover sub"), img = el("img");
+      img.src = picture(node.picture, false);
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      box.appendChild(img);
+      box.appendChild(h);
+      parent.appendChild(box);
+    } else {
+      parent.appendChild(h);
+    }
+    note(parent, node.note);
+  }
+
   function note(parent, o) {
     var t = pick(o);
     if (!t) return;
@@ -335,12 +351,18 @@
     parent.appendChild(p);
   }
 
+  // The items: each one's name and price, its picture small beside them. One with a picture or a description
+  // opens when tapped, to show them.
   function list(items) {
     var ul = el("ul", "items");
     items.forEach(function (it) {
-      var li = el("li"), row = el(it.picture ? "button" : "div", "row" + (it.picture ? " pic" : ""));
-      if (it.picture) {
+      var more = !!(it.picture || pick(it.note));
+      var li = el("li"), row = el(more ? "button" : "div", "row" + (it.picture ? " pic" : ""));
+      if (more) {
         row.type = "button";
+        row.addEventListener("click", function () { open(it, row); });
+      }
+      if (it.picture) {
         var img = el("img");
         img.src = picture(it.picture, true);
         img.alt = "";
@@ -349,19 +371,12 @@
         img.loading = "lazy";
         img.decoding = "async";
         row.appendChild(img);
-        row.addEventListener("click", function () { open(it, row); });
       }
       var txt = el("span", "txt"), top = el("span", "top"), nm = el("span", "nm", pick(it.name));
       nm.dir = "auto";
       top.appendChild(nm);
       if (it.price != null) top.appendChild(price(it.price));
       txt.appendChild(top);
-      var t = pick(it.note);
-      if (t) {
-        var n = el("span", "note", t);
-        n.dir = "auto";
-        txt.appendChild(n);
-      }
       row.appendChild(txt);
       li.appendChild(row);
       ul.appendChild(li);
@@ -442,10 +457,14 @@
     x.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
     x.addEventListener("click", shut);
     card.appendChild(x);
-    var img = el("img");
-    img.src = picture(it.picture, false);
-    img.alt = pick(it.name);
-    card.appendChild(img);
+    if (it.picture) {
+      var img = el("img");
+      img.src = picture(it.picture, false);
+      img.alt = pick(it.name);
+      card.appendChild(img);
+    } else {
+      card.classList.add("bare");
+    }
     var body = el("div", "body");
     var h = el("h2", null, pick(it.name));
     h.dir = "auto";

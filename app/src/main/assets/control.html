@@ -383,7 +383,16 @@
       </div>
       <button class="wide" type="button" id="ioBackup" style="margin-top:10px">Save a backup with the pictures</button>
       <label class="wide upload" style="margin-top:10px"><input type="file" id="ioFile" accept=".xlsx,.csv,.txt,.json,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><span>Import a file</span></label>
-      <p class="hint">An Excel or CSV file, or a backup. A whole menu (with a Type column) takes the place of the one on the TV; a file with just an ID column and some others (descriptions, say) changes only those. Either way, after you say yes.</p>
+      <button class="wide" type="button" id="ioPaste" style="margin-top:10px">Paste a table</button>
+      <div id="pasteBox" hidden style="margin-top:10px">
+        <textarea id="pasteText" rows="6" dir="auto" spellcheck="false" aria-label="The table, pasted"
+          placeholder="Paste a table here: Gemini's answer as it is, or cells copied from a spreadsheet. The first row has the columns' names."></textarea>
+        <div class="two">
+          <button class="wide" type="button" id="pasteCancel">Cancel</button>
+          <button class="wide go" type="button" id="pasteUse">Use it</button>
+        </div>
+      </div>
+      <p class="hint">An Excel or CSV file, a backup, or a table pasted from Gemini. A whole menu (with a Type column) takes the place of the one on the TV; a table with an ID column and some others (descriptions, say) changes only those. Either way, after you say yes.</p>
       <p class="hint" id="ioMsg" role="status"></p>
     </section>
   </div>
@@ -2186,7 +2195,7 @@
   // A column's name -> what's in it, however it's put: "Kurdish", "Kurdish name", "English description",
   // "Description (Kurdish)", "ID", "Price in dinars"... Others (say "Item" or "Made of") are left alone.
   function columnOf(cell) {
-    var c = String(cell == null ? "" : cell).trim().toLowerCase().replace(/\s+/g, " ");
+    var c = String(cell == null ? "" : cell).replace(/[*_`"]/g, "").trim().toLowerCase().replace(/\s+/g, " ");   // **ID** as Gemini may write it
     if (!c) return null;
     var lang = /kurd|sorani|کورد/.test(c) ? "ku" : /arab|عرب/.test(c) ? "ar" : /engl|ئینگلیز|انجليز|إنجليز/.test(c) ? "en" : null;
     if (/descr|note|وەسف|وصف/.test(c)) return "n" + (lang || "en");
@@ -2341,35 +2350,72 @@
     if (!menu || menuBusy) return;
     var name = String(file.name || "").toLowerCase();
     ioSay("Reading " + (file.name || "the file") + "…");
-    var job = /\.json$/.test(name) ? file.text().then(readBackup) :
+    importFrom(/\.json$/.test(name) ? file.text().then(readBackup) :
       /\.xlsx$/.test(name) ? file.arrayBuffer().then(readXlsx).then(readRows) :
       /\.(csv|txt|tsv)$/.test(name) ? file.text().then(readCsv).then(readRows) :
-      Promise.reject(new Error("Choose an Excel file (.xlsx), a CSV file or a menu backup (.json)."));
-    job.then(function (m) {
-      if (m.changes) return applyChanges(m, file);
+      Promise.reject(new Error("Choose an Excel file (.xlsx), a CSV file or a menu backup (.json).")), file.name || "this file");
+  }
+
+  // What was read (a whole menu, changes by ID, or a backup) onto the menu, after a yes; where says where from
+  function importFrom(job, where, done) {
+    return job.then(function (m) {
+      if (m.changes) return applyChanges(m, where);
       var what = described(m.counts) + (m.backup ? ", with " + m.counts.p + (m.counts.p === 1 ? " picture" : " pictures") : "");
-      if (!window.confirm("Put the menu from " + (file.name || "this file") + " on the TV, in place of the one there now?\n\n" + what + ".")) {
+      if (!window.confirm("Put the menu from " + where + " on the TV, in place of the one there now?\n\n" + what + ".")) {
         return ioSay("Nothing changed.");
       }
       return (m.backup ? restorePictures(m) : Promise.resolve(m)).then(function (ready) {
         return commit(function (cats) {
           cats.splice.apply(cats, [0, cats.length].concat(ready.categories));
         }, ioSay).then(function (ok) {
-          if (ok) ioSay("Done: the menu from " + (file.name || "the file") + " is on the TV. " + what.charAt(0).toUpperCase() + what.slice(1) + ".");
+          if (ok) ioSay("Done: the menu from " + where + " is on the TV. " + what.charAt(0).toUpperCase() + what.slice(1) + ".");
+          return ok;
         });
       });
+    }).then(function (ok) {
+      if (ok && done) done();
     }).catch(function (e) {
       menuBusy = false;
-      if (e.message !== "pin" && e.message !== "locked") ioSay(e.message || "That file couldn't be read.");
+      if (e.message !== "pin" && e.message !== "locked") ioSay(e.message || "That couldn't be read.");
     });
   }
 
+  // A table pasted as text: Gemini's (| ID | ... |, with a line of dashes under the names), cells copied from a
+  // spreadsheet (tabs between them), or CSV. Bold (**...**) around a whole cell is dropped.
+  function readPasted(text) {
+    var lines = String(text || "").replace(/\r/g, "").split("\n");
+    if (!lines.some(function (l) { return /^\s*\|.*\|\s*$/.test(l); })) return readCsv(text);
+    var rows = [];
+    lines.forEach(function (l) {
+      if (!/^\s*\|.*\|\s*$/.test(l)) return;
+      var cells = l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(function (c) {
+        return c.trim().replace(/^(\*\*|__)(.*)\1$/, "$2").trim();
+      });
+      if (cells.every(function (c) { return /^:?-{2,}:?$/.test(c); })) return;
+      rows.push(cells);
+    });
+    return rows;
+  }
+
+  $("ioPaste").addEventListener("click", function () { $("pasteBox").hidden = false; $("ioPaste").hidden = true; $("pasteText").focus(); });
+  $("pasteCancel").addEventListener("click", function () { $("pasteBox").hidden = true; $("ioPaste").hidden = false; $("pasteText").value = ""; });
+  $("pasteUse").addEventListener("click", function () {
+    if (!menu || menuBusy) return;
+    var text = $("pasteText").value;
+    if (!text.trim()) return ioSay("Paste a table in the box first.");
+    importFrom(Promise.resolve(text).then(readPasted).then(readRows), "the pasted table", function () {
+      $("pasteText").value = "";
+      $("pasteBox").hidden = true;
+      $("ioPaste").hidden = false;
+    });
+  });
+
   // Changes from a file to what's on the menu, by ID, after a yes: names, descriptions, prices, shown or hidden.
   // Everything else stays; IDs that aren't on the menu are skipped and said.
-  function applyChanges(m, file) {
+  function applyChanges(m, where) {
     var found = [], missing = [], fields = [];
     m.changes.forEach(function (ch) { if (locate(menu.categories, ch.id)) found.push(ch); else missing.push(ch.row); });
-    if (!found.length) return ioSay("None of the IDs in " + (file.name || "that file") + " is on the menu. Nothing changed.");
+    if (!found.length) return ioSay("None of the IDs in " + where + " is on the menu. Nothing changed.");
     var any = function (f) { return found.some(f); };
     if (any(function (c) { return Object.keys(c.note).length; })) fields.push("descriptions");
     if (any(function (c) { return Object.keys(c.name).length; })) fields.push("names");
@@ -2379,7 +2425,7 @@
     var what = fields.slice(0, -1).join(", ") + (fields.length > 1 ? " and " : "") + fields[fields.length - 1] + " of " + found.length +
       (found.length === 1 ? " thing" : " things") + " on the menu";
     var skipped = missing.length ? (missing.length === 1 ? "row " + missing[0] : "rows " + missing.join(", ")) + ": the ID isn't on the menu" : "";
-    if (!window.confirm("Change the " + what + ", from " + (file.name || "this file") + "? Everything else stays as it is." +
+    if (!window.confirm("Change the " + what + ", from " + where + "? Everything else stays as it is." +
         (skipped ? "\n\nSkipped, " + skipped + "." : ""))) {
       return ioSay("Nothing changed.");
     }
@@ -2396,6 +2442,7 @@
       });
     }, ioSay).then(function (ok) {
       if (ok) ioSay("Done: the " + what + (skipped ? ". Skipped, " + skipped : "") + ".");
+      return ok;
     });
   }
 

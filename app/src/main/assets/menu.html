@@ -98,23 +98,24 @@
   h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), rgba(255, 241, 224, .03)); }
   [dir="rtl"] h3::after { background: linear-gradient(270deg, var(--line), rgba(255, 241, 224, .03)); }
   .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
-  /* A category's or subcategory's picture with its name on it, at the bottom, over a dark fade: the picture
-     clear above, the name easy to read */
-  .cover {
-    position: relative; display: flex; align-items: flex-end; overflow: hidden; aspect-ratio: 16 / 9;
-    border-radius: 18px; background: var(--dusk);
-  }
-  .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .cover h2, .cover h3 {
-    position: relative; display: block; width: 100%; margin: 0; padding: 64px 18px 14px; color: var(--cream);
-    background: linear-gradient(0deg, rgba(8, 11, 38, .9) 0%, rgba(8, 11, 38, .66) 42%, rgba(8, 11, 38, 0) 100%);
+  /* A category's or subcategory's picture with its name and description on it, along the bottom over a dark
+     fade: the picture clear above, the words easy to read. The picture and the words share one spot; a long
+     description makes the picture taller rather than being cut off. */
+  .cover { display: grid; border-radius: 18px; background: var(--dusk); }
+  .cover > img, .cover > .cap { grid-area: 1 / 1; }
+  .cover > img { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: inherit; }
+  .cap {
+    position: relative; align-self: end; padding: 60px 18px 15px; border-radius: 0 0 18px 18px;
+    background: linear-gradient(0deg, rgba(8, 11, 38, .93) 0%, rgba(8, 11, 38, .74) 46%, rgba(8, 11, 38, 0) 100%);
     text-shadow: 0 1px 2px rgba(4, 6, 22, .55), 0 0 18px rgba(4, 6, 22, .6);
   }
-  .cover h2 { font-size: 26px; }
+  .cap h2, .cap h3 { display: block; margin: 0; color: var(--cream); }
+  .cap h2 { font-size: 26px; }
+  .cap h3 { font-size: 20px; color: var(--sun); }
+  .cap h3::after { display: none; }
+  .cap .note { margin-top: 2px; color: rgba(255, 241, 224, .86); font-size: 14px; line-height: 1.5; }
   .cover.sub { margin-top: 24px; }
-  .cover h3 { padding: 52px 16px 12px; font-size: 20px; color: var(--sun); }
-  .cover h3::after { display: none; }
-  .cover + .note { margin-top: 10px; }
+  .cover.sub .cap { padding: 52px 16px 13px; }
 
   .items { list-style: none; margin: 4px 0 0; padding: 0; }
   .items li + li { border-top: 1px solid var(--line); }
@@ -324,23 +325,25 @@
     return h;
   }
 
-  // A category's (h2) or subcategory's (h3) name: on its picture, or a heading of its own when it has none;
-  // its description under it
+  // A category's (h2) or subcategory's (h3) name and description: on its picture, or a heading of its own and
+  // the description under it when it has none
   function head(parent, tag, node) {
     var h = heading(tag, node.name);
     if (node.picture) {
-      var box = el("div", tag === "h2" ? "cover" : "cover sub"), img = el("img");
+      var box = el("div", tag === "h2" ? "cover" : "cover sub"), img = el("img"), cap = el("div", "cap");
       img.src = picture(node.picture, false);
       img.alt = "";
       img.loading = "lazy";
       img.decoding = "async";
       box.appendChild(img);
-      box.appendChild(h);
+      cap.appendChild(h);
+      note(cap, node.note);
+      box.appendChild(cap);
       parent.appendChild(box);
     } else {
       parent.appendChild(h);
+      note(parent, node.note);
     }
-    note(parent, node.note);
   }
 
   function note(parent, o) {

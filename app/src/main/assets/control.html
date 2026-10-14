@@ -1762,7 +1762,9 @@
     pic.appendChild(row);
     pic.appendChild(el("p", { class: "hint", id: "edPicMsg", role: "status" }, kind === "item" ?
       "Square is best, like 1200×1200: shown small beside it (cut to a square from the middle), and big when a customer taps it." :
-      "Wide is best, 16:9 like 1200×675: shown across the menu with its name and description on it, along the bottom, cut to that shape."));
+      kind === "sub" ?
+      "Wide is best, 2:1 like 1200×600: a strip across the menu with its name and description on it, along the bottom, cut to that shape." :
+      "Wide is best, 16:9 like 1200×675: across the whole width of the phone, with its name and description on it along the bottom, cut to that shape."));
     f.appendChild(pic);
 
     var notes = el("details", { class: "field words" }), sum = el("summary", {}, "Description (optional)"), nb = el("div", { class: "names" });

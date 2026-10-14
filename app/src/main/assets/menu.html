@@ -92,30 +92,39 @@
   .chips button[aria-current="true"] { background: var(--glow); border-color: var(--glow); color: #2a1406; }
 
   main { max-width: 40rem; margin: 0 auto; padding: 4px 16px max(48px, calc(env(safe-area-inset-bottom) + 28px)); }
-  section { padding-top: 26px; }
+  section { padding-top: 32px; }
   h2 { margin: 0; font-size: 25px; line-height: 1.35; font-weight: 800; }
   h3 { display: flex; align-items: center; gap: 12px; margin: 24px 0 0; color: var(--sun); font-size: 18px; line-height: 1.4; font-weight: 700; }
   h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), rgba(255, 241, 224, .03)); }
   [dir="rtl"] h3::after { background: linear-gradient(270deg, var(--line), rgba(255, 241, 224, .03)); }
   .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
-  /* A category's or subcategory's picture with its name and description on it, along the bottom over a dark
-     fade: the picture clear above, the words easy to read. The picture and the words share one spot; a long
-     description makes the picture taller rather than being cut off. */
-  .cover { display: grid; border-radius: 18px; background: var(--dusk); }
+  /* A subcategory's name comes after its category's: "Beverages › Energy Drinks" (‹ right to left) */
+  h3 .from { color: var(--mist); font-size: 14px; font-weight: 600; }
+  h3 .sep { color: var(--faint); font-weight: 400; }
+
+  /* A category's picture opens it like a chapter: the phone's whole width, square-cornered, a big name. A
+     subcategory's is a shorter, rounded strip inside the margins, like the items under it. Either way its name and
+     description sit on it, along the bottom over a dark fade: the picture clear above, the words easy to read.
+     Picture and words share one spot, so a long description makes the picture taller rather than being cut off. */
+  .cover { --r: 0px; display: grid; margin-inline: -16px; border-radius: var(--r); background: var(--dusk); }
   .cover > img, .cover > .cap { grid-area: 1 / 1; }
   .cover > img { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: inherit; }
   .cap {
-    position: relative; align-self: end; padding: 60px 18px 15px; border-radius: 0 0 18px 18px;
+    position: relative; align-self: end; padding: 68px 16px 16px; border-radius: 0 0 var(--r) var(--r);
     background: linear-gradient(0deg, rgba(8, 11, 38, .93) 0%, rgba(8, 11, 38, .74) 46%, rgba(8, 11, 38, 0) 100%);
     text-shadow: 0 1px 2px rgba(4, 6, 22, .55), 0 0 18px rgba(4, 6, 22, .6);
   }
-  .cap h2, .cap h3 { display: block; margin: 0; color: var(--cream); }
-  .cap h2 { font-size: 26px; }
-  .cap h3 { font-size: 20px; color: var(--sun); }
+  .cap h2 { margin: 0; color: var(--cream); font-size: 31px; line-height: 1.3; }
+  .cap .note { margin-top: 3px; color: rgba(255, 241, 224, .86); font-size: 14.5px; line-height: 1.5; }
+  .cover.sub { --r: 16px; margin: 22px 0 0; }
+  .cover.sub > img { aspect-ratio: 2 / 1; }
+  .cover.sub .cap { padding: 40px 14px 12px; }
+  .cap h3 { flex-wrap: wrap; align-items: baseline; gap: 0 7px; margin: 0; color: var(--sun); font-size: 21px; }
   .cap h3::after { display: none; }
-  .cap .note { margin-top: 2px; color: rgba(255, 241, 224, .86); font-size: 14px; line-height: 1.5; }
-  .cover.sub { margin-top: 24px; }
-  .cover.sub .cap { padding: 52px 16px 13px; }
+  .cap h3 .from { color: rgba(255, 241, 224, .8); }
+  .cap h3 .sep { color: rgba(255, 241, 224, .6); }
+  .cover.sub .note { font-size: 13.5px; }
+  @media (min-width: 42rem) { .cover { --r: 18px; } }     /* a wide screen: room around the column, so rounded */
 
   .items { list-style: none; margin: 4px 0 0; padding: 0; }
   .items li + li { border-top: 1px solid var(--line); }
@@ -304,7 +313,7 @@
       head(sec, "h2", c);
       if ((c.items || []).length) sec.appendChild(list(c.items));
       (c.subs || []).forEach(function (s) {
-        head(sec, "h3", s);
+        head(sec, "h3", s, c.name);
         sec.appendChild(list(s.items || []));
       });
       main.appendChild(sec);
@@ -325,10 +334,27 @@
     return h;
   }
 
-  // A category's (h2) or subcategory's (h3) name and description: on its picture, or a heading of its own and
-  // the description under it when it has none
-  function head(parent, tag, node) {
-    var h = heading(tag, node.name);
+  // A subcategory's name after its category's (from): each in its own direction, the › between them in the
+  // page's, so it points the way the page reads
+  function subHeading(name, from) {
+    var h = el("h3"), up = pick(from);
+    if (up) {
+      var f = el("span", "from", up), sep = el("span", "sep", "›");
+      f.dir = "auto";
+      sep.setAttribute("aria-hidden", "true");
+      h.appendChild(f);
+      h.appendChild(sep);
+    }
+    var own = el("span", "own", pick(name));
+    own.dir = "auto";
+    h.appendChild(own);
+    return h;
+  }
+
+  // A category's (h2) or subcategory's (h3, with its category's name: from) name and description: on its picture,
+  // or a heading of its own and the description under it when it has none
+  function head(parent, tag, node, from) {
+    var h = tag === "h3" ? subHeading(node.name, from) : heading(tag, node.name);
     if (node.picture) {
       var box = el("div", tag === "h2" ? "cover" : "cover sub"), img = el("img"), cap = el("div", "cap");
       img.src = picture(node.picture, false);

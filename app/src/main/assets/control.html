@@ -801,7 +801,7 @@
     videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false, pricesUrl: "",
     refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
     prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false, videoColors: true,
-    priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], wifiName: "", wifiPassword: "", menuUrl: "",
+    priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], menuSlides: true, wifiName: "", wifiPassword: "", menuUrl: "",
     specialDays: true, hijriAdjust: 0, kurdishNewYear: "21march", labels: {}
   };
   var FIELDS = [
@@ -814,6 +814,8 @@
     { group: "Between songs", tab: "screen" },
     { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
+    { key: "menuSlides", label: "Items from the menu between songs", type: "toggle", tab: "screen",
+      hint: "Each with its picture, name, description and price, after each of your messages and pictures. The weather picks which: no hot drinks on a hot day (28° and up), no ice cream or fresh juice on a cold one (15° and below). An item with “On the TV” off on the Menu tab never comes." },
     { pictures: true, tab: "screen" },
     { group: "QR codes", tab: "screen" },
     { key: "wifiName", label: "Wi-Fi name", type: "text", tab: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
@@ -1620,6 +1622,7 @@
       if (it.picture) b.appendChild(el("img", { src: menuPic(it.picture, true), alt: "", loading: "lazy" }));
       var t = el("span", { class: "t" }), name = el("b", { dir: "auto" }, mainName(it));
       if (it.hidden) name.appendChild(el("span", { class: "tag" }, "hidden"));
+      else if (it.tv === false) name.appendChild(el("span", { class: "tag" }, "not on the TV"));
       t.appendChild(name);
       var o = otherNames(it);
       if (o) t.appendChild(el("span", { dir: "auto" }, o));
@@ -1698,7 +1701,7 @@
     if (id && !loc) return;
     var n = loc ? loc.node : {};
     ed = { kind: kind, id: id, isNew: !id, home: loc ? loc.home : home, uploading: false,
-           draft: { name: copy(n.name || {}), note: copy(n.note || {}), price: n.price, picture: n.picture || null, hidden: !!n.hidden } };
+           draft: { name: copy(n.name || {}), note: copy(n.note || {}), price: n.price, picture: n.picture || null, hidden: !!n.hidden, tv: n.tv !== false } };
     var listNow = listAt(menu.categories, kind, ed.home) || [];
     ed.place = loc ? loc.at : listNow.length;
     ed.startHome = ed.home;
@@ -1790,6 +1793,17 @@
     vis.appendChild(el("p", { class: "hint" }, kind === "item" ? "Off: hidden from customers (sold out, say), and kept here for later." :
       "Off: hidden from customers with everything in it, and kept here for later."));
     f.appendChild(vis);
+
+    if (kind === "item") {                       // its slide on the TV between songs
+      var onTv = el("div", { class: "field" }), tsw = el("label", { class: "switch" }), tcb = el("input", { type: "checkbox", role: "switch", id: "edTv" });
+      tsw.appendChild(el("span", { style: "color:var(--cream);font-size:1rem;font-weight:600" }, "On the TV between songs"));
+      tcb.checked = d.tv !== false;
+      tcb.addEventListener("change", function () { d.tv = tcb.checked; });
+      tsw.appendChild(tcb);
+      onTv.appendChild(tsw);
+      onTv.appendChild(el("p", { class: "hint" }, "Its picture, name, description and price, in turn with the café screen's messages and pictures (it needs a picture). Off for what isn't worth showing, like water."));
+      f.appendChild(onTv);
+    }
 
     var place = el("div", { class: "field" }), pg = el("div", { class: kind === "category" ? "" : "two3" });
     place.appendChild(el("p", { class: "fhead" }, "Place on the menu"));
@@ -1910,7 +1924,10 @@
       if (Object.keys(note).length) node.note = note; else delete node.note;
       if (d.picture) node.picture = d.picture; else delete node.picture;
       if (d.hidden) node.hidden = true; else delete node.hidden;
-      if (kind === "item") { if (d.price != null) node.price = d.price; else delete node.price; }
+      if (kind === "item") {
+        if (d.price != null) node.price = d.price; else delete node.price;
+        if (d.tv === false) node.tv = false; else delete node.tv;
+      }
       var list = listAt(cats, kind, e.home);
       list.splice(Math.max(0, Math.min(e.place, list.length)), 0, node);
     }).then(function (ok) {
@@ -1985,8 +2002,8 @@
 
   /* ---------- the menu in and out: a spreadsheet, or a backup with the pictures ---------- */
 
-  var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "Picture", "ID"];
-  var SHEET_KEYS = ["type", "ku", "ar", "en", "price", "nku", "nar", "nen", "shown", "picture", "id"];
+  var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "On TV", "Picture", "ID"];
+  var SHEET_KEYS = ["type", "ku", "ar", "en", "price", "nku", "nar", "nen", "shown", "tv", "picture", "id"];
 
   function today() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
@@ -2006,7 +2023,7 @@
     var row = function (type, n) {
       var nm = n.name || {}, nt = n.note || {};
       return [type, nm.ku || "", nm.ar || "", nm.en || "", type === "item" && n.price != null ? Number(n.price) : "", nt.ku || "", nt.ar || "", nt.en || "",
-              n.hidden ? "no" : "yes", n.picture || "", n.id || ""];
+              n.hidden ? "no" : "yes", type === "item" ? (n.tv === false ? "no" : "yes") : "", n.picture || "", n.id || ""];
     };
     cats.forEach(function (c) {
       rows.push(row("category", c));
@@ -2206,6 +2223,7 @@
     if (/^(type|kind)$/.test(c)) return "type";
     if (/price|نرخ|سعر/.test(c)) return "price";
     if (/^(on (the )?menu|shown|visible)$/.test(c)) return "shown";
+    if (/^(on (the )?tv|tv)$/.test(c)) return "tv";
     if (/^(picture|photo|image)$/.test(c)) return "picture";
     if (lang) return lang;
     return c === "name" ? "en" : null;
@@ -2239,6 +2257,7 @@
         if (ch.price == null) throw new Error("Row " + n + ": “" + get("price") + "” isn't a price.");
       }
       if (get("shown")) ch.hidden = /^(no|false|0|hidden|off|x)$/i.test(get("shown"));
+      if (get("tv")) ch.tv = !/^(no|false|0|off|x)$/i.test(get("tv"));
       changes.push(ch);
     }
     if (!changes.length) throw new Error("That file has an ID column, but no rows with an ID in it.");
@@ -2279,6 +2298,7 @@
           if (v == null) throw new Error("Row " + n + ": “" + p + "” isn't a price.");
           node.price = v;
         }
+        if (/^(no|false|0|off|x)$/i.test(get("tv"))) node.tv = false;
         (sub || cat).items.push(node); counts.i++;
       } else {
         throw new Error("Row " + n + ": its Type should be category, subcategory or item.");
@@ -2413,7 +2433,7 @@
     });
   });
 
-  // Changes from a file to what's on the menu, by ID, after a yes: names, descriptions, prices, shown or hidden.
+  // Changes from a file to what's on the menu, by ID, after a yes: names, descriptions, prices, shown or hidden, on the TV or not.
   // Everything else stays; IDs that aren't on the menu are skipped and said.
   function applyChanges(m, where) {
     var found = [], missing = [], fields = [];
@@ -2424,6 +2444,7 @@
     if (any(function (c) { return Object.keys(c.name).length; })) fields.push("names");
     if (any(function (c) { return c.price != null; })) fields.push("prices");
     if (any(function (c) { return c.hidden != null; })) fields.push("what's on the menu");
+    if (any(function (c) { return c.tv != null; })) fields.push("what's on the TV");
     if (!fields.length) return ioSay("That file has IDs but nothing to change for them. Nothing changed.");
     var what = fields.slice(0, -1).join(", ") + (fields.length > 1 ? " and " : "") + fields[fields.length - 1] + " of " + found.length +
       (found.length === 1 ? " thing" : " things") + " on the menu";
@@ -2442,6 +2463,8 @@
         if (ch.price != null && !n.items) n.price = ch.price;        // items only: categories have items of their own
         if (ch.hidden === true) n.hidden = true;
         else if (ch.hidden === false) delete n.hidden;
+        if (ch.tv === false && !n.items) n.tv = false;               // items only, like prices
+        else if (ch.tv === true) delete n.tv;
       });
     }, ioSay).then(function (ok) {
       if (ok) ioSay("Done: the " + what + (skipped ? ". Skipped, " + skipped : "") + ".");

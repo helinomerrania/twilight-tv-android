@@ -130,6 +130,43 @@ final class MenuStore {
         }
     }
 
+    /**
+     * The items for the TV's slides between songs: what customers see (not hidden, nor in a hidden category
+     * or subcategory), with a picture, and not kept off the TV; in the menu's order, each with its category's
+     * (and subcategory's) id and name, so the TV can tell which go with the weather:
+     * [{"id", "name", "note", "price", "picture", "cat", "catName", "sub", "subName"}, ...]
+     */
+    synchronized String forTv() {
+        JSONArray out = new JSONArray();
+        try {
+            JSONArray cats = menu.optJSONArray("categories");
+            for (int i = 0; cats != null && i < cats.length(); i++) {
+                JSONObject c = cats.optJSONObject(i);
+                if (c == null || c.optBoolean("hidden")) continue;
+                tvItems(c.optJSONArray("items"), c, null, out);
+                JSONArray ss = c.optJSONArray("subs");
+                for (int j = 0; ss != null && j < ss.length(); j++) {
+                    JSONObject s = ss.optJSONObject(j);
+                    if (s != null && !s.optBoolean("hidden")) tvItems(s.optJSONArray("items"), c, s, out);
+                }
+            }
+        } catch (JSONException e) {
+            // what there is so far
+        }
+        return out.toString();
+    }
+
+    private static void tvItems(JSONArray items, JSONObject c, JSONObject s, JSONArray out) throws JSONException {
+        for (int i = 0; items != null && i < items.length(); i++) {
+            JSONObject it = items.optJSONObject(i);
+            if (it == null || it.optBoolean("hidden") || !it.optBoolean("tv", true) || !it.has("picture")) continue;
+            JSONObject o = open(it).put("cat", c.optString("id")).put("catName", c.optJSONObject("name"));
+            if (it.has("price")) o.put("price", it.optLong("price"));
+            if (s != null) o.put("sub", s.optString("id")).put("subName", s.optJSONObject("name"));
+            out.put(o);
+        }
+    }
+
     /** How many items customers see (no menu code on the TV without any) */
     synchronized int shownItems() {
         int n = 0;
@@ -220,6 +257,7 @@ final class MenuStore {
             long price = price(it.opt("price"));
             if (price > MAX_PRICE && !lenient) throw new IllegalArgumentException("“" + anyName(o) + "”: that price is too big.");
             if (price >= 0 && price <= MAX_PRICE) o.put("price", price);
+            if (Boolean.FALSE.equals(it.opt("tv"))) o.put("tv", false);   // kept off the TV's slides between songs
             out.put(o);
         }
         return out;

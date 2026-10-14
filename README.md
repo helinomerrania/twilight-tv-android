@@ -77,7 +77,7 @@ The **Control** tab has:
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours. During the call to prayer it says **Resume music**, which brings the music back for that prayer.
 
-The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the Wi-Fi for its QR code (and a link to another menu, if you have one), the info panel, numbers and special days, and the words on the TV. The **Menu** tab has the café's menu for customers (below). **Settings** has everything else.
+The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the menu's items between songs, the Wi-Fi for its QR code (and a link to another menu, if you have one), the info panel, numbers and special days, and the words on the TV. The **Menu** tab has the café's menu for customers (below). **Settings** has everything else.
 
 ## The café's menu
 
@@ -89,13 +89,14 @@ To change it, open the phone page's **Menu** tab. At first it has the café's ca
 - **+ Add an item**, **+ Add a subcategory** and **Add a category** add one.
 - Each has a name in Kurdish, Arabic and English: one is enough. Customers see the name in their language, else the Kurdish one. Each can also have a description and a picture from the phone: a category's description is shown under its name (on its picture, when it has one), an item's when a customer taps it. Items have a price in dinars; Kurdish digits are fine.
 - **On the menu for customers** switched off hides it (sold out, say) and keeps it for later. A hidden category hides everything in it.
+- **On the TV between songs** (items): on unless you switch it off, its slide comes on the café screen between songs in turn (see Between songs).
 - **Place on the menu** moves it up or down, or an item to another category or subcategory.
 - **Delete** removes it.
 
 **Pictures:** square for items, 1200×1200 is best: the list shows them small, cut to a square from the middle, and big when a customer taps one. Wide for categories, 16:9, 1200×675 is best: across the whole width of the phone. Wider for subcategories, 2:1, 1200×600 is best: a shorter strip. Both have the name and description on them, along the bottom over a dark fade, and are cut to their shape (a long description makes them taller). Any photo works; the phone makes it smaller (1200 pixels at most) before sending it. A picture with a see-through background (a PNG) gets the menu's dark blue behind it.
 
 **Import and export,** at the bottom of the Menu tab:
-- **Save as Excel** (or **Save as CSV**) gives the whole menu as a spreadsheet: a row for each category, subcategory and item, in the menu's order, with the columns Type, Kurdish, Arabic, English, Price, the three descriptions, On menu (yes or no), Picture and ID. Change names and prices there, or add rows (a new row needs no ID; an item belongs to the category or subcategory above it), then **Import a file** with it.
+- **Save as Excel** (or **Save as CSV**) gives the whole menu as a spreadsheet: a row for each category, subcategory and item, in the menu's order, with the columns Type, Kurdish, Arabic, English, Price, the three descriptions, On menu (yes or no), On TV (yes or no, for items: see Between songs), Picture and ID. Change names and prices there, or add rows (a new row needs no ID; an item belongs to the category or subcategory above it), then **Import a file** with it.
 - Keep the Picture and ID columns as they are, so pictures stay with their items. Keep it as an Excel file (.xlsx); a CSV from Excel must be saved as **CSV UTF-8**, or the Kurdish letters are lost.
 - **Paste a table** takes a table pasted as text: Gemini's answer as it is (with its | lines), or cells copied from a spreadsheet. It works as an imported file does.
 - **Save a backup with the pictures** gives one file with everything. Importing it puts the whole menu, pictures too, on this TV or another one.
@@ -121,14 +122,15 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 - **Info panel off** (Screen tab) shows the video full screen as before.
 - **The typeface** is Vazirmatn (by the Vazirmatn Project Authors, SIL Open Font License), built into the page.
 
-## Between songs: messages and pictures
+## Between songs: messages, pictures and the menu
 
 The café screen is the café's own pictures: one for every day, one each for Newroz, Eid (both Eids), Barat Night and New Year, and a plain one, the room with no words on it, where the TV writes your messages and the call-to-prayer line. To change one, open **Café screen pictures** on the phone's Screen tab and press **Change** under it, then choose a picture on the phone: 16:9, like 1920x1080 (other shapes are cropped to fit), with your words in it. It goes to every TV at once; **Built-in** puts the app's own back. The built-in ones are in `app/src/main/assets/looks`.
 
-Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn. On a long pause it moves to the next one every 20 seconds.
+Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn, with an item from the menu after each of them. On a long pause it moves to the next one every 20 seconds. Each one is made before its turn, its pictures already decoded, and the café screen fades over the video rather than the video fading, so the changes stay smooth (see If the video stutters).
 
 - **Messages:** Screen tab, **Add a message**, then Save.
 - **Pictures:** Screen tab, **Add pictures**, and choose photos on the phone. Each is fitted to the TV whole (nothing cut off), on a blurred copy of itself. Up to 30; × deletes one. They're kept on the TV box itself.
+- **The menu:** items from the Menu tab, each with its picture big on a blurred copy of it, its category, name, description and price, in the TV's language (the Kurdish ones on a Kurdish TV, in Kurdish digits). One from each category or subcategory in turn, and the weather picks: on a hot day (28° and up) no hot drinks, with ice cream, milkshakes and fresh juice first; on a cold one (15° and below) no ice cream, milkshakes or fresh juice, with hot drinks first. Which are which goes by the café's own categories from the start (Hot, Ice Cream, Milkshake, Fresh), whatever they're called now; a category added later counts for any weather. An item needs a picture to come. **On the TV between songs** (in an item's editor on the Menu tab) off keeps one away, like water; **Items from the menu between songs** (Screen tab) off turns them all off. Never during the call to prayer.
 
 ## The call to prayer
 
@@ -176,6 +178,8 @@ If the picture freezes while the sound plays on: Firefox's engine stops decoding
 
 The info panel is drawn so the video can stay its own layer: the video card's rounded corners are painted over the video, not cut out of it, and nothing beside it moves all the time.
 
+Between songs the café screen fades over the video, and the video itself never fades: a fading video has to be drawn a second time for each of its frames, into a layer of its own at the size YouTube draws it, and a TV box's graphics fall behind, so the fades stuttered. Once faded away, the café screen is hidden altogether, and the next message, picture or menu item is made, its pictures decoded, while the song plays, never during a fade.
+
 ## Settings on the phone
 
 On the phone page, open the **Settings** tab. Every setting is there, grouped:
@@ -221,7 +225,7 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `otherApp` | The one other app allowed, by its name on the box or its package | `"My TV Plus"` |
 | `pricesUrl` | Where the prices come from: the tirezh worker at another address (`/api/economy` is added to a bare address); `""` = tirezh.com | `"https://tirezh.example.workers.dev"` |
 
-Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `menuSlides`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
 
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 

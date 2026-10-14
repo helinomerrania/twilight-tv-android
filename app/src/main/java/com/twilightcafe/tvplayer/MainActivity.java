@@ -1373,6 +1373,7 @@ public class MainActivity extends Activity {
             for (Map.Entry<String, Long> e : looks.stamps().entrySet()) own.put(e.getKey(), e.getValue());
             x.put("looks", own);
             x.put("menu", menuAddress());                   // the café's own menu, for the menu code (when there's no menuUrl)
+            x.put("menuItems", new JSONArray(menus.forTv()));   // its items for the slides between songs
             if (box != null) x.put("box", new JSONObject().put("softDraw", softDraw));   // automatic quality: 720p then
             return x.toString();
         } catch (JSONException e) {

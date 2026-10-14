@@ -98,7 +98,7 @@ To change it, open the phone page's **Menu** tab. At first it has the café's ca
 - **Save as Excel** (or **Save as CSV**) gives the whole menu as a spreadsheet: a row for each category, subcategory and item, in the menu's order, with the columns Type, Kurdish, Arabic, English, Price, the three descriptions, On menu (yes or no), Picture and ID. Change names and prices there, or add rows (a new row needs no ID; an item belongs to the category or subcategory above it), then **Import a file** with it.
 - Keep the Picture and ID columns as they are, so pictures stay with their items. Keep it as an Excel file (.xlsx); a CSV from Excel must be saved as **CSV UTF-8**, or the Kurdish letters are lost.
 - **Save a backup with the pictures** gives one file with everything. Importing it puts the whole menu, pictures too, on this TV or another one.
-- An imported file takes the place of the menu on the TV, after you say yes to what's in it.
+- An imported file takes the place of the menu on the TV, after you say yes to what's in it. A file with an **ID** column and no Type column changes only what its other columns hold (descriptions written somewhere else, say, or prices), for the IDs in it; everything else stays, and IDs that aren't on the menu are skipped and said.
 
 Each change is saved on the TV at once. If two phones change the menu at the same moment, the second is told and sees the menu as it is now. The menu code appears on the TV once customers can see something on the menu. **Link to another menu** (Screen tab, `menuUrl`) is only for a menu somewhere else: while it's set, the TV shows its code instead.
 

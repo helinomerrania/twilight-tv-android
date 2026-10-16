@@ -8,6 +8,10 @@ import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -186,18 +190,25 @@ final class PriceFeed {
         return status.equals("increase") ? 1 : status.equals("decrease") ? -1 : 0;
     }
 
+    private static final DateTimeFormatter ISO_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+            .optionalStart()
+            .appendFraction(ChronoField.MILLI_OF_SECOND, 1, 3, true)
+            .optionalEnd()
+            .appendPattern("'Z'")
+            .toFormatter(Locale.US)
+            .withZone(java.time.ZoneId.of("UTC"));
+
     // "2026-10-12T05:37:01.655Z" -> ms (0 if it can't be read)
     private static long time(String iso) {
-        for (String f : new String[] { "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'" }) {
-            SimpleDateFormat p = new SimpleDateFormat(f, Locale.US);
-            p.setTimeZone(TimeZone.getTimeZone("UTC"));
-            try {
-                return p.parse(iso).getTime();
-            } catch (ParseException e) {
-                // the other way
-            }
+        if (iso == null || iso.isEmpty()) {
+            return 0;
         }
-        return 0;
+        try {
+            return Instant.from(ISO_FORMATTER.parse(iso)).toEpochMilli();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     /** For the page: the prices, and when the app got them; null before the first answer. */

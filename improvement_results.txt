@@ -1,0 +1,1 @@
+Average time per parse: 0.0025675 ms

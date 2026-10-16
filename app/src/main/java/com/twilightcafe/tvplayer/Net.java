@@ -89,14 +89,24 @@ final class Net {
     /** This TV's address on the café network (Wi-Fi or cable), e.g. 192.168.1.23, or "" */
     static String localIp() {
         try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            return findLocalIp(Collections.list(NetworkInterface.getNetworkInterfaces()));
+        } catch (Exception e) {
+            // no network yet
+        }
+        return "";
+    }
+
+    /** Helper method extracted for easier deterministic testing. */
+    static String findLocalIp(java.util.List<NetworkInterface> interfaces) {
+        try {
+            for (NetworkInterface ni : interfaces) {
                 if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
                 for (InetAddress a : Collections.list(ni.getInetAddresses())) {
                     if (a instanceof Inet4Address && !a.isLoopbackAddress() && a.isSiteLocalAddress()) return a.getHostAddress();
                 }
             }
         } catch (Exception e) {
-            // no network yet
+            // no network yet or exception while accessing interfaces
         }
         return "";
     }

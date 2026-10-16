@@ -78,4 +78,5 @@ dependencies {
     // Firefox's engine (GeckoView), inside the app: the TV boxes' own engine is too old for YouTube's
     // controls, and they won't take a newer one. Mozilla's newest release; it needs Android 8.0 or newer.
     implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:157.0.20261005135250'
+    testImplementation 'junit:junit:4.13.2'
 }

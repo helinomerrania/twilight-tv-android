@@ -79,3 +79,4 @@ dependencies {
     // controls, and they won't take a newer one. Mozilla's newest release; it needs Android 8.0 or newer.
     implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:157.0.20261005135250'
 }
+dependencies { testImplementation 'junit:junit:4.13.2' }

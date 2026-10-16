@@ -305,7 +305,7 @@ final class ControlServer {
             boolean big = picture || (method.equals("POST") && path.equals("/api/menu"));
             int limit = big && pinOk(params, ip) ? (picture ? MAX_PICTURE_BODY : MAX_MENU_BODY) : MAX_BODY;
             if (length < 0 || length > limit) {
-                if (big && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
+                if (big && limit == MAX_BODY) respond(out, new Request(method, path, params, ip, ""));   // wrong PIN or locked: say so
                 else send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
                 return;
             }
@@ -316,7 +316,7 @@ final class ControlServer {
                 if (n < 0) break;
                 got += n;
             }
-            respond(out, method, path, params, ip, new String(body, 0, got, UTF8));
+            respond(out, new Request(method, path, params, ip, new String(body, 0, got, UTF8)));
         } catch (IOException | RuntimeException e) {
             // the phone went away
         } finally {
@@ -333,14 +333,30 @@ final class ControlServer {
         return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !isLocked(ip);
     }
 
-    void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
+    static class Request {
+        final String method;
+        final String path;
+        final Map<String, String> params;
+        final String ip;
+        final String body;
+
+        Request(String method, String path, Map<String, String> params, String ip, String body) {
+            this.method = method;
+            this.path = path;
+            this.params = params;
+            this.ip = ip;
+            this.body = body;
+        }
+    }
+
+    void respond(OutputStream out, Request req) throws IOException {
         if (menuOnly) {                                        // customers: the menu, its icon, and that's all
-            if (path.equals("/") || path.equals("/index.html")) {
+            if (req.path.equals("/") || req.path.equals("/index.html")) {
                 redirect(out, "/menu/");
-            } else if (path.equals("/menu") || path.startsWith("/menu/")) {
-                menuRequest(out, method, path);
-            } else if (ASSETS.containsKey(path) && ASSETS.get(path).endsWith(".png")) {
-                byte[] b = tv.asset(ASSETS.get(path));
+            } else if (req.path.equals("/menu") || req.path.startsWith("/menu/")) {
+                menuRequest(out, req);
+            } else if (ASSETS.containsKey(req.path) && ASSETS.get(req.path).endsWith(".png")) {
+                byte[] b = tv.asset(ASSETS.get(req.path));
                 if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
                 else send(out, 200, "image/png", b, "no-referrer", "public, max-age=86400");
             } else {
@@ -348,15 +364,15 @@ final class ControlServer {
             }
             return;
         }
-        if (path.startsWith("/tv/")) {
-            tvRequest(out, method, path, params, ip, body);
+        if (req.path.startsWith("/tv/")) {
+            tvRequest(out, req);
             return;
         }
-        if (path.equals("/") || path.equals("/index.html")) {
+        if (req.path.equals("/") || req.path.equals("/index.html")) {
             send(out, 200, "text/html; charset=utf-8", tv.page());
             return;
         }
-        String asset = ASSETS.get(path);
+        String asset = ASSETS.get(req.path);
         if (asset != null) {                                   // the home-screen icon: no PIN, nothing private in it
             byte[] b = tv.asset(asset);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
@@ -364,105 +380,105 @@ final class ControlServer {
                     "no-referrer", "public, max-age=86400");
             return;
         }
-        if (path.equals("/menu") || path.startsWith("/menu/")) {
-            menuRequest(out, method, path);
+        if (req.path.equals("/menu") || req.path.startsWith("/menu/")) {
+            menuRequest(out, req);
             return;
         }
-        if (!path.startsWith("/api/")) {
+        if (!req.path.startsWith("/api/")) {
             send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             return;
         }
-        if (isLocked(ip)) {
+        if (isLocked(req.ip)) {
             json(out, 429, "{\"error\":\"locked\",\"message\":\"Too many wrong PINs. Try again in 10 minutes.\"}");
             return;
         }
         String pin = tv.pin();
-        if (pin == null || pin.isEmpty() || !pin.equals(params.get("pin"))) {
-            wrongPin(ip);
+        if (pin == null || pin.isEmpty() || !pin.equals(req.params.get("pin"))) {
+            wrongPin(req.ip);
             json(out, 401, "{\"error\":\"pin\",\"message\":\"Wrong PIN.\"}");
             return;
         }
-        rightPin(ip);
-        if (path.equals("/api/status")) {
+        rightPin(req.ip);
+        if (req.path.equals("/api/status")) {
             String s = tv.status();
             json(out, 200, s == null ? "{}" : s);
-        } else if (path.equals("/api/cmd")) {
-            if (!method.equals("POST")) {
+        } else if (req.path.equals("/api/cmd")) {
+            if (!req.method.equals("POST")) {
                 json(out, 405, "{\"error\":\"use POST\"}");
                 return;
             }
-            String what = params.get("do");
+            String what = req.params.get("do");
             boolean ok = what != null && tv.command(what);
             json(out, ok ? 200 : 400, "{\"ok\":" + ok + "}");
-        } else if (path.equals("/api/settings")) {
-            if (method.equals("GET")) {
+        } else if (req.path.equals("/api/settings")) {
+            if (req.method.equals("GET")) {
                 String s = tv.settings();
                 json(out, 200, s == null ? "{}" : s);
-            } else if (method.equals("POST")) {
-                String r = tv.saveSettings(body, "1".equals(params.get("all")));
+            } else if (req.method.equals("POST")) {
+                String r = tv.saveSettings(req.body, "1".equals(req.params.get("all")));
                 if (r == null) json(out, 400, "{\"error\":\"settings\",\"message\":\"Those settings couldn't be read.\"}");
                 else json(out, 200, r);
             } else {
                 json(out, 405, "{\"error\":\"use GET or POST\"}");
             }
-        } else if (path.equals("/api/songs")) {
+        } else if (req.path.equals("/api/songs")) {
             String s = tv.songs();
             json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
-        } else if (path.equals("/api/pictures")) {
-            if (method.equals("GET")) {
+        } else if (req.path.equals("/api/pictures")) {
+            if (req.method.equals("GET")) {
                 String s = tv.pictures();
                 json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
-            } else if (method.equals("POST")) {
-                String gone = params.get("delete");
+            } else if (req.method.equals("POST")) {
+                String gone = req.params.get("delete");
                 if (gone != null) {
                     boolean ok = tv.deletePicture(gone);
                     json(out, ok ? 200 : 404, "{\"ok\":" + ok + "}");
                 } else {
-                    String r = tv.addPicture(body);
+                    String r = tv.addPicture(req.body);
                     if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
                     else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
                 }
             } else {
                 json(out, 405, "{\"error\":\"use GET or POST\"}");
             }
-        } else if (path.equals("/api/picture")) {
-            byte[] b = tv.picture(params.get("id"), "small".equals(params.get("size")));
+        } else if (req.path.equals("/api/picture")) {
+            byte[] b = tv.picture(req.params.get("id"), "small".equals(req.params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
             else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");   // a picture never changes
-        } else if (path.equals("/api/looks")) {
-            if (method.equals("GET")) {
+        } else if (req.path.equals("/api/looks")) {
+            if (req.method.equals("GET")) {
                 String s = tv.looks();
                 json(out, s == null ? 503 : 200, s == null ? "{\"error\":\"not ready\"}" : s);
-            } else if (method.equals("POST")) {
-                String name = params.get("name");
-                boolean all = "1".equals(params.get("all"));
-                String r = "1".equals(params.get("reset")) ? tv.resetLook(name, all) : tv.setLook(name, body, all);
+            } else if (req.method.equals("POST")) {
+                String name = req.params.get("name");
+                boolean all = "1".equals(req.params.get("all"));
+                String r = "1".equals(req.params.get("reset")) ? tv.resetLook(name, all) : tv.setLook(name, req.body, all);
                 if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
                 else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
             } else {
                 json(out, 405, "{\"error\":\"use GET or POST\"}");
             }
-        } else if (path.equals("/api/look")) {
-            byte[] b = tv.lookForPhone(params.get("name"), "small".equals(params.get("size")));
+        } else if (req.path.equals("/api/look")) {
+            byte[] b = tv.lookForPhone(req.params.get("name"), "small".equals(req.params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
             else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");                   // it may be changed
-        } else if (path.equals("/api/menu")) {
-            if (method.equals("GET")) {
+        } else if (req.path.equals("/api/menu")) {
+            if (req.method.equals("GET")) {
                 String m = tv.menu();
                 json(out, m == null ? 503 : 200, m == null ? "{\"error\":\"not ready\"}" : m);
-            } else if (method.equals("POST")) {
-                String r = tv.saveMenu(body);
+            } else if (req.method.equals("POST")) {
+                String r = tv.saveMenu(req.body);
                 if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't save the menu right now.\"}");
                 else json(out, r.contains("\"ok\":true") ? 200 : r.contains("\"conflict\":true") ? 409 : 400, r);
             } else {
                 json(out, 405, "{\"error\":\"use GET or POST\"}");
             }
-        } else if (path.equals("/api/menu/picture")) {
-            if (!method.equals("POST")) {
+        } else if (req.path.equals("/api/menu/picture")) {
+            if (!req.method.equals("POST")) {
                 json(out, 405, "{\"error\":\"use POST\"}");
                 return;
             }
-            String r = tv.addMenuPicture(body);
+            String r = tv.addMenuPicture(req.body);
             if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
             else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
         } else {
@@ -471,30 +487,30 @@ final class ControlServer {
     }
 
     // The menu for customers: open to anyone on the café Wi-Fi, nothing to change, nothing private in it
-    private void menuRequest(OutputStream out, String method, String path) throws IOException {
-        if (!method.equals("GET")) {
+    private void menuRequest(OutputStream out, Request req) throws IOException {
+        if (!req.method.equals("GET")) {
             send(out, 405, "text/plain; charset=utf-8", "Use GET".getBytes(UTF8));
             return;
         }
-        if (path.equals("/menu")) {
+        if (req.path.equals("/menu")) {
             redirect(out, "/menu/");
-        } else if (path.equals("/menu/")) {
+        } else if (req.path.equals("/menu/")) {
             byte[] page = tv.menuPage();
             if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             else send(out, 200, "text/html; charset=utf-8", page, "no-referrer", "no-cache");
-        } else if (path.equals("/menu/data")) {
+        } else if (req.path.equals("/menu/data")) {
             String m = tv.menuForCustomers();
             if (m == null) json(out, 503, "{\"error\":\"not ready\"}");
             else send(out, 200, "application/json; charset=utf-8", m.getBytes(UTF8), "no-referrer", "no-cache");
-        } else if (path.matches("/menu/pics/[a-z0-9]{4,24}(\\.small)?\\.jpg")) {
-            String name = path.substring("/menu/pics/".length(), path.length() - 4);
+        } else if (req.path.matches("/menu/pics/[a-z0-9]{4,24}(\\.small)?\\.jpg")) {
+            String name = req.path.substring("/menu/pics/".length(), req.path.length() - 4);
             boolean small = name.endsWith(".small");
             byte[] b = tv.menuPicture(small ? name.substring(0, name.length() - 6) : name, small);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             // a picture never changes: a new one gets a new id
             else send(out, 200, "image/jpeg", b, "no-referrer", "public, max-age=31536000, immutable");
-        } else if (path.matches("/menu/fonts/[a-z0-9-]{1,40}\\.woff2")) {
-            byte[] b = tv.asset("fonts/" + path.substring("/menu/fonts/".length()));
+        } else if (req.path.matches("/menu/fonts/[a-z0-9-]{1,40}\\.woff2")) {
+            byte[] b = tv.asset("fonts/" + req.path.substring("/menu/fonts/".length()));
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             else send(out, 200, "font/woff2", b, "no-referrer", "public, max-age=2592000");
         } else {
@@ -515,27 +531,27 @@ final class ControlServer {
     }
 
     // The TV page and its check-in: only for the box itself, never for the café network
-    private void tvRequest(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
-        if (!isLoopback(ip)) {
+    private void tvRequest(OutputStream out, Request req) throws IOException {
+        if (!isLoopback(req.ip)) {
             send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             return;
         }
-        if (path.equals("/tv/index.html") && method.equals("GET")) {
+        if (req.path.equals("/tv/index.html") && req.method.equals("GET")) {
             byte[] page = tv.tvPage();
             if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             // YouTube needs to see which page its player is on, so this one does send its address
             else send(out, 200, "text/html; charset=utf-8", page, "strict-origin-when-cross-origin");
-        } else if (path.equals("/tv/sync") && method.equals("POST")) {
-            String r = tv.tvSync(params.get("k"), body);
+        } else if (req.path.equals("/tv/sync") && req.method.equals("POST")) {
+            String r = tv.tvSync(req.params.get("k"), req.body);
             if (r == null) json(out, 403, "{\"error\":\"key\"}");
             else json(out, 200, r);
-        } else if (path.matches("/tv/looks/[a-z]{1,20}\\.jpg") && method.equals("GET")) {
-            byte[] b = tv.look(path.substring("/tv/looks/".length(), path.length() - 4));
+        } else if (req.path.matches("/tv/looks/[a-z]{1,20}\\.jpg") && req.method.equals("GET")) {
+            byte[] b = tv.look(req.path.substring("/tv/looks/".length(), req.path.length() - 4));
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             // checked again each time the page loads: a new version of the app may bring new ones
             else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");
-        } else if (path.startsWith("/tv/pictures/") && path.endsWith(".jpg") && method.equals("GET")) {
-            String id = path.substring("/tv/pictures/".length(), path.length() - 4);
+        } else if (req.path.startsWith("/tv/pictures/") && req.path.endsWith(".jpg") && req.method.equals("GET")) {
+            String id = req.path.substring("/tv/pictures/".length(), req.path.length() - 4);
             byte[] b = tv.picture(id, false);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");

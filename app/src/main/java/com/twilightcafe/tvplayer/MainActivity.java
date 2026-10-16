@@ -371,9 +371,7 @@ public class MainActivity extends Activity {
     // What the box is (for the phone page, test mode and the page's picture quality): read once, in
     // the background, as the graphics check takes a moment
     private void readBox() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
                 JSONObject b = new JSONObject();
                 try {
                     b.put("box", BoxInfo.box());
@@ -388,7 +386,6 @@ public class MainActivity extends Activity {
                 }
                 box = b;
                 boxVersion++;
-            }
         }, "box-info").start();
     }
 

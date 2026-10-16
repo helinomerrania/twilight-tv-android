@@ -219,12 +219,7 @@ public class MainActivity extends Activity {
         makeWebView();
         readEngine();
         readBox();
-        handler.postDelayed(new Runnable() {             // once the screen has settled in the box's own mode
-            @Override
-            public void run() {
-                applyScreenMode();
-            }
-        }, 4000);
+        handler.postDelayed(this::applyScreenMode, 4000); // once the screen has settled in the box's own mode
         server = new ControlServer(phone);
         server.start();
         menuServer = new ControlServer(phone, true);       // customers' phones: the menu alone, on a port of its own
@@ -371,24 +366,21 @@ public class MainActivity extends Activity {
     // What the box is (for the phone page, test mode and the page's picture quality): read once, in
     // the background, as the graphics check takes a moment
     private void readBox() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                JSONObject b = new JSONObject();
-                try {
-                    b.put("box", BoxInfo.box());
-                    String[] g = BoxInfo.graphics();
-                    boolean soft = g != null && VideoSetup.softDraw(g[0], g[1]);
-                    b.put("graphics", g == null ? "" : g[0] + (VideoSetup.gl(g[1]).isEmpty() ? "" : ", " + VideoSetup.gl(g[1])));
-                    b.put("softDraw", soft);
-                    b.put("decoders", BoxInfo.decoders());
-                    softDraw = soft;
-                } catch (JSONException | RuntimeException e) {
-                    // what was read so far
-                }
-                box = b;
-                boxVersion++;
+        new Thread(() -> {
+            JSONObject b = new JSONObject();
+            try {
+                b.put("box", BoxInfo.box());
+                String[] g = BoxInfo.graphics();
+                boolean soft = g != null && VideoSetup.softDraw(g[0], g[1]);
+                b.put("graphics", g == null ? "" : g[0] + (VideoSetup.gl(g[1]).isEmpty() ? "" : ", " + VideoSetup.gl(g[1])));
+                b.put("softDraw", soft);
+                b.put("decoders", BoxInfo.decoders());
+                softDraw = soft;
+            } catch (JSONException | RuntimeException e) {
+                // what was read so far
             }
+            box = b;
+            boxVersion++;
         }, "box-info").start();
     }
 
@@ -443,12 +435,9 @@ public class MainActivity extends Activity {
             // the engine couldn't start: try again in 10 seconds
             web = null;
             session = null;
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    makeWebView();
-                    if (visible) open();
-                }
+            handler.postDelayed(() -> {
+                makeWebView();
+                if (visible) open();
             }, 10000);
             return;
         }
@@ -511,11 +500,8 @@ public class MainActivity extends Activity {
     }
 
     private void engineGone(final GeckoSession gone) {
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (gone == session) restartWebView();
-            }
+        handler.post(() -> {
+            if (session == gone) restartWebView();
         });
     }
 
@@ -606,14 +592,11 @@ public class MainActivity extends Activity {
         MotionEvent down = pointerEvent(t, t, MotionEvent.ACTION_DOWN, x, y, true);
         web.dispatchTouchEvent(down);
         down.recycle();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (web == null) return;
-                MotionEvent up = pointerEvent(t, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, true);
-                web.dispatchTouchEvent(up);
-                up.recycle();
-            }
+        handler.postDelayed(() -> {
+            if (web == null) return;
+            MotionEvent up = pointerEvent(t, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, true);
+            web.dispatchTouchEvent(up);
+            up.recycle();
         }, 70);
     }
 
@@ -656,12 +639,9 @@ public class MainActivity extends Activity {
             arrow.close();
         }
 
-        private final Runnable unpress = new Runnable() {
-            @Override
-            public void run() {
-                fill.setColor(0xFFFFFFFF);
-                invalidate();
-            }
+        private final Runnable unpress = () -> {
+            fill.setColor(0xFFFFFFFF);
+            invalidate();
         };
 
         // A click: gold for a moment
@@ -842,28 +822,15 @@ public class MainActivity extends Activity {
             if (qualitySetupUntil > 0 && now >= qualitySetupUntil) endQualitySetup();
             if (now - lastSettingsCheck > 30 * 60000L) {                 // settings.json every 30 minutes
                 lastSettingsCheck = now;
-                work.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (settings.refresh(BuildConfig.REPO)) {
-                            handler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    settingsChanged();
-                                }
-                            });
-                        }
+                work.execute(() -> {
+                    if (settings.refresh(BuildConfig.REPO)) {
+                        handler.post(MainActivity.this::settingsChanged);
                     }
                 });
             }
             if (settings.flag("updates", true) && now - startedAt > 60000L && now - lastUpdateCheck > 6 * 3600000L) {
                 lastUpdateCheck = now;                                    // updates every 6 hours
-                work.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        updater.check();
-                    }
-                });
+                work.execute(() -> updater.check());
             }
             // The page says "alive" every 5 seconds. Silent for 2 minutes: reload it;
             // three times within half an hour: a whole new web engine.
@@ -882,31 +849,16 @@ public class MainActivity extends Activity {
                 final double[] ll = place();
                 final String key = settings.text("weatherKey", "").trim();
                 if (weather.due(now, ll[0], ll[1], key)) {
-                    feeds.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            weather.refresh(ll[0], ll[1], key);
-                        }
-                    });
+                    feeds.execute(() -> weather.refresh(ll[0], ll[1], key));
                 }
             }
             final String city = prayerCity();
             if (visible && !city.isEmpty() && prayerTimes.due(now, city)) {
-                feeds.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        prayerTimes.refresh(city);
-                    }
-                });
+                feeds.execute(() -> prayerTimes.refresh(city));
             }
             final String priceUrl = pricesUrl();
             if (visible && wantsPrices() && prices.due(now, priceUrl)) {
-                feeds.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        prices.refresh(priceUrl);
-                    }
-                });
+                feeds.execute(() -> prices.refresh(priceUrl));
             }
             titles.start();
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
@@ -1311,12 +1263,7 @@ public class MainActivity extends Activity {
                 String id = song == null ? "" : song.optString("id", "");
                 if (!id.isEmpty() && !id.equals(pageSong)) {
                     pageSong = id;                          // every new song starts at the box volume from the settings,
-                    handler.post(new Runnable() {           // whatever the remote did to the last one
-                        @Override
-                        public void run() {
-                            applyTvVolume();
-                        }
-                    });
+                    handler.post(this::applyTvVolume);      // whatever the remote did to the last one
                 }
             }
             JSONObject info = in.optJSONObject("info");
@@ -1447,12 +1394,7 @@ public class MainActivity extends Activity {
         }
         String oldPin = pin;
         settings.setLocal(clean);
-        runOnMain(new Runnable() {
-            @Override
-            public void run() {
-                settingsChanged();
-            }
-        });
+        runOnMain(this::settingsChanged);
         try {
             JSONObject result = new JSONObject();
             result.put("ok", true);
@@ -1470,11 +1412,8 @@ public class MainActivity extends Activity {
             result.put("others", done);
             if (engineChanged()) {                         // the engine's start-up settings: the app starts again (after this answer)
                 result.put("restarting", true);
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (engineChanged()) restartApp();
-                    }
+                handler.postDelayed(() -> {
+                    if (engineChanged()) restartApp();
                 }, 2000);
             }
             return result.toString();
@@ -1581,30 +1520,15 @@ public class MainActivity extends Activity {
             case "tvvol+":
             case "tvvol-":
                 if (audio == null || audio.isVolumeFixed()) return false;
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                what.equals("tvvol+") ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
-                    }
-                });
+                handler.post(() -> audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        what.equals("tvvol+") ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI));
                 return true;
             case "otherapp":
                 final boolean[] opened = { false };
-                runOnMain(new Runnable() {
-                    @Override
-                    public void run() {
-                        opened[0] = openOtherApp(false);
-                    }
-                });
+                runOnMain(() -> opened[0] = openOtherApp(false));
                 return opened[0];
             case "backhome":
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        comeBack();
-                    }
-                });
+                handler.post(this::comeBack);
                 return true;
             case "unlock":
                 unlock(false);
@@ -1615,50 +1539,27 @@ public class MainActivity extends Activity {
             case "update":
                 settingsUntil = System.currentTimeMillis() + AppLock.SETTINGS;   // Android's install question, and its settings
                 final String[] message = { null };
-                runOnMain(new Runnable() {
-                    @Override
-                    public void run() {
-                        message[0] = updater.install(MainActivity.this);
-                    }
-                });
+                runOnMain(() -> message[0] = updater.install(MainActivity.this));
                 notice = message[0] == null ? "" : message[0];
                 noticeAt = System.currentTimeMillis();
                 return message[0] != null;
             case "qualitysetup":
             case "qualitydone":
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (what.equals("qualitysetup")) startQualitySetup();
-                        else endQualitySetup();
-                    }
+                handler.post(() -> {
+                    if (what.equals("qualitysetup")) startQualitySetup();
+                    else endQualitySetup();
                 });
                 return true;
             case "testmode":
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        toggleTestMode();
-                    }
-                });
+                handler.post(this::toggleTestMode);
                 return true;
             case "restart":
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        restartApp();
-                    }
-                });
+                handler.post(this::restartApp);
                 return true;
             case "forget":
                 return toPage("forget");
             case "checkupdate":
-                work.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        updater.check();
-                    }
-                });
+                work.execute(() -> updater.check());
                 return true;
             default:
                 return pageCommand(what);
@@ -1690,14 +1591,11 @@ public class MainActivity extends Activity {
 
     private void runOnMain(final Runnable r) {
         final CountDownLatch done = new CountDownLatch(1);
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    r.run();
-                } finally {
-                    done.countDown();
-                }
+        handler.post(() -> {
+            try {
+                r.run();
+            } finally {
+                done.countDown();
             }
         });
         try {
@@ -1768,11 +1666,8 @@ public class MainActivity extends Activity {
         }
     };
 
-    private final Runnable homeBack = new Runnable() {
-        @Override
-        public void run() {
-            if (!visible) comeBack();
-        }
+    private final Runnable homeBack = () -> {
+        if (!visible) comeBack();
     };
 
     private void listenForHome() {

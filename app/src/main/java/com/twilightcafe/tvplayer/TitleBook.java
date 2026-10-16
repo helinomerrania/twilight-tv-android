@@ -80,12 +80,7 @@ final class TitleBook {
     synchronized void start() {
         if (running || wanted.isEmpty() || System.currentTimeMillis() < quietUntil) return;
         running = true;
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                work();
-            }
-        }, "song-names");
+        Thread t = new Thread(this::work, "song-names");
         t.setDaemon(true);
         t.start();
     }

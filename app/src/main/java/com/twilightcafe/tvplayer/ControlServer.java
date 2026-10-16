@@ -222,12 +222,7 @@ final class ControlServer {
         running = true;
         pool = Executors.newFixedThreadPool(6);
         boxPool = Executors.newFixedThreadPool(2);
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                acceptLoop();
-            }
-        }, "phone-control");
+        Thread t = new Thread(this::acceptLoop, "phone-control");
         t.setDaemon(true);
         t.start();
         return port;
@@ -253,12 +248,7 @@ final class ControlServer {
                 // the box's own (the TV page's check-in every second) apart from the phones'
                 ExecutorService p = isLoopback(c.getInetAddress().getHostAddress()) ? boxPool : pool;
                 try {
-                    p.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            handle(c);
-                        }
-                    });
+                    p.execute(() -> handle(c));
                 } catch (RejectedExecutionException e) {
                     c.close();
                 }

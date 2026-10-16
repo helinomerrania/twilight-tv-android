@@ -234,7 +234,7 @@ final class TitleBook {
         if (file == null) return;
         try {
             JSONObject t = new JSONObject();
-            for (Map.Entry<String, String[]> e : known.entrySet()) t.put(e.getKey(), new JSONArray().put(e.getValue()[0]).put(e.getValue()[1]));
+            for (Map.Entry<String, String[]> e : known.entrySet()) t.put(e.getKey(), new JSONArray(e.getValue()));
             JSONObject f = new JSONObject();
             for (Map.Entry<String, Long> e : failed.entrySet()) f.put(e.getKey(), e.getValue().longValue());
             writeFile(file, new JSONObject().put("titles", t).put("failed", f).toString());

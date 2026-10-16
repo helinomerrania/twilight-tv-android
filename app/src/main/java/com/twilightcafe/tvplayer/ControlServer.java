@@ -342,7 +342,7 @@ final class ControlServer {
             } else if (ASSETS.containsKey(path) && ASSETS.get(path).endsWith(".png")) {
                 byte[] b = tv.asset(ASSETS.get(path));
                 if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
-                else send(out, 200, "image/png", b, "no-referrer", "public, max-age=86400");
+                else send(out, new HttpResponse(200, "image/png", b).setReferrerPolicy("no-referrer").setCache("public, max-age=86400"));
             } else {
                 send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             }
@@ -360,8 +360,7 @@ final class ControlServer {
         if (asset != null) {                                   // the home-screen icon: no PIN, nothing private in it
             byte[] b = tv.asset(asset);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
-            else send(out, 200, asset.endsWith(".png") ? "image/png" : "application/manifest+json; charset=utf-8", b,
-                    "no-referrer", "public, max-age=86400");
+            else send(out, new HttpResponse(200, asset.endsWith(".png") ? "image/png" : "application/manifest+json; charset=utf-8", b).setReferrerPolicy("no-referrer").setCache("public, max-age=86400"));
             return;
         }
         if (path.equals("/menu") || path.startsWith("/menu/")) {
@@ -428,7 +427,7 @@ final class ControlServer {
         } else if (path.equals("/api/picture")) {
             byte[] b = tv.picture(params.get("id"), "small".equals(params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
-            else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");   // a picture never changes
+            else send(out, new HttpResponse(200, "image/jpeg", b).setReferrerPolicy("no-referrer").setCache("private, max-age=604800"));   // a picture never changes
         } else if (path.equals("/api/looks")) {
             if (method.equals("GET")) {
                 String s = tv.looks();
@@ -445,7 +444,7 @@ final class ControlServer {
         } else if (path.equals("/api/look")) {
             byte[] b = tv.lookForPhone(params.get("name"), "small".equals(params.get("size")));
             if (b == null) json(out, 404, "{\"error\":\"not found\"}");
-            else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");                   // it may be changed
+            else send(out, new HttpResponse(200, "image/jpeg", b).setReferrerPolicy("no-referrer").setCache("no-cache"));                   // it may be changed
         } else if (path.equals("/api/menu")) {
             if (method.equals("GET")) {
                 String m = tv.menu();
@@ -481,22 +480,22 @@ final class ControlServer {
         } else if (path.equals("/menu/")) {
             byte[] page = tv.menuPage();
             if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
-            else send(out, 200, "text/html; charset=utf-8", page, "no-referrer", "no-cache");
+            else send(out, new HttpResponse(200, "text/html; charset=utf-8", page).setReferrerPolicy("no-referrer").setCache("no-cache"));
         } else if (path.equals("/menu/data")) {
             String m = tv.menuForCustomers();
             if (m == null) json(out, 503, "{\"error\":\"not ready\"}");
-            else send(out, 200, "application/json; charset=utf-8", m.getBytes(UTF8), "no-referrer", "no-cache");
+            else send(out, new HttpResponse(200, "application/json; charset=utf-8", m.getBytes(UTF8)).setReferrerPolicy("no-referrer").setCache("no-cache"));
         } else if (path.matches("/menu/pics/[a-z0-9]{4,24}(\\.small)?\\.jpg")) {
             String name = path.substring("/menu/pics/".length(), path.length() - 4);
             boolean small = name.endsWith(".small");
             byte[] b = tv.menuPicture(small ? name.substring(0, name.length() - 6) : name, small);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             // a picture never changes: a new one gets a new id
-            else send(out, 200, "image/jpeg", b, "no-referrer", "public, max-age=31536000, immutable");
+            else send(out, new HttpResponse(200, "image/jpeg", b).setReferrerPolicy("no-referrer").setCache("public, max-age=31536000, immutable"));
         } else if (path.matches("/menu/fonts/[a-z0-9-]{1,40}\\.woff2")) {
             byte[] b = tv.asset("fonts/" + path.substring("/menu/fonts/".length()));
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
-            else send(out, 200, "font/woff2", b, "no-referrer", "public, max-age=2592000");
+            else send(out, new HttpResponse(200, "font/woff2", b).setReferrerPolicy("no-referrer").setCache("public, max-age=2592000"));
         } else {
             send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
         }
@@ -533,12 +532,12 @@ final class ControlServer {
             byte[] b = tv.look(path.substring("/tv/looks/".length(), path.length() - 4));
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
             // checked again each time the page loads: a new version of the app may bring new ones
-            else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");
+            else send(out, new HttpResponse(200, "image/jpeg", b).setReferrerPolicy("no-referrer").setCache("no-cache"));
         } else if (path.startsWith("/tv/pictures/") && path.endsWith(".jpg") && method.equals("GET")) {
             String id = path.substring("/tv/pictures/".length(), path.length() - 4);
             byte[] b = tv.picture(id, false);
             if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
-            else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");
+            else send(out, new HttpResponse(200, "image/jpeg", b).setReferrerPolicy("no-referrer").setCache("private, max-age=604800"));
         } else {
             send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
         }
@@ -579,29 +578,53 @@ final class ControlServer {
         out.flush();
     }
 
+    private static class HttpResponse {
+        int code;
+        String type;
+        byte[] body;
+        String referrerPolicy = "no-referrer";
+        String cache = "no-store";
+
+        HttpResponse(int code, String type, byte[] body) {
+            this.code = code;
+            this.type = type;
+            this.body = body;
+        }
+
+        HttpResponse setReferrerPolicy(String referrerPolicy) {
+            this.referrerPolicy = referrerPolicy;
+            return this;
+        }
+
+        HttpResponse setCache(String cache) {
+            this.cache = cache;
+            return this;
+        }
+    }
+
     private static void json(OutputStream out, int code, String body) throws IOException {
         send(out, code, "application/json; charset=utf-8", body.getBytes(UTF8));
     }
 
     private static void send(OutputStream out, int code, String type, byte[] body) throws IOException {
-        send(out, code, type, body, "no-referrer");
+        send(out, new HttpResponse(code, type, body));
     }
 
     private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy) throws IOException {
-        send(out, code, type, body, referrerPolicy, "no-store");
+        send(out, new HttpResponse(code, type, body).setReferrerPolicy(referrerPolicy));
     }
 
-    private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy, String cache) throws IOException {
-        if (body == null) body = new byte[0];
-        String head = "HTTP/1.1 " + code + " " + reason(code) + "\r\n"
-                + "Content-Type: " + type + "\r\n"
-                + "Content-Length: " + body.length + "\r\n"
-                + "Cache-Control: " + cache + "\r\n"
+    private static void send(OutputStream out, HttpResponse response) throws IOException {
+        if (response.body == null) response.body = new byte[0];
+        String head = "HTTP/1.1 " + response.code + " " + reason(response.code) + "\r\n"
+                + "Content-Type: " + response.type + "\r\n"
+                + "Content-Length: " + response.body.length + "\r\n"
+                + "Cache-Control: " + response.cache + "\r\n"
                 + "X-Content-Type-Options: nosniff\r\n"
-                + "Referrer-Policy: " + referrerPolicy + "\r\n"
+                + "Referrer-Policy: " + response.referrerPolicy + "\r\n"
                 + "Connection: close\r\n\r\n";
         out.write(head.getBytes(LATIN1));
-        out.write(body);
+        out.write(response.body);
         out.flush();
     }
 

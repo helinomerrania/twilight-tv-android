@@ -176,6 +176,14 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         startedAt = System.currentTimeMillis();
+        setupWindow();
+        setupBasicServices();
+        setupOverlays();
+        setupEngineAndBox();
+        setupServersAndPermissions();
+    }
+
+    private void setupWindow() {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);   // no screensaver, no sleep
         if (Build.VERSION.SDK_INT >= 28) {                                     // phones: use the area around a camera notch too
             WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -185,7 +193,9 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(NIGHT_BLUE);
         setContentView(root);
+    }
 
+    private void setupBasicServices() {
         settings = new AppSettings(this);
         updater = new Updater(this, BuildConfig.REPO, BuildConfig.VERSION_CODE);
         makeFeeds();
@@ -198,7 +208,9 @@ public class MainActivity extends Activity {
         leveller.apply(settings.flag("levelSound", true));
         tvVolumeSetting = settings.number("tvVolume", 0);
         applyTvVolume();
+    }
 
+    private void setupOverlays() {
         overlay = new TextView(this);
         overlay.setTextColor(0xFFFFF1E0);
         overlay.setBackgroundColor(0xE60A0E2C);
@@ -215,7 +227,9 @@ public class MainActivity extends Activity {
         pointer = new PointerView(this, 30 * density);
         pointer.setVisibility(View.GONE);
         root.addView(pointer, new FrameLayout.LayoutParams((int) (36 * density), (int) (46 * density)));
+    }
 
+    private void setupEngineAndBox() {
         makeWebView();
         readEngine();
         readBox();
@@ -225,6 +239,9 @@ public class MainActivity extends Activity {
                 applyScreenMode();
             }
         }, 4000);
+    }
+
+    private void setupServersAndPermissions() {
         server = new ControlServer(phone);
         server.start();
         menuServer = new ControlServer(phone, true);       // customers' phones: the menu alone, on a port of its own

@@ -592,7 +592,14 @@ public class MainActivity extends Activity {
         placePointer();
         if (web == null) return;
         long t = SystemClock.uptimeMillis();
-        MotionEvent hover = pointerEvent(t, t, MotionEvent.ACTION_HOVER_MOVE, pointerX, pointerY, false);
+        MotionEvent hover = new PointerEventBuilder()
+                .setDownTime(t)
+                .setEventTime(t)
+                .setAction(MotionEvent.ACTION_HOVER_MOVE)
+                .setX(pointerX)
+                .setY(pointerY)
+                .setTouch(false)
+                .build();
         web.dispatchGenericMotionEvent(hover);
         hover.recycle();
     }
@@ -603,33 +610,85 @@ public class MainActivity extends Activity {
         pointer.pressed();                                               // the arrow flashes, so OK is seen to work
         final float x = pointerX, y = pointerY;
         final long t = SystemClock.uptimeMillis();
-        MotionEvent down = pointerEvent(t, t, MotionEvent.ACTION_DOWN, x, y, true);
+        MotionEvent down = new PointerEventBuilder()
+                .setDownTime(t)
+                .setEventTime(t)
+                .setAction(MotionEvent.ACTION_DOWN)
+                .setX(x)
+                .setY(y)
+                .setTouch(true)
+                .build();
         web.dispatchTouchEvent(down);
         down.recycle();
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (web == null) return;
-                MotionEvent up = pointerEvent(t, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, true);
+                MotionEvent up = new PointerEventBuilder()
+                        .setDownTime(t)
+                        .setEventTime(SystemClock.uptimeMillis())
+                        .setAction(MotionEvent.ACTION_UP)
+                        .setX(x)
+                        .setY(y)
+                        .setTouch(true)
+                        .build();
                 web.dispatchTouchEvent(up);
                 up.recycle();
             }
         }, 70);
     }
 
-    // A mouse moving (touch false) or a finger on the screen (touch true), at x, y on the page
-    private static MotionEvent pointerEvent(long downTime, long time, int action, float x, float y, boolean touch) {
-        MotionEvent.PointerProperties props = new MotionEvent.PointerProperties();
-        props.id = 0;
-        props.toolType = touch ? MotionEvent.TOOL_TYPE_FINGER : MotionEvent.TOOL_TYPE_MOUSE;
-        MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
-        coords.x = x;
-        coords.y = y;
-        coords.pressure = touch ? 1f : 0f;
-        coords.size = touch ? 0.05f : 0f;
-        return MotionEvent.obtain(downTime, time, action, 1, new MotionEvent.PointerProperties[] { props },
-                new MotionEvent.PointerCoords[] { coords }, 0, 0, 1f, 1f, 0, 0,
-                touch ? InputDevice.SOURCE_TOUCHSCREEN : InputDevice.SOURCE_MOUSE, 0);
+    private static class PointerEventBuilder {
+        private long downTime;
+        private long eventTime;
+        private int action;
+        private float x;
+        private float y;
+        private boolean touch;
+
+        public PointerEventBuilder setDownTime(long downTime) {
+            this.downTime = downTime;
+            return this;
+        }
+
+        public PointerEventBuilder setEventTime(long eventTime) {
+            this.eventTime = eventTime;
+            return this;
+        }
+
+        public PointerEventBuilder setAction(int action) {
+            this.action = action;
+            return this;
+        }
+
+        public PointerEventBuilder setX(float x) {
+            this.x = x;
+            return this;
+        }
+
+        public PointerEventBuilder setY(float y) {
+            this.y = y;
+            return this;
+        }
+
+        public PointerEventBuilder setTouch(boolean touch) {
+            this.touch = touch;
+            return this;
+        }
+
+        public MotionEvent build() {
+            MotionEvent.PointerProperties props = new MotionEvent.PointerProperties();
+            props.id = 0;
+            props.toolType = touch ? MotionEvent.TOOL_TYPE_FINGER : MotionEvent.TOOL_TYPE_MOUSE;
+            MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
+            coords.x = x;
+            coords.y = y;
+            coords.pressure = touch ? 1f : 0f;
+            coords.size = touch ? 0.05f : 0f;
+            return MotionEvent.obtain(downTime, eventTime, action, 1, new MotionEvent.PointerProperties[] { props },
+                    new MotionEvent.PointerCoords[] { coords }, 0, 0, 1f, 1f, 0, 0,
+                    touch ? InputDevice.SOURCE_TOUCHSCREEN : InputDevice.SOURCE_MOUSE, 0);
+        }
     }
 
     /** The pointer shown during quality setup: a white arrow with a dark edge, its tip at (tip, tip). */

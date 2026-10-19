@@ -171,6 +171,9 @@ final class ControlServer {
     static final int MAX_BODY = 64 * 1024;
     static final int MAX_PICTURE_BODY = 9 << 20;          // a picture from the phone, as text (base64)
     static final int MAX_MENU_BODY = 2 << 20;             // the whole menu from the phone
+    // A phone that sends its request a little at a time can't hold one of the few threads for long
+    static final int HEAD_TIME = 15000;                   // the request line and headers, all together
+    static final int BODY_TIME = 10000;                   // the body: this, and about a second more for every 64 KB
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
@@ -272,7 +275,8 @@ final class ControlServer {
         try {
             InputStream in = c.getInputStream();
             OutputStream out = c.getOutputStream();
-            String request = readLine(in);
+            long deadline = System.currentTimeMillis() + HEAD_TIME;
+            String request = readLine(in, deadline);
             if (request == null || request.isEmpty()) return;
             String[] parts = request.split(" ");
             if (parts.length < 2) {
@@ -289,7 +293,7 @@ final class ControlServer {
             String ip = c.getInetAddress().getHostAddress();
             int length = 0;
             for (int i = 0; i < 100; i++) {                    // headers: only the body's length matters
-                String h = readLine(in);
+                String h = readLine(in, deadline);
                 if (h == null || h.isEmpty()) break;
                 int colon = h.indexOf(':');
                 if (colon > 0 && h.substring(0, colon).trim().equalsIgnoreCase("Content-Length")) {
@@ -311,12 +315,12 @@ final class ControlServer {
             }
             byte[] body = new byte[length];
             int got = 0;
-            long start = System.currentTimeMillis();
+            deadline = System.currentTimeMillis() + bodyTime(length);
             while (got < length) {
+                if (System.currentTimeMillis() > deadline) throw new IOException("too slow");
                 int n = in.read(body, got, length - got);
                 if (n < 0) break;
                 got += n;
-                if (System.currentTimeMillis() - start > 10000) throw new IOException("read too slow");
             }
             respond(out, method, path, params, ip, new String(body, 0, got, UTF8));
         } catch (IOException | RuntimeException e) {
@@ -623,16 +627,23 @@ final class ControlServer {
         }
     }
 
-    /** One line of the request (up to 8 KB), without the line break. */
-    private static String readLine(InputStream in) throws IOException {
+    /**
+     * How long a body of this many bytes may take to arrive: 10 seconds, and about a second for every
+     * 64 KB, so a big picture still gets through from a phone on a weak Wi-Fi (9 MB: two and a half minutes)
+     */
+    static long bodyTime(int length) {
+        return BODY_TIME + length / 64;
+    }
+
+    /** One line of the request (up to 8 KB), without the line break; all of it by the deadline. */
+    private static String readLine(InputStream in, long deadline) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         int ch;
-        long start = System.currentTimeMillis();
         while ((ch = in.read()) != -1) {
             if (ch == '\n') break;
             if (ch != '\r') b.write(ch);
             if (b.size() > 8192) throw new IOException("line too long");
-            if (System.currentTimeMillis() - start > 10000) throw new IOException("read too slow");
+            if (System.currentTimeMillis() > deadline) throw new IOException("too slow");
         }
         if (ch == -1 && b.size() == 0) return null;
         return new String(b.toByteArray(), LATIN1);

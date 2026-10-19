@@ -1,8 +1,9 @@
 name: Build the TV app
 
 # Runs every time something in the project changes (or by hand from the Actions tab).
-# Changes on the main branch are published as the latest release (twilight-tv.apk);
-# other branches are only built, as a test.
+# Changes to the app on the main branch are published as the latest release (twilight-tv.apk);
+# a change to only the tests, the documents or the build's own steps isn't (the TVs would download
+# the same app again), and other branches are only built, as a test.
 on:
   push:
   workflow_dispatch:
@@ -16,6 +17,8 @@ jobs:
     steps:
       - name: Get the project
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # the whole history, to see whether the app changed since the last release
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -88,6 +91,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The old test version's channel ("firefox"): no TV uses it any more (this line can go later)
+          gh release delete firefox --cleanup-tag --yes 2>/dev/null || true
+          # Only when the app itself changed since the last release, or when run by hand
+          last=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [ "${{ github.event_name }}" != workflow_dispatch ] && [ -n "$last" ] && git rev-parse -q --verify "refs/tags/$last" > /dev/null \
+             && git diff --quiet "$last" HEAD -- app ':(exclude)app/src/test' build.gradle settings.gradle gradle.properties gradle; then
+            echo "::notice title=Not published::The app is the same as in $last (only tests, documents or the build's own steps changed): the TVs have nothing new to install."
+            exit 0
+          fi
           # Tagged with the app's version number, which the TVs compare with their own
           gh release create "build-$((100000 + ${{ github.run_number }}))-${{ github.run_attempt }}" twilight-tv.apk \
             --target "${{ github.sha }}" \
@@ -98,18 +110,3 @@ jobs:
           gh release list --limit 100 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[3:] | .[].tagName' |
             while read -r old; do gh release delete "$old" --cleanup-tag --yes || true; done
-
-      - name: Also as the test version's release
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # The TV that tried the test version (build 15) looks for updates here. This brings
-          # it onto the normal releases; the step can go once it has updated.
-          cp twilight-tv.apk twilight-tv-gecko.apk
-          gh release delete firefox --cleanup-tag --yes || true
-          gh release create firefox twilight-tv-gecko.apk \
-            --target "${{ github.sha }}" \
-            --prerelease \
-            --title "Twilight TV with Firefox's engine (test), build ${{ github.run_number }}" \
-            --notes "The test version is now the normal app. Install twilight-tv.apk from the latest release instead."

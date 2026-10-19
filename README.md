@@ -230,7 +230,7 @@ Keep the quotes and commas as they are. If the file ever has a mistake in it, th
 
 ## Updates
 
-When anything in this repository changes on the `main` branch, GitHub builds a new version (about 5 minutes) and publishes it under **Releases**. Every TV checks for new versions every 6 hours and downloads them (about 85 MB, so give it a few minutes). Nothing pops up on the TV by itself. When the phone page shows **Install update**:
+When the app changes on the `main` branch, GitHub tests it, builds a new version (about 10 minutes) and publishes it under **Releases**. A change to only the tests or the documents isn't published, so the TVs never download the same app again. Every TV checks for new versions every 6 hours and downloads them (about 85 MB, so give it a few minutes). Nothing pops up on the TV by itself. When the phone page shows **Install update**:
 
 1. Press it on the phone.
 2. Look at the TV and press **Install** with the remote. The app restarts by itself.

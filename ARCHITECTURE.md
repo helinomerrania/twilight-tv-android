@@ -33,7 +33,7 @@ Each server takes the first free port from 8080 (the menu's from 8090), so norma
 
 ```
 settings.json                           settings for every TV (the app reads it every 30 minutes)
-.github/workflows/build.yml             tests and builds every push; from main, publishes the release
+.github/workflows/build.yml             tests and builds every push; from main, publishes a release when the app changed
 .github/workflows/jules.yml             hands a task to Jules (an issue labelled ask-jules)
 app/build.gradle                        the app's version and what it is built from
 app/src/main/AndroidManifest.xml        what Android starts by name
@@ -159,6 +159,6 @@ The suites that need the app's server use `tests/pages/server/PageTestServer.jav
 1. Find the part by its job in the table above; new code goes in the folder of its job. Only what the manifest names goes in the top folder.
 2. A new part is made in `TvApp`, and gets what it needs there.
 3. Run `./gradlew testDebugUnitTest`, and for a change to a page, `node run.js` in `tests/pages`.
-4. Push to any branch other than `main` for a test build. Pushing to `main` publishes a new version to every TV, installed when staff press **Install update** on the phone page.
+4. Push to any branch other than `main` for a test build. A change to the app pushed to `main` is published as a new version for every TV, installed when staff press **Install update** on the phone page; a change to only the tests, the documents or the build's own steps isn't published. Running the build by hand (Actions → Build the TV app → Run workflow) always publishes.
 
 Small, well-described jobs can go to Jules, Google's coding agent: an issue with the label **ask-jules** (its title and text are the task), or **Ask Jules → Run workflow** on the Actions tab. Jules opens a pull request; GitHub's build tests it like any other change, and it's checked before it's merged. The workflow uses the repository secret `JULES_API_KEY`, and only the café's own GitHub accounts can start it.

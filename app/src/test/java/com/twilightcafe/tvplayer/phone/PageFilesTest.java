@@ -117,7 +117,7 @@ public class PageFilesTest {
     }
 
     @Test
-    public void thePhonePageAsksOnlyForWhatItsServerHandsOut() throws IOException {
+    public void thePhonePageAsksOnlyForWhatItsServerHandsOut() throws Exception {      // Android's JSONException is checked
         List<String> asked = pageAsksFor(AppAssets.PHONE_PAGE, "/", ControlServer.PHONE_FILES);
         JSONArray icons = new JSONObject(read("home-screen/manifest.webmanifest")).getJSONArray("icons");
         for (int i = 0; i < icons.length(); i++) asked.add(URI.create("http://tv/").resolve(icons.getJSONObject(i).getString("src")).getPath());

@@ -38,7 +38,7 @@ final class AppLock {
 
     /** The box's own settings and app store: from there, anything else could be opened */
     static boolean boxOwn(String pkg) {
-        return pkg.contains("settings") || pkg.equals("com.android.vending");
+        return pkg != null && (pkg.contains("settings") || pkg.equals("com.android.vending"));
     }
 
     /** The box's home screen: one of its home apps, or anything called a launcher */

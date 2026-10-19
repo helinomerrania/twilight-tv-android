@@ -52,6 +52,7 @@ jobs:
           export PATH="$RUNNER_TEMP/py/bin:$PATH"
           export CHROME_PATH="$(command -v google-chrome || command -v chromium || true)"
           node run.js 2>&1 | tee "$GITHUB_WORKSPACE/pages.log"
+          echo "::notice title=Page tests::$(tail -n 1 "$GITHUB_WORKSPACE/pages.log")"
 
       - name: Show what went wrong
         if: failure()

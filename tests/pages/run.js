@@ -27,10 +27,10 @@ function run(file, args, time) {
     child.on('close', code => {
       clearTimeout(timer);
       const m = /(\d+) passed, (\d+) failed\s*$/.exec(out.trimEnd());
-      const passed = m ? Number(m[1]) : 0, failed = m ? Number(m[2]) : 0;
+      const passed = m ? Number(m[1]) : 0, failed = m ? Number(m[2]) : 0, skipped = (out.match(/^  skip /gm) || []).length;
       const why = stuck ? 'stopped after ' + time / 60e3 + ' minutes' : !m ? 'stopped before the end' : passed + failed === 0 ? 'no checks ran'
         : failed ? '' : code !== 0 ? 'ended with code ' + code : '';
-      done({ out, passed, failed, ok: !why && !failed, why, seconds: (Date.now() - started) / 1000 });
+      done({ out, passed, failed, skipped, ok: !why && !failed, why, seconds: (Date.now() - started) / 1000 });
     });
   });
 }
@@ -76,18 +76,22 @@ function print(title, r) {
   if (tv) {
     const rs = Object.values(tvResults);
     const bad = tvTests.filter(t => !tvResults[t] || !tvResults[t].ok);
-    results.tv = { passed: rs.reduce((n, r) => n + r.passed, 0), failed: rs.reduce((n, r) => n + r.failed, 0), ok: bad.length === 0 && tvTests.length > 0,
+    results.tv = { passed: rs.reduce((n, r) => n + r.passed, 0), failed: rs.reduce((n, r) => n + r.failed, 0), skipped: rs.reduce((n, r) => n + r.skipped, 0),
+      ok: bad.length === 0 && tvTests.length > 0,
       why: tvTests.length === 0 ? 'no tests found' : bad.length ? 'in ' + bad.join(', ') : '' };
   }
   const order = (tv ? ['tv'] : []).concat(browser);
-  const total = order.reduce((n, s) => n + results[s].passed, 0), failed = order.filter(s => !results[s].ok);
+  const total = order.reduce((n, s) => n + results[s].passed, 0), skipped = order.reduce((n, s) => n + results[s].skipped, 0);
+  const failed = order.filter(s => !results[s].ok);
   console.log('\nThe page tests');
   for (const s of order) {
     const r = results[s];
     console.log('  ' + (r.ok ? 'ok  ' : 'FAIL') + ' ' + s.padEnd(16) + String(r.passed).padStart(4) + ' passed' + (r.failed ? ', ' + r.failed + ' failed' : '')
-      + (r.why ? '  (' + r.why + ')' : ''));
+      + (r.skipped ? ', ' + r.skipped + ' skipped' : '') + (r.why ? '  (' + r.why + ')' : ''));
   }
   const time = Math.round((Date.now() - started) / 1000);
-  console.log(failed.length ? '\n' + failed.length + ' of ' + order.length + ' suites failed.' : '\nAll ' + total + ' checks passed, in ' + Math.floor(time / 60) + ' min ' + time % 60 + ' s.');
+  console.log(failed.length ? '\n' + failed.length + ' of ' + order.length + ' suites failed.'
+    : '\nAll ' + total + ' checks passed' + (skipped ? ' (' + skipped + ' skipped: what this computer lacks, marked "skip" above)' : '') + ', in '
+      + Math.floor(time / 60) + ' min ' + time % 60 + ' s.');
   process.exit(failed.length ? 1 : 0);
 })().catch(e => { console.log('  FAIL the page tests could not run: ' + (e && e.stack || e)); process.exit(1); });

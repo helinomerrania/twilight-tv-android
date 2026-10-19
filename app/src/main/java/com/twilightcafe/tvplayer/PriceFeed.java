@@ -221,9 +221,11 @@ final class PriceFeed {
         return u.matches("(?i)https?://[^/?#]+/?") ? u.replaceAll("/$", "") + "/api/economy" : u;
     }
 
+    private static final java.util.regex.Pattern HOST_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z]+://([^/:?#]+)");
+
     /** The site's name in an address: "tirezh.com" from "https://tirezh.com/api/economy" */
     static String host(String url) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^[a-zA-Z]+://([^/:?#]+)").matcher(url == null ? "" : url);
+        java.util.regex.Matcher m = HOST_PATTERN.matcher(url == null ? "" : url);
         return m.find() ? m.group(1) : String.valueOf(url);
     }
 

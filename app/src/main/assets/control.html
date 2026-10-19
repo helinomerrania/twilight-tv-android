@@ -486,7 +486,12 @@
     return fetch(path + sep + "pin=" + encodeURIComponent(pin), opts)
       .then(function (r) {
         if (r.status === 401) { try { localStorage.removeItem(KEY); } catch (e) {} askPin(pin ? "That PIN didn't work. Try again." : ""); throw new Error("pin"); }
-        if (r.status === 429) { askPin("Too many wrong PINs. Wait 10 minutes, then try again."); throw new Error("locked"); }
+        if (r.status === 429) {   // this phone's wrong PINs, or someone guessing: the TV says which
+          return r.json().catch(function () { return {}; }).then(function (m) {
+            askPin(m.message || "Too many wrong PINs. Wait 10 minutes, then try again.");
+            throw new Error("locked");
+          });
+        }
         return r.json();
       });
   }

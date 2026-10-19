@@ -7,7 +7,6 @@
   "openHours": "",
 
   "tvVolume": 0,
-  "controlPin": "",
   "levelSound": true,
   "restartAt": "05:00",
   "updates": true,

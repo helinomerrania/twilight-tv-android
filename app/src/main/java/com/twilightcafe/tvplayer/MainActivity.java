@@ -923,10 +923,10 @@ public class MainActivity extends Activity {
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * v / 100f)), 0);
     }
 
-    // controlPin from settings.json (4 to 8 digits), otherwise this TV's own random PIN
+    // The PIN set on the phone (4 to 8 digits; never from settings.json, which is public), otherwise this TV's own random PIN
     private String choosePin() {
-        String fromFile = settings.text("controlPin", "");
-        if (fromFile.matches("\\d{4,8}")) return fromFile;
+        String set = settings.text("controlPin", "");
+        if (set.matches("\\d{4,8}")) return set;
         SharedPreferences p = getSharedPreferences("phone", MODE_PRIVATE);
         String own = p.getString("pin", "");
         if (!own.matches("\\d{4}")) {
@@ -1490,7 +1490,14 @@ public class MainActivity extends Activity {
             o.put("names", titles.describe(pageSongs));
             o.put("updateReady", Updater.shown(updater.readyBuild));
             o.put("updateStatus", settings.flag("updates", true) ? updater.status : "off in settings.json");
-            o.put("notice", System.currentTimeMillis() - noticeAt < 120000L ? notice : "");
+            String said = System.currentTimeMillis() - noticeAt < 120000L ? notice : "";
+            int guesses = server == null ? 0 : server.guessing();
+            if (guesses > 0) {                                 // someone on the Wi-Fi guessing the PIN: the staff should know
+                String warn = "Someone on the Wi-Fi has been guessing the PIN (" + guesses + " wrong in the last hour). Phones that "
+                        + "already had it still work; new ones wait until it stops. A PIN of 6 to 8 digits (Settings) makes guessing hopeless.";
+                said = said.isEmpty() ? warn : said + " " + warn;
+            }
+            o.put("notice", said);
             JSONArray others = new JSONArray();
             List<String[]> list = finder == null ? null : finder.others();
             if (list != null) {

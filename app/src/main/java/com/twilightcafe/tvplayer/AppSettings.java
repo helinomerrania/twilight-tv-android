@@ -24,6 +24,9 @@ final class AppSettings {
                                                 "weatherKey", "videoFormat", "screenSize", "screenRate", "engineNumbers", "pricesUrl",
                                                 "lockApps", "otherApp" };
 
+    // Never taken from settings.json, which anyone can read on GitHub: they're set on the phone, for this TV (or all)
+    private static final String[] PHONE_ONLY = { "controlPin", "weatherKey" };
+
     private final SharedPreferences prefs;
     private volatile JSONObject file;              // settings.json
     private volatile JSONObject local;             // this TV's own
@@ -35,7 +38,7 @@ final class AppSettings {
     AppSettings(Context c) {
         prefs = c.getSharedPreferences("settings", Context.MODE_PRIVATE);
         version = prefs.getInt("version", 1);
-        file = orEmpty(parse(prefs.getString("json", "{}")));
+        file = orEmpty(withoutSecrets(parse(prefs.getString("json", "{}"))));
         local = orEmpty(parse(prefs.getString("local", "{}")));
         effective = merge(file, local);
         builtIn = orEmpty(parse(prefs.getString("pageDefaults", "{}")));
@@ -113,6 +116,8 @@ final class AppSettings {
             status = "settings.json has a mistake in it, so the last good settings are used";
             return false;
         }
+        String ignored = secretsIn(fresh);
+        withoutSecrets(fresh);
         boolean changed;
         synchronized (this) {
             changed = !fresh.toString().equals(file.toString());
@@ -124,8 +129,25 @@ final class AppSettings {
             prefs.edit().putString("json", fresh.toString()).putInt("version", version).putLong("time", now).apply();
         }
         status = body == null ? "no settings.json in the repository, so the built-in settings are used"
-                              : "settings.json from GitHub, " + when(now);
+                              : "settings.json from GitHub, " + when(now)
+                                + (ignored.isEmpty() ? "" : " (its " + ignored + " left out: that's set on the phone, never in a public file)");
         return changed;
+    }
+
+    /** settings.json without the PIN and the weather key, whatever it says */
+    static JSONObject withoutSecrets(JSONObject j) {
+        if (j != null) for (String k : PHONE_ONLY) j.remove(k);
+        return j;
+    }
+
+    // "controlPin and weatherKey": the ones settings.json has a value for, or ""
+    static String secretsIn(JSONObject j) {
+        StringBuilder b = new StringBuilder();
+        for (String k : PHONE_ONLY) {
+            if (j.optString(k, "").trim().isEmpty()) continue;
+            b.append(b.length() > 0 ? " and " : "").append(k);
+        }
+        return b.toString();
     }
 
     /** Replaces this TV's own settings (from the phone page). */

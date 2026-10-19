@@ -34,6 +34,7 @@ final class Updater {
     static final int ENGINE_BUILDS = 100000;
 
     private static final String APK = "twilight-tv.apk";
+    static final long MAX_APK = 300L << 20;  // the app is about 90 MB: anything near this isn't it
 
     private final Context ctx;
     private final SharedPreferences prefs;
@@ -81,17 +82,31 @@ final class Updater {
                 return;
             }
             String url = null;
+            long size = -1;
             JSONArray assets = release.optJSONArray("assets");
             for (int i = 0; assets != null && i < assets.length(); i++) {
                 JSONObject a = assets.optJSONObject(i);
-                if (a != null && APK.equals(a.optString("name"))) url = a.optString("browser_download_url");
+                if (a != null && APK.equals(a.optString("name"))) {
+                    url = a.optString("browser_download_url");
+                    size = a.optLong("size", -1);
+                }
             }
             if (url == null || url.isEmpty()) {
                 status = "build " + shown(build) + " has no app file";
                 return;
             }
+            if (size > MAX_APK) {
+                status = "build " + shown(build) + "'s app file is " + (size >> 20) + " MB, far bigger than the app, so it wasn't downloaded";
+                return;
+            }
             status = "downloading build " + shown(build);
-            int session = download(url);
+            int session;
+            try {
+                session = download(url, size);
+            } catch (IOException e) {
+                status = "build " + shown(build) + " didn't download whole (" + e.getMessage() + "); it's tried again at the next check";
+                return;
+            }
             prefs.edit().putInt("session", session).putInt("build", build).apply();
             readyBuild = build;
             status = "build " + shown(build) + " is ready to install";
@@ -112,8 +127,8 @@ final class Updater {
         }
     }
 
-    // Straight into Android's installer, so no storage permission is needed
-    private int download(String url) throws IOException {
+    // Straight into Android's installer, so no storage permission is needed; size: GitHub's size of the file (-1 if unknown)
+    private int download(String url, long size) throws IOException {
         PackageInstaller pi = ctx.getPackageManager().getPackageInstaller();
         for (PackageInstaller.SessionInfo old : pi.getMySessions()) {
             try {
@@ -134,11 +149,9 @@ final class Updater {
         try {
             if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
             InputStream in = c.getInputStream();
-            OutputStream out = session.openWrite(APK, 0, -1);
+            OutputStream out = session.openWrite(APK, 0, size > 0 ? size : -1);
             try {
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                copy(in, out, size, MAX_APK);
                 session.fsync(out);
             } finally {
                 out.close();
@@ -151,6 +164,25 @@ final class Updater {
             c.disconnect();
         }
         return id;
+    }
+
+    /**
+     * The download into the installer, counted: more than GitHub said (or than any app of ours could be), or
+     * less (the connection closed early), and it's thrown away instead of being offered to Android, which would
+     * only show "There was a problem parsing the package" on the TV. Returns the bytes copied.
+     */
+    static long copy(InputStream in, OutputStream out, long expected, long max) throws IOException {
+        byte[] buf = new byte[65536];
+        long got = 0;
+        int n;
+        while ((n = in.read(buf)) > 0) {
+            got += n;
+            if (got > max) throw new IOException("bigger than the app could be");
+            if (expected > 0 && got > expected) throw new IOException("bigger than GitHub said");
+            out.write(buf, 0, n);
+        }
+        if (expected > 0 && got != expected) throw new IOException((got >> 20) + " of " + (expected >> 20) + " MB");
+        return got;
     }
 
     private boolean sessionAlive(int id) {

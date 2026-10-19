@@ -23,11 +23,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build the APK
+      - name: Test and build the APK
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
+          # The tests (app/src/test) first: if one fails, nothing is built or published
+          ./gradlew --no-daemon testDebugUnitTest assembleRelease 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
           ls -l twilight-tv.apk
 
@@ -35,12 +36,15 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          # Gradle's own explanation and any compile errors, as notes on the run
+          # Gradle's own explanation, any compile errors and any failed tests, as notes on the run
+          # ("|| true": a search that finds nothing mustn't end the step before the notes are written)
           enc() { sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }'; }
-          wrong=$(grep -A 12 "What went wrong" build.log | head -n 40 | enc)
-          errors=$(grep -E -A 2 "error:|e: |\.java:[0-9]+:" build.log | head -n 60 | enc)
+          wrong=$(grep -A 12 "What went wrong" build.log | head -n 40 | enc || true)
+          errors=$(grep -E -A 2 "error:|e: |\.java:[0-9]+:" build.log | head -n 60 | enc || true)
+          tests=$(grep -E -A 3 " FAILED$" build.log | head -n 60 | enc || true)
           [ -n "$wrong" ] && echo "::error title=What went wrong::$wrong"
           [ -n "$errors" ] && echo "::error title=Compile errors::$errors"
+          [ -n "$tests" ] && echo "::error title=Failed tests::$tests"
           true
 
       - name: Keep the APK with this build

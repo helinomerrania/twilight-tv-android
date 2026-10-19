@@ -10,11 +10,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A tiny web server on the café network, for the phone control page.
@@ -54,9 +57,11 @@ import java.util.concurrent.RejectedExecutionException;
  *   GET  /tv/looks/<name>.jpg       the café screen's own pictures, built into the app (assets/looks)
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
- * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in. The box's
+ * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in; and as a
+ * new address is easy to take, 20 wrong PINs in an hour from all phones together leave
+ * only the phones that already had the right PIN able to try (see shutOut). The box's
  * own requests (the TV page) have threads of their own, so customers reading the menu
- * never hold up the TV.
+ * never hold up the TV, and connections waiting for a thread are limited (QUEUE).
  * Plain Java only (no Android classes), so it can be tested on a computer.
  */
 final class ControlServer {
@@ -174,6 +179,7 @@ final class ControlServer {
     // A phone that sends its request a little at a time can't hold one of the few threads for long
     static final int HEAD_TIME = 15000;                   // the request line and headers, all together
     static final int BODY_TIME = 10000;                   // the body: this, and about a second more for every 64 KB
+    static final int QUEUE = 128;                         // connections waiting for a thread; past that, "busy" (503)
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
@@ -182,12 +188,18 @@ final class ControlServer {
     private final boolean menuOnly;                       // the customers' server: the menu and nothing else
     private final Map<String, Integer> fails = new HashMap<>();
     private final Map<String, Long> lockedUntil = new HashMap<>();
+    private final Map<String, Long> trusted = new HashMap<>();    // phones that gave the right PIN: when they last did
+    private final ArrayDeque<Long> wrongs = new ArrayDeque<>();   // when each wrong PIN came, from any phone
+    private long guessingUntil;                                   // someone guessing: only known phones until then
     private ServerSocket socket;
     private ExecutorService pool, boxPool;
     private volatile boolean running;
     private volatile int port;
     long lockMillis = 10 * 60 * 1000L;
     int maxFails = 10;
+    int maxWrongAll = 20;                                 // wrong PINs from all phones together...
+    long guessWindow = 60 * 60 * 1000L;                   // ...in this long
+    long trustMillis = 24 * 60 * 60 * 1000L;              // a phone that gave the right PIN is known for a day
 
     ControlServer(Tv tv) {
         this(tv, false);
@@ -223,8 +235,8 @@ final class ControlServer {
         }
         if (socket == null) return 0;
         running = true;
-        pool = Executors.newFixedThreadPool(6);
-        boxPool = Executors.newFixedThreadPool(2);
+        pool = new ThreadPoolExecutor(6, 6, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(QUEUE));
+        boxPool = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(32));
         Thread t = new Thread(this::acceptLoop, "phone-control");
         t.setDaemon(true);
         t.start();
@@ -253,7 +265,7 @@ final class ControlServer {
                 try {
                     p.execute(() -> handle(c));
                 } catch (RejectedExecutionException e) {
-                    c.close();
+                    busy(c);
                 }
             } catch (IOException e) {
                 if (!running) return;
@@ -326,7 +338,7 @@ final class ControlServer {
 
     private boolean pinOk(Map<String, String> params, String ip) {
         String pin = tv.pin();
-        return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !isLocked(ip);
+        return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !isLocked(ip) && !shutOut(ip);
     }
 
     void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
@@ -370,6 +382,11 @@ final class ControlServer {
         }
         if (isLocked(ip)) {
             json(out, 429, "{\"error\":\"locked\",\"message\":\"Too many wrong PINs. Try again in 10 minutes.\"}");
+            return;
+        }
+        if (shutOut(ip)) {
+            json(out, 429, "{\"error\":\"guessing\",\"message\":\"Someone on the Wi-Fi has been guessing the PIN, so for now only "
+                    + "phones that already had it can come in. Try again in 10 minutes.\"}");
             return;
         }
         String pin = tv.pin();
@@ -562,10 +579,58 @@ final class ControlServer {
         } else {
             fails.put(ip, n);
         }
+        long now = System.currentTimeMillis();
+        wrongs.addLast(now);
+        forgetOldWrongs(now);
+        if (wrongs.size() >= maxWrongAll) guessingUntil = now + lockMillis;
     }
 
     private synchronized void rightPin(String ip) {
         fails.remove(ip);
+        long now = System.currentTimeMillis();
+        trusted.put(ip, now);
+        if (trusted.size() > 200) trusted.values().removeIf(t -> now - t >= trustMillis);
+    }
+
+    /**
+     * Someone guessing the PIN from one address after another (each gets its 10 tries): once 20 wrong PINs
+     * have come in an hour from all phones together, only phones that gave the right PIN in the last day can
+     * try, until 10 minutes after the last wrong one. Then one more guess, and it starts again: a few guesses
+     * an hour instead of thousands. The staff's phones that already had the PIN never notice.
+     */
+    private synchronized boolean shutOut(String ip) {
+        long now = System.currentTimeMillis();
+        if (now >= guessingUntil) return false;
+        Long t = trusted.get(ip);
+        return t == null || now - t >= trustMillis;
+    }
+
+    /** For the phone page: the wrong PINs in the last hour while new phones are being kept out (else 0) */
+    synchronized int guessing() {
+        long now = System.currentTimeMillis();
+        if (now >= guessingUntil) return 0;
+        forgetOldWrongs(now);
+        return Math.max(1, wrongs.size());
+    }
+
+    private void forgetOldWrongs(long now) {
+        while (!wrongs.isEmpty() && (wrongs.peekFirst() < now - guessWindow || wrongs.size() > 1000)) wrongs.removeFirst();
+    }
+
+    // Every thread busy and the queue full (a crowd at once, or connections opened on purpose to block the
+    // server): a short "busy" instead of waiting connections piling up until the app runs out of them
+    private static void busy(Socket c) {
+        try {
+            c.getOutputStream().write("HTTP/1.1 503 Service Unavailable\r\nRetry-After: 5\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    .getBytes(LATIN1));
+        } catch (IOException e) {
+            // gone already
+        }
+        try {
+            c.close();
+        } catch (IOException e) {
+            // closed
+        }
     }
 
     private static void redirect(OutputStream out, String to) throws IOException {

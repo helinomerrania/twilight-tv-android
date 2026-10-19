@@ -1,4 +1,6 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.store;
+
+import com.twilightcafe.tvplayer.util.Disk;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -22,7 +24,7 @@ import java.util.Set;
  * phone ready (a picture and a small copy), before the menu that uses them. Plain Java (and org.json),
  * so it can be tested on a computer.
  */
-final class MenuStore {
+public final class MenuStore {
 
     static final String[] LANGS = { "ku", "ar", "en" };
     static final int MAX_CATEGORIES = 60, MAX_SUBS = 40, MAX_ITEMS = 300, MAX_ALL = 2000;
@@ -38,7 +40,7 @@ final class MenuStore {
     private JSONObject menu;                           // {"v": version, "categories": [...]}
     private int version = 1;
 
-    MenuStore(File dir) {
+    public MenuStore(File dir) {
         this.dir = dir;
         this.pics = new File(dir, "pics");
         pics.mkdirs();
@@ -46,7 +48,7 @@ final class MenuStore {
         sweep(System.currentTimeMillis());
     }
 
-    synchronized int version() {
+    public synchronized int version() {
         return version;
     }
 
@@ -55,7 +57,7 @@ final class MenuStore {
     }
 
     /** The whole menu, hidden things too, for the phone: {"v": ..., "categories": [...]} */
-    synchronized String full() {
+    public synchronized String full() {
         return menu.toString();
     }
 
@@ -64,7 +66,7 @@ final class MenuStore {
      * JSON back: {"ok": true, "v", "menu"}; {"ok": false, "conflict": true, "message", "v", "menu"} when
      * another phone changed it in between; {"ok": false, "message"} when something in it is wrong.
      */
-    synchronized String save(String body) {
+    public synchronized String save(String body) {
         try {
             JSONObject in;
             try {
@@ -87,7 +89,7 @@ final class MenuStore {
             }
             clean.put("v", version + 1);
             try {
-                TitleBook.writeFile(new File(dir, "menu.json"), clean.toString().getBytes("UTF-8"));
+                Disk.write(new File(dir, "menu.json"), clean.toString().getBytes("UTF-8"));
             } catch (IOException e) {
                 return fail("The TV box couldn't save it (is its storage full?).");
             }
@@ -108,7 +110,7 @@ final class MenuStore {
      * The menu for customers: only what isn't hidden, without empty categories and subcategories, with the
      * café's name, its word for "menu" and how it writes numbers.
      */
-    synchronized String forCustomers(String cafe, String word, String numerals) {
+    public synchronized String forCustomers(String cafe, String word, String numerals) {
         try {
             JSONArray out = new JSONArray(), cats = menu.optJSONArray("categories");
             for (int i = 0; cats != null && i < cats.length(); i++) {
@@ -136,7 +138,7 @@ final class MenuStore {
      * (and subcategory's) id and name, so the TV can tell which go with the weather:
      * [{"id", "name", "note", "price", "picture", "cat", "catName", "sub", "subName"}, ...]
      */
-    synchronized String forTv() {
+    public synchronized String forTv() {
         JSONArray out = new JSONArray();
         try {
             JSONArray cats = menu.optJSONArray("categories");
@@ -168,7 +170,7 @@ final class MenuStore {
     }
 
     /** How many items customers see (no menu code on the TV without any) */
-    synchronized int shownItems() {
+    public synchronized int shownItems() {
         int n = 0;
         JSONArray cats = menu.optJSONArray("categories");
         for (int i = 0; cats != null && i < cats.length(); i++) {
@@ -338,11 +340,11 @@ final class MenuStore {
     /* ---------- pictures ---------- */
 
     /** Keeps a picture for the menu (base64 JPEGs, a "data:" prefix is fine). Returns its id; says why not otherwise. */
-    synchronized String addPicture(String full, String small) {
-        byte[] big = PictureStore.decode(full), little = small == null || small.isEmpty() ? null : PictureStore.decode(small);
-        if (big == null || !PictureStore.isJpeg(big)) throw new IllegalArgumentException("That isn't a JPEG picture.");
+    public synchronized String addPicture(String full, String small) {
+        byte[] big = Jpeg.decode(full), little = small == null || small.isEmpty() ? null : Jpeg.decode(small);
+        if (big == null || !Jpeg.valid(big)) throw new IllegalArgumentException("That isn't a JPEG picture.");
         if (big.length > MAX_BYTES) throw new IllegalArgumentException("That picture is too big.");
-        if (little != null && (!PictureStore.isJpeg(little) || little.length > MAX_SMALL)) little = null;
+        if (little != null && (!Jpeg.valid(little) || little.length > MAX_SMALL)) little = null;
         sweep(System.currentTimeMillis());
         String[] names = pics.list();
         int count = 0;
@@ -350,8 +352,8 @@ final class MenuStore {
         if (count >= MAX_PICTURES) throw new IllegalArgumentException("The menu has " + MAX_PICTURES + " pictures already. Remove some first.");
         String id = newId();
         try {
-            TitleBook.writeFile(new File(pics, id + ".jpg"), big);
-            if (little != null) TitleBook.writeFile(new File(pics, id + ".small.jpg"), little);
+            Disk.write(new File(pics, id + ".jpg"), big);
+            if (little != null) Disk.write(new File(pics, id + ".small.jpg"), little);
         } catch (IOException e) {
             new File(pics, id + ".jpg").delete();
             new File(pics, id + ".small.jpg").delete();
@@ -361,7 +363,7 @@ final class MenuStore {
     }
 
     /** A picture (or its small copy; the big one if there is no small one), or null. */
-    byte[] picture(String id, boolean small) {
+    public byte[] picture(String id, boolean small) {
         if (!validId(id)) return null;
         File f = new File(pics, id + (small ? ".small.jpg" : ".jpg"));
         if (small && !f.exists()) f = new File(pics, id + ".jpg");
@@ -420,7 +422,7 @@ final class MenuStore {
         File f = new File(dir, "menu.json");
         try {
             if (f.exists()) {
-                JSONObject m = new JSONObject(TitleBook.readFile(f));
+                JSONObject m = new JSONObject(Disk.readText(f));
                 JSONObject c = clean(m, true);
                 version = Math.max(1, m.optInt("v", 1));
                 menu = c.put("v", version);

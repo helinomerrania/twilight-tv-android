@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.feeds;
 
 import org.json.JSONArray;
 import org.junit.Test;

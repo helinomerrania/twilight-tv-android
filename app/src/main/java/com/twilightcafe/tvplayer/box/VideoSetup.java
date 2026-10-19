@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.box;
 
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -15,13 +15,13 @@ import java.util.regex.Pattern;
  * stutters. H.264 every box's chip decodes itself; VP9 most do (the engine only offers VP9 on
  * Android where the chip has it).
  */
-final class VideoSetup {
+public final class VideoSetup {
 
     private VideoSetup() {
     }
 
     /** The video format setting: "h264" (the default), "vp9" or "any". */
-    static String format(String s) {
+    public static String format(String s) {
         String f = s == null ? "" : s.trim().toLowerCase(Locale.US);
         return f.equals("vp9") || f.equals("any") ? f : "h264";
     }
@@ -34,7 +34,7 @@ final class VideoSetup {
      *  - any: the engine's own choice, AV1 too.
      * Whatever the format, the video's decoding is never paused (see below).
      */
-    static String engineConfig(String format) {
+    public static String engineConfig(String format) {
         return engineConfig(format, false);
     }
 
@@ -43,7 +43,7 @@ final class VideoSetup {
      * frames per second, how many of the page's tiles were drawn again each frame, and whether the
      * video went to the screen as a layer of its own ("overlays") or was drawn into the page ("blits").
      */
-    static String engineConfig(String format, boolean numbers) {
+    public static String engineConfig(String format, boolean numbers) {
         String f = format(format);
         StringBuilder y = new StringBuilder();
         // The video's decoding never paused: the engine pauses it for a video out of sight (as under the
@@ -64,7 +64,7 @@ final class VideoSetup {
             + "Compositor surface overlays,Compositor surface blits";
 
     /** For the phone page and test mode. */
-    static String describe(String format) {
+    public static String describe(String format) {
         String f = format(format);
         if (f.equals("vp9")) return "H.264 or VP9, no AV1";
         if (f.equals("any")) return "any format, AV1 too";
@@ -76,7 +76,7 @@ final class VideoSetup {
      * processor, and every video frame is copied there too): the engine needs OpenGL ES 3, and
      * turns down a few graphics chips by name (Mali-400/450 above all, in many cheap boxes).
      */
-    static boolean softDraw(String renderer, String glVersion) {
+    public static boolean softDraw(String renderer, String glVersion) {
         String r = renderer == null ? "" : renderer.toLowerCase(Locale.US);
         if (r.contains("mali-4") || r.contains("powervr rogue g6110") || r.contains("vivante gc7000ul")) return true;
         Matcher m = Pattern.compile("OpenGL ES (\\d+)").matcher(glVersion == null ? "" : glVersion);
@@ -91,7 +91,7 @@ final class VideoSetup {
      *  size:   "1080" or "720": at most that many lines, when the box draws more; else the box's
      *  rate:   "50" or "60" hertz, else the box's
      */
-    static int pickMode(int[][] modes, int[] system, int drawnH, String size, String rate) {
+    public static int pickMode(int[][] modes, int[] system, int drawnH, String size, String rate) {
         if (modes == null || modes.length == 0 || system == null || system.length < 3) return 0;
         int cap = "720".equals(size) ? 720 : "1080".equals(size) ? 1080 : 0;
         int wantW = system[0], wantH = system[1];
@@ -121,7 +121,7 @@ final class VideoSetup {
     }
 
     /** "1920x1080, 60 Hz" (59.94 stays as it is) */
-    static String mode(int w, int h, int hz100) {
+    public static String mode(int w, int h, int hz100) {
         return w + "x" + h + ", " + hz(hz100) + " Hz";
     }
 
@@ -130,7 +130,7 @@ final class VideoSetup {
     }
 
     /** The box's other refresh rates at this size, fastest first: "50, 30 and 24 Hz" ("" if none) */
-    static String otherRates(int[][] modes, int w, int h, int hz100) {
+    public static String otherRates(int[][] modes, int w, int h, int hz100) {
         java.util.TreeSet<Integer> rates = new java.util.TreeSet<>(java.util.Collections.<Integer>reverseOrder());
         if (modes != null) {
             for (int[] m : modes) {
@@ -148,7 +148,7 @@ final class VideoSetup {
     }
 
     /** "OpenGL ES 3.2" from the driver's long version text ("" if it isn't there) */
-    static String gl(String version) {
+    public static String gl(String version) {
         Matcher m = Pattern.compile("OpenGL ES (\\d+\\.\\d+)").matcher(version == null ? "" : version);
         return m.find() ? "OpenGL ES " + m.group(1) : "";
     }

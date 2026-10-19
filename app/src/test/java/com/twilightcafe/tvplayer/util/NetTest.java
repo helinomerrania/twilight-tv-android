@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.util;
 
 import org.junit.After;
 import org.junit.Before;

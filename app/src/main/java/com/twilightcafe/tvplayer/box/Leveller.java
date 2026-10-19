@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.box;
 
 import android.annotation.TargetApi;
 import android.media.audiofx.DynamicsProcessing;
@@ -10,12 +10,12 @@ import android.os.Build;
  * Loud passages are pulled down, quiet ones brought up, and a limiter stops
  * any peak from distorting. If the box doesn't allow it, nothing changes.
  */
-final class Leveller {
+public final class Leveller {
 
     private Object effect;             // DynamicsProcessing; kept as Object so older Androids never load the class
-    volatile String status = "off";
+    public volatile String status = "off";
 
-    void apply(boolean on) {
+    public void apply(boolean on) {
         if (!on) {
             release();
             status = "off (levelSound is false in settings.json)";
@@ -35,7 +35,7 @@ final class Leveller {
         }
     }
 
-    void release() {
+    public void release() {
         if (effect == null) return;
         try {
             Api28.release(effect);

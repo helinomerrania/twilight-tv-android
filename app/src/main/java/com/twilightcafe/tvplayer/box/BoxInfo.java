@@ -1,4 +1,6 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.box;
+
+import com.twilightcafe.tvplayer.util.Disk;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -22,7 +24,7 @@ import java.util.Map;
  * to decode on its processor, a box drawing at 4K, or graphics Firefox's engine can't use.
  * The pure decisions are in VideoSetup.
  */
-final class BoxInfo {
+public final class BoxInfo {
 
     private BoxInfo() {
     }
@@ -34,7 +36,7 @@ final class BoxInfo {
     };
 
     /** "X96Max_Plus (Amlogic S905X3), Android 9" */
-    static String box() {
+    public static String box() {
         String platform = property("ro.board.platform");
         String tree = read("/sys/firmware/devicetree/base/compatible").replace('\u0000', ' ').replace(',', ' ');
         String all = (platform + " " + tree + " " + Build.HARDWARE + " " + Build.BOARD).toLowerCase(Locale.US);
@@ -50,7 +52,7 @@ final class BoxInfo {
     }
 
     /** The graphics chip's name and its OpenGL ES version string, or null if they can't be read. */
-    static String[] graphics() {
+    public static String[] graphics() {
         EGLDisplay d = null;
         EGLContext ctx = null;
         EGLSurface s = null;
@@ -84,7 +86,7 @@ final class BoxInfo {
     }
 
     /** What the chip decodes itself: "H.264 up to 2160p, VP9 up to 2160p; not AV1" */
-    static String decoders() {
+    public static String decoders() {
         String[][] kinds = { { "video/avc", "H.264" }, { "video/x-vnd.on2.vp9", "VP9" }, { "video/av01", "AV1" } };
         Map<String, Integer> hw = new LinkedHashMap<>();
         try {
@@ -130,7 +132,7 @@ final class BoxInfo {
     }
 
     /** The box's screen modes: {id, width, height, refresh in hundredths of a hertz} */
-    static int[][] modes(Display d) {
+    public static int[][] modes(Display d) {
         try {
             Display.Mode[] all = d.getSupportedModes();
             int[][] out = new int[all.length][];
@@ -141,7 +143,7 @@ final class BoxInfo {
         }
     }
 
-    static int[] mode(Display.Mode m) {
+    public static int[] mode(Display.Mode m) {
         return new int[] { m.getModeId(), m.getPhysicalWidth(), m.getPhysicalHeight(), Math.round(m.getRefreshRate() * 100) };
     }
 
@@ -158,7 +160,7 @@ final class BoxInfo {
     private static String read(String path) {
         try {
             File f = new File(path);
-            return f.exists() ? TitleBook.readFile(f) : "";
+            return f.exists() ? Disk.readText(f) : "";
         } catch (Exception e) {
             return "";
         }

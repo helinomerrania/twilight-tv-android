@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.phone;
 
 import android.content.Context;
 import android.net.nsd.NsdManager;
@@ -17,7 +17,7 @@ import java.util.TreeMap;
  * Finds the other café TVs on the network, so the phone page can list them.
  * Each TV announces itself as "TV 23" (the end of its network address).
  */
-final class TvFinder {
+public final class TvFinder {
 
     private static final String TYPE = "_twilighttv._tcp.";
 
@@ -30,12 +30,12 @@ final class TvFinder {
     private NsdManager.RegistrationListener registration;
     private NsdManager.DiscoveryListener discovery;
 
-    TvFinder(Context c, String myName) {
+    public TvFinder(Context c, String myName) {
         this.nsd = (NsdManager) c.getSystemService(Context.NSD_SERVICE);
         this.myName = myName;
     }
 
-    void start(int port) {
+    public void start(int port) {
         if (nsd == null || port <= 0) return;
         NsdServiceInfo me = new NsdServiceInfo();
         me.setServiceName(myName);
@@ -73,7 +73,7 @@ final class TvFinder {
         }
     }
 
-    void stop() {
+    public void stop() {
         if (nsd == null) return;
         try {
             if (registration != null) nsd.unregisterService(registration);
@@ -90,7 +90,7 @@ final class TvFinder {
     }
 
     /** The other TVs: { name, address } pairs, sorted by name. */
-    List<String[]> others() {
+    public List<String[]> others() {
         List<String[]> list = new ArrayList<>();
         synchronized (found) {
             for (Map.Entry<String, String> e : found.entrySet()) list.add(new String[] { e.getKey(), e.getValue() });

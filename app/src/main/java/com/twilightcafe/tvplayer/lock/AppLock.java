@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.lock;
 
 import java.util.Collection;
 import java.util.List;
@@ -15,10 +15,10 @@ import java.util.Locale;
  * say) is fine too, but not the box's settings or app store. Plain Java, so it can be tested on a
  * computer.
  */
-final class AppLock {
+public final class AppLock {
 
-    static final long UNLOCK = 15 * 60000L;   // unlocked from the phone, or by holding Back for 10 seconds
-    static final long SETTINGS = 3 * 60000L;  // after the app opened one of the box's settings itself
+    public static final long UNLOCK = 15 * 60000L;   // unlocked from the phone, or by holding Back for 10 seconds
+    public static final long SETTINGS = 3 * 60000L;  // after the app opened one of the box's settings itself
 
     private AppLock() {
     }
@@ -29,7 +29,7 @@ final class AppLock {
      *  turn: it's the other app's turn (opened from Twilight TV, and the home screen hasn't shown since)
      *  home: the app on screen is the box's home screen
      */
-    static boolean bringBack(String front, String me, String other, boolean turn, boolean home, long now, long unlockedUntil, long settingsUntil) {
+    public static boolean bringBack(String front, String me, String other, boolean turn, boolean home, long now, long unlockedUntil, long settingsUntil) {
         if (now < unlockedUntil || now < settingsUntil) return false;
         if (front == null) return !turn;                    // can't see: back, unless it's the other app's turn
         if (front.equals(me) || front.equals(other) || androidOwn(front)) return false;
@@ -42,12 +42,12 @@ final class AppLock {
     }
 
     /** The box's home screen: one of its home apps, or anything called a launcher */
-    static boolean homeScreen(String pkg, Collection<String> homeApps) {
+    public static boolean homeScreen(String pkg, Collection<String> homeApps) {
         return pkg != null && ((homeApps != null && homeApps.contains(pkg)) || pkg.toLowerCase(Locale.ROOT).contains("launcher"));
     }
 
     /** The other app's turn is over: the home screen came up (and not because the other app is a home app itself) */
-    static boolean turnOver(String pkg, String other, Collection<String> homeApps) {
+    public static boolean turnOver(String pkg, String other, Collection<String> homeApps) {
         return pkg != null && !pkg.equals(other) && homeScreen(pkg, homeApps);
     }
 
@@ -55,7 +55,7 @@ final class AppLock {
      * Android closing its system dialogs because Home was pressed, wherever (it tells every app): the other
      * app's turn is over, and Twilight TV comes back, unless the box is unlocked
      */
-    static boolean homeKey(String reason) {
+    public static boolean homeKey(String reason) {
         return "homekey".equals(reason);
     }
 
@@ -69,7 +69,7 @@ final class AppLock {
      * matches, ignoring capitals, spaces and signs ("My TV Plus" finds "MyTV Plus" and "MY TV+"), else
      * the first whose name has it in it. Null if none.
      */
-    static String[] find(List<String[]> apps, String wanted) {
+    public static String[] find(List<String[]> apps, String wanted) {
         String w = wanted == null ? "" : wanted.trim();
         if (w.isEmpty() || apps == null) return null;
         for (String[] a : apps) if (a[1].equals(w)) return a;
@@ -85,7 +85,7 @@ final class AppLock {
     }
 
     /** What the remote's Back does when held: 0 nothing, 1 the other app (2 seconds), 2 unlock (10 seconds) */
-    static int backHeld(long millis) {
+    public static int backHeld(long millis) {
         return millis >= 10000 ? 2 : millis >= 1500 ? 1 : 0;
     }
 }

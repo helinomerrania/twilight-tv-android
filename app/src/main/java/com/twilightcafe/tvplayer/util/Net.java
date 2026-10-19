@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -12,12 +12,12 @@ import java.util.Collections;
 import java.util.List;
 
 /** Small internet and network helpers. */
-final class Net {
+public final class Net {
     private Net() {
     }
 
     /** The text at an https address, or null if it isn't there (404). Throws when the internet fails. */
-    static String get(String url, int timeoutMs) throws IOException {
+    public static String get(String url, int timeoutMs) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(timeoutMs);
         c.setReadTimeout(timeoutMs);
@@ -35,11 +35,11 @@ final class Net {
     }
 
     /** One answer from a web server: its code, its text (only for 200), and the headers that say when to ask again. */
-    static final class Reply {
-        final int code;
-        final String body;
-        final long expires;              // from the Expires header, 0 if none
-        final String lastModified;       // the Last-Modified header, exactly as sent (null if none)
+    public static final class Reply {
+        public final int code;
+        public final String body;
+        public final long expires;              // from the Expires header, 0 if none
+        public final String lastModified;       // the Last-Modified header, exactly as sent (null if none)
 
         Reply(int code, String body, long expires, String lastModified) {
             this.code = code;
@@ -50,12 +50,12 @@ final class Net {
     }
 
     /** Asks with our own name (some services want to know who asks) and, if given, "only if changed since". */
-    static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince) throws IOException {
+    public static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince) throws IOException {
         return fetch(url, timeoutMs, userAgent, ifModifiedSince, "application/json");
     }
 
     /** The same, for a web page (accept = "text/html") or anything else. */
-    static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince, String accept) throws IOException {
+    public static Reply fetch(String url, int timeoutMs, String userAgent, String ifModifiedSince, String accept) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(timeoutMs);
         c.setReadTimeout(timeoutMs);
@@ -88,7 +88,7 @@ final class Net {
     }
 
     /** This TV's address on the café network (Wi-Fi or cable), e.g. 192.168.1.23, or "" */
-    static String localIp() {
+    public static String localIp() {
         try {
             return findLocalIp(Collections.list(NetworkInterface.getNetworkInterfaces()));
         } catch (Exception e) {

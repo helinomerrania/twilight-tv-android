@@ -1,4 +1,7 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.update;
+
+import com.twilightcafe.tvplayer.InstallResult;
+import com.twilightcafe.tvplayer.util.Net;
 
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -29,7 +32,7 @@ import java.net.URL;
  * Releases are tagged with the app's version number ("build-100016-1"). Since the app
  * brought its own engine, those start at 100000; people see the build number (16).
  */
-final class Updater {
+public final class Updater {
 
     static final int ENGINE_BUILDS = 100000;
 
@@ -41,10 +44,10 @@ final class Updater {
     private final String repo;
     private final int myBuild;
     private volatile boolean busy;
-    volatile int readyBuild;                 // a newer build waiting to be installed (0 = none)
-    volatile String status = "not checked yet";
+    public volatile int readyBuild;                 // a newer build waiting to be installed (0 = none)
+    public volatile String status = "not checked yet";
 
-    Updater(Context c, String repo, int myBuild) {
+    public Updater(Context c, String repo, int myBuild) {
         this.ctx = c.getApplicationContext();
         this.prefs = c.getSharedPreferences("update", Context.MODE_PRIVATE);
         this.repo = repo == null ? "" : repo;
@@ -57,12 +60,12 @@ final class Updater {
     }
 
     // The number people see: 100016 is build 16
-    static int shown(int build) {
+    public static int shown(int build) {
         return build > ENGINE_BUILDS ? build - ENGINE_BUILDS : build;
     }
 
     /** Looks for a newer build and downloads it (background thread). */
-    void check() {
+    public void check() {
         if (repo.isEmpty() || busy) return;
         busy = true;
         try {
@@ -195,7 +198,7 @@ final class Updater {
     }
 
     /** Asks Android to install the waiting build (it shows its question on the TV). Returns a message for the phone. */
-    String install(Activity a) {
+    public String install(Activity a) {
         int id = prefs.getInt("session", -1);
         if (readyBuild == 0 || !sessionAlive(id)) {
             readyBuild = 0;

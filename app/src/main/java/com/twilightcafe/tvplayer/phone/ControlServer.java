@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.phone;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -64,9 +64,9 @@ import java.util.concurrent.TimeUnit;
  * never hold up the TV, and connections waiting for a thread are limited (QUEUE).
  * Plain Java only (no Android classes), so it can be tested on a computer.
  */
-final class ControlServer {
+public final class ControlServer {
 
-    interface Tv {
+    public interface Tv {
         String pin();
         byte[] page();
         String status();
@@ -201,26 +201,26 @@ final class ControlServer {
     long guessWindow = 60 * 60 * 1000L;                   // ...in this long
     long trustMillis = 24 * 60 * 60 * 1000L;              // a phone that gave the right PIN is known for a day
 
-    ControlServer(Tv tv) {
+    public ControlServer(Tv tv) {
         this(tv, false);
     }
 
-    ControlServer(Tv tv, boolean menuOnly) {
+    public ControlServer(Tv tv, boolean menuOnly) {
         this.tv = tv;
         this.menuOnly = menuOnly;
     }
 
-    int port() {
+    public int port() {
         return port;
     }
 
     /** Starts on the first free port from 8080 to 8089. Returns the port, or 0 if none was free. */
-    synchronized int start() {
+    public synchronized int start() {
         return start(8080, 8089);
     }
 
     /** Starts on the first free port from..to. Returns the port, or 0 if none was free. */
-    synchronized int start(int from, int to) {
+    public synchronized int start(int from, int to) {
         if (running) return port;
         for (int p = from; p <= to && socket == null; p++) {
             try {
@@ -243,7 +243,7 @@ final class ControlServer {
         return port;
     }
 
-    synchronized void stop() {
+    public synchronized void stop() {
         running = false;
         try {
             if (socket != null) socket.close();
@@ -606,7 +606,7 @@ final class ControlServer {
     }
 
     /** For the phone page: the wrong PINs in the last hour while new phones are being kept out (else 0) */
-    synchronized int guessing() {
+    public synchronized int guessing() {
         long now = System.currentTimeMillis();
         if (now >= guessingUntil) return 0;
         forgetOldWrongs(now);

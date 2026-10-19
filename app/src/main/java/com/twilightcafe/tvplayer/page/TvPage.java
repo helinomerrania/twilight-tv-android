@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.page;
 
 import java.nio.charset.Charset;
 
@@ -7,7 +7,7 @@ import java.nio.charset.Charset;
  * the app (assets/index.html) with the link to the app (assets/bridge.js) put in at the
  * top, before the page's own script runs. Plain Java, so it can be tested on a computer.
  */
-final class TvPage {
+public final class TvPage {
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
@@ -15,7 +15,7 @@ final class TvPage {
     }
 
     /** The page with the link to the app in it. boot is a JSON object: {"k": key, "v": version, "s": settings}. */
-    static byte[] withBridge(byte[] page, String bridgeJs, String boot) {
+    public static byte[] withBridge(byte[] page, String bridgeJs, String boot) {
         String html = new String(page, UTF8);
         // Inside a <script>, "</script>" (or any "<") in the settings would end it early
         String safeBoot = boot.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029");

@@ -1,4 +1,6 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.settings;
+
+import com.twilightcafe.tvplayer.util.Net;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -17,7 +19,7 @@ import java.util.Locale;
  *   3. this TV's own settings, saved from the phone page's Settings screen.
  * The last good copy of settings.json is kept, so it also works offline.
  */
-final class AppSettings {
+public final class AppSettings {
 
     // Used by the app itself; never handed to the page
     private static final String[] APP_ONLY = { "controlPin", "tvVolume", "levelSound", "restartAt", "updates", "tvName",
@@ -33,9 +35,9 @@ final class AppSettings {
     private volatile JSONObject effective;         // both together
     private volatile JSONObject builtIn;           // the page's own values, as it last reported them
     private volatile int version;
-    volatile String status;                        // for test mode and the phone page
+    public volatile String status;                        // for test mode and the phone page
 
-    AppSettings(Context c) {
+    public AppSettings(Context c) {
         prefs = c.getSharedPreferences("settings", Context.MODE_PRIVATE);
         version = prefs.getInt("version", 1);
         file = orEmpty(withoutSecrets(parse(prefs.getString("json", "{}"))));
@@ -98,7 +100,7 @@ final class AppSettings {
     }
 
     /** Reads settings.json from GitHub (background thread). True when it changed. */
-    boolean refresh(String repo) {
+    public boolean refresh(String repo) {
         if (repo == null || repo.isEmpty()) {
             status = "built-in settings (this build doesn't know its GitHub repository)";
             return false;
@@ -151,18 +153,18 @@ final class AppSettings {
     }
 
     /** Replaces this TV's own settings (from the phone page). */
-    synchronized void setLocal(JSONObject mine) {
+    public synchronized void setLocal(JSONObject mine) {
         local = copy(mine);
         effective = merge(file, local);
         version++;
         prefs.edit().putString("local", local.toString()).putInt("version", version).apply();
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
-    JSONObject fromFile() {
+    public JSONObject fromFile() {
         JSONObject out = copy(file);
         for (Iterator<String> it = file.keys(); it.hasNext(); ) {
             String k = it.next();
@@ -171,23 +173,23 @@ final class AppSettings {
         return out;
     }
 
-    JSONObject local() {
+    public JSONObject local() {
         return copy(local);
     }
 
     /** The settings for the page, without the app's own. */
-    String forPage() {
+    public String forPage() {
         JSONObject out = copy(effective);
         for (String k : APP_ONLY) out.remove(k);
         return out.toString();
     }
 
     /** The page's built-in values, as last reported by the page (for the phone page). */
-    String pageDefaults() {
+    public String pageDefaults() {
         return prefs.getString("pageDefaults", "{}");
     }
 
-    void savePageDefaults(String json) {
+    public void savePageDefaults(String json) {
         JSONObject j = parse(json);
         if (j == null) return;
         builtIn = j;
@@ -201,26 +203,26 @@ final class AppSettings {
         return builtIn;
     }
 
-    String text(String key, String fallback) {
+    public String text(String key, String fallback) {
         JSONObject j = holder(key);
         if (!j.has(key) || j.isNull(key)) return fallback;
         return j.optString(key, fallback).trim();
     }
 
-    int number(String key, int fallback) {
+    public int number(String key, int fallback) {
         return holder(key).optInt(key, fallback);
     }
 
-    double decimal(String key, double fallback) {
+    public double decimal(String key, double fallback) {
         return holder(key).optDouble(key, fallback);
     }
 
-    boolean flag(String key, boolean fallback) {
+    public boolean flag(String key, boolean fallback) {
         return holder(key).optBoolean(key, fallback);
     }
 
     /** One of the TV's words (labels), as settings.json or this TV has it, else the fallback. */
-    String label(String word, String fallback) {
+    public String label(String word, String fallback) {
         JSONObject l = effective.optJSONObject("labels");
         Object v = l == null ? null : l.opt(word);
         String t = v instanceof String ? ((String) v).trim() : "";
@@ -228,7 +230,7 @@ final class AppSettings {
     }
 
     /** A setting that is a list (e.g. the prices to show), or null if there is none. */
-    org.json.JSONArray list(String key) {
+    public org.json.JSONArray list(String key) {
         return holder(key).optJSONArray(key);
     }
 }

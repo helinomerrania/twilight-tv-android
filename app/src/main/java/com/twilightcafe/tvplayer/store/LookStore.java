@@ -1,4 +1,6 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.store;
+
+import com.twilightcafe.tvplayer.util.Disk;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,38 +16,38 @@ import java.util.Map;
  * (and a small copy for its own page), so this only checks, keeps and hands them out.
  * Plain Java, so it can be tested on a computer.
  */
-final class LookStore {
+public final class LookStore {
 
     /** The café's picture, the plain one (for the TV's own words) and the special days', in the phone page's order */
-    static final String[] NAMES = { "cafe", "plain", "newroz", "eid", "barat", "newyear" };
+    public static final String[] NAMES = { "cafe", "plain", "newroz", "eid", "barat", "newyear" };
 
     private final File dir;
     private final Map<String, Long> own = new LinkedHashMap<>();   // name -> when it was put in (ms)
     private volatile int version = 1;
 
-    LookStore(File dir) {
+    public LookStore(File dir) {
         this.dir = dir;
         dir.mkdirs();
         load();
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
-    static boolean valid(String name) {
+    public static boolean valid(String name) {
         return name != null && Arrays.asList(NAMES).contains(name);
     }
 
     /** Keeps the café's own picture for one of them (base64 JPEGs, a "data:" prefix is fine); says why not otherwise. Returns when. */
-    synchronized long set(String name, String full, String small) {
+    public synchronized long set(String name, String full, String small) {
         if (!valid(name)) throw new IllegalArgumentException("There's no such picture on the café screen.");
-        byte[] big = PictureStore.decode(full), little = small == null || small.isEmpty() ? null : PictureStore.decode(small);
-        if (big == null || !PictureStore.isJpeg(big)) throw new IllegalArgumentException("That isn't a JPEG picture.");
+        byte[] big = Jpeg.decode(full), little = small == null || small.isEmpty() ? null : Jpeg.decode(small);
+        if (big == null || !Jpeg.valid(big)) throw new IllegalArgumentException("That isn't a JPEG picture.");
         if (big.length > PictureStore.MAX_BYTES) throw new IllegalArgumentException("That picture is too big.");
-        if (little != null && (!PictureStore.isJpeg(little) || little.length > PictureStore.MAX_SMALL)) little = null;
+        if (little != null && (!Jpeg.valid(little) || little.length > PictureStore.MAX_SMALL)) little = null;
         try {
-            TitleBook.writeFile(new File(dir, name + ".jpg"), big);
+            Disk.write(new File(dir, name + ".jpg"), big);
         } catch (IOException e) {
             if (!new File(dir, name + ".jpg").exists() && own.remove(name) != null) {   // (the one before stays if it's still there)
                 version++;
@@ -54,7 +56,7 @@ final class LookStore {
             throw new IllegalArgumentException("The TV box couldn't save it (is its storage full?).");
         }
         try {
-            if (little != null) TitleBook.writeFile(new File(dir, name + ".small.jpg"), little);
+            if (little != null) Disk.write(new File(dir, name + ".small.jpg"), little);
             else new File(dir, name + ".small.jpg").delete();
         } catch (IOException e) {
             new File(dir, name + ".small.jpg").delete();      // the big one stands in for it
@@ -67,7 +69,7 @@ final class LookStore {
     }
 
     /** Back to the built-in picture. False if it was the built-in one already. */
-    synchronized boolean reset(String name) {
+    public synchronized boolean reset(String name) {
         if (!valid(name) || own.remove(name) == null) return false;
         new File(dir, name + ".jpg").delete();
         new File(dir, name + ".small.jpg").delete();
@@ -77,18 +79,18 @@ final class LookStore {
     }
 
     /** When the café's own picture was put in, or 0 for the built-in one. */
-    synchronized long at(String name) {
+    public synchronized long at(String name) {
         Long t = own.get(name);
         return t == null ? 0 : t;
     }
 
     /** The café's own pictures: name -> when it was put in (the built-in ones aren't listed). */
-    synchronized Map<String, Long> stamps() {
+    public synchronized Map<String, Long> stamps() {
         return new LinkedHashMap<>(own);
     }
 
     /** The café's own picture (or its small copy; the big one if there is no small one), or null for the built-in one. */
-    byte[] read(String name, boolean small) {
+    public byte[] read(String name, boolean small) {
         synchronized (this) {
             if (!valid(name) || !own.containsKey(name)) return null;
         }
@@ -114,7 +116,7 @@ final class LookStore {
         File index = new File(dir, "index.txt");
         if (!index.exists()) return;
         try {
-            for (String line : TitleBook.readFile(index).split("\n")) {
+            for (String line : Disk.readText(index).split("\n")) {
                 String[] p = line.trim().split(" ");
                 if (p.length == 2 && valid(p[0]) && p[1].matches("\\d{1,15}") && new File(dir, p[0] + ".jpg").exists()) {
                     own.put(p[0], Long.parseLong(p[1]));
@@ -129,7 +131,7 @@ final class LookStore {
         StringBuilder b = new StringBuilder();
         for (Map.Entry<String, Long> e : own.entrySet()) b.append(e.getKey()).append(' ').append(e.getValue()).append('\n');
         try {
-            TitleBook.writeFile(new File(dir, "index.txt"), b.toString());
+            Disk.write(new File(dir, "index.txt"), b.toString());
         } catch (IOException e) {
             // kept in memory
         }

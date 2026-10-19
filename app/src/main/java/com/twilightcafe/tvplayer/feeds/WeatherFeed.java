@@ -1,4 +1,7 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.feeds;
+
+import com.twilightcafe.tvplayer.util.Disk;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,10 +27,10 @@ import java.util.TimeZone;
  * stays right through an internet cut, and it only asks while the app is on screen.
  * Plain Java (and org.json), so it can be tested on a computer.
  */
-final class WeatherFeed {
+public final class WeatherFeed {
 
     /** Fetches one address (the app uses the internet; tests use a stand-in). */
-    interface Fetcher {
+    public interface Fetcher {
         Net.Reply get(String url, String ifModifiedSince) throws IOException;
     }
 
@@ -45,15 +48,15 @@ final class WeatherFeed {
     private String lastModified, place = "", source = "met";
     private boolean busy;
     private volatile int version = 1;
-    volatile String status = "not asked yet";
+    public volatile String status = "not asked yet";
 
-    WeatherFeed(File file, Fetcher fetcher) {
+    public WeatherFeed(File file, Fetcher fetcher) {
         this.file = file;
         this.fetcher = fetcher;
         load();
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
@@ -63,12 +66,12 @@ final class WeatherFeed {
     }
 
     /** Time to ask again? (MET: never more often than every 30 minutes, or before its Expires time.) */
-    synchronized boolean due(long now, double lat, double lon) {
+    public synchronized boolean due(long now, double lat, double lon) {
         return due(now, lat, lon, "");
     }
 
     /** The same, with a WeatherAPI.com key ("" = MET Norway): every 15 minutes. */
-    synchronized boolean due(long now, double lat, double lon, String key) {
+    public synchronized boolean due(long now, double lat, double lon, String key) {
         if (busy || now < waitUntil) return false;
         String src = key == null || key.trim().isEmpty() ? "met" : "weatherapi";
         if (!where(lat, lon).equals(place) || !src.equals(source)) return now - triedAt > 60000L;   // a new place or source: at once
@@ -77,7 +80,7 @@ final class WeatherFeed {
     }
 
     /** Asks WeatherAPI.com with this key, or MET Norway without one (background thread). */
-    void refresh(double lat, double lon, String key) {
+    public void refresh(double lat, double lon, String key) {
         if (key == null || key.trim().isEmpty()) {
             refresh(lat, lon);
             return;
@@ -201,7 +204,7 @@ final class WeatherFeed {
     }
 
     /** Asks MET for the forecast (background thread). */
-    void refresh(double lat, double lon) {
+    public void refresh(double lat, double lon) {
         String at = where(lat, lon);
         String since;
         synchronized (this) {
@@ -293,7 +296,7 @@ final class WeatherFeed {
     }
 
     /** For the page: {at: when fetched, source, hours: [...], now?}, or null before the first forecast. */
-    synchronized JSONObject forPage() {
+    public synchronized JSONObject forPage() {
         if (hours.length() == 0) return null;
         try {
             JSONObject o = new JSONObject().put("at", fetchedAt).put("source", source.startsWith("met") ? "met" : source).put("hours", hours);
@@ -311,7 +314,7 @@ final class WeatherFeed {
     private void load() {
         if (file == null || !file.exists()) return;
         try {
-            JSONObject o = new JSONObject(TitleBook.readFile(file));
+            JSONObject o = new JSONObject(Disk.readText(file));
             JSONArray h = o.optJSONArray("hours");
             if (h != null) hours = h;
             fetchedAt = o.optLong("at", 0);
@@ -332,7 +335,7 @@ final class WeatherFeed {
             JSONObject o = new JSONObject().put("hours", hours).put("at", fetchedAt).put("expires", expires).put("place", place).put("source", source);
             if (lastModified != null) o.put("lastModified", lastModified);
             if (now != null) o.put("now", now);
-            TitleBook.writeFile(file, o.toString());
+            Disk.write(file, o.toString());
         } catch (IOException | JSONException e) {
             // kept in memory
         }

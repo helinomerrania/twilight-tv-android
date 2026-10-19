@@ -1,4 +1,7 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.feeds;
+
+import com.twilightcafe.tvplayer.util.Disk;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,10 +29,10 @@ import java.util.regex.Pattern;
  * the site's calendar by themselves. When it can't be read, the TV page works both out itself.
  * Plain Java (and org.json), so it can be tested on a computer.
  */
-final class PrayerFeed {
+public final class PrayerFeed {
 
     /** Fetches one address (the app uses the internet; tests use a stand-in). */
-    interface Fetcher {
+    public interface Fetcher {
         Net.Reply get(String url) throws IOException;
     }
 
@@ -46,15 +49,15 @@ final class PrayerFeed {
     private long fetchedAt, triedAt, waitUntil;
     private boolean busy;
     private volatile int version = 1;
-    volatile String status = "not asked yet";
+    public volatile String status = "not asked yet";
 
-    PrayerFeed(File file, Fetcher fetcher) {
+    public PrayerFeed(File file, Fetcher fetcher) {
         this.file = file;
         this.fetcher = fetcher;
         load();
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
@@ -67,7 +70,7 @@ final class PrayerFeed {
     }
 
     /** Once a day (and at once for another town, or a month that isn't this one). */
-    synchronized boolean due(long now, String city) {
+    public synchronized boolean due(long now, String city) {
         if (busy || now < waitUntil || now - triedAt < RETRY) return false;
         if (month == null || !month.optString("city").equalsIgnoreCase(city.trim())) return true;
         Calendar c = Calendar.getInstance();
@@ -81,7 +84,7 @@ final class PrayerFeed {
     }
 
     /** Asks amozhgary.tv for the town's month (background thread). */
-    void refresh(String city) {
+    public void refresh(String city) {
         synchronized (this) {
             if (busy) return;
             busy = true;
@@ -253,7 +256,7 @@ final class PrayerFeed {
     }
 
     /** For the page: {city, year, month, days, hijri, fetched}, or null before the first good answer. */
-    synchronized JSONObject forPage() {
+    public synchronized JSONObject forPage() {
         if (month == null) return null;
         try {
             return new JSONObject(month.toString()).put("fetched", fetchedAt);
@@ -265,7 +268,7 @@ final class PrayerFeed {
     private void load() {
         if (file == null || !file.exists()) return;
         try {
-            JSONObject o = new JSONObject(TitleBook.readFile(file));
+            JSONObject o = new JSONObject(Disk.readText(file));
             month = o.optJSONObject("month");
             fetchedAt = o.optLong("fetched", 0);
             if (month != null) status = "from amozhgary.tv (" + month.optString("city") + "), kept from " + new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(fetchedAt));
@@ -277,7 +280,7 @@ final class PrayerFeed {
     private void save() {
         if (file == null || month == null) return;
         try {
-            TitleBook.writeFile(file, new JSONObject().put("month", month).put("fetched", fetchedAt).toString());
+            Disk.write(file, new JSONObject().put("month", month).put("fetched", fetchedAt).toString());
         } catch (IOException | JSONException e) {
             // kept in memory
         }

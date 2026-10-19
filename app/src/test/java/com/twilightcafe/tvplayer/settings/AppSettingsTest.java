@@ -1,4 +1,4 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.settings;
 
 import org.json.JSONObject;
 import org.junit.Test;

@@ -1,4 +1,7 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.feeds;
+
+import com.twilightcafe.tvplayer.util.Disk;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,10 +30,10 @@ import java.util.Map;
  * playlist of 150 songs is known within about five minutes, and then for good.
  * Plain Java (and org.json), so it can be tested on a computer.
  */
-final class TitleBook {
+public final class TitleBook {
 
     /** Fetches one address (the app uses the internet; tests use a stand-in). */
-    interface Fetcher {
+    public interface Fetcher {
         Net.Reply get(String url) throws IOException;
     }
 
@@ -49,23 +52,23 @@ final class TitleBook {
     long pauseMillis = 1500;                              // between two questions
     volatile String status = "";
 
-    TitleBook(File file, Fetcher fetcher) {
+    public TitleBook(File file, Fetcher fetcher) {
         this.file = file;
         this.fetcher = fetcher;
         load();
     }
 
     /** A YouTube video ID: 11 letters, digits, - or _ */
-    static boolean isId(String id) {
+    public static boolean isId(String id) {
         return id != null && id.matches("[A-Za-z0-9_-]{11}");
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
     /** The page's songs: names are fetched for the ones not known yet. */
-    synchronized void want(Collection<String> ids) {
+    public synchronized void want(Collection<String> ids) {
         long now = System.currentTimeMillis();
         for (String id : ids) {
             if (!isId(id) || known.containsKey(id)) continue;
@@ -77,7 +80,7 @@ final class TitleBook {
     }
 
     /** Carries on after an internet cut or a "too many" (the app calls this now and then). */
-    synchronized void start() {
+    public synchronized void start() {
         if (running || wanted.isEmpty() || System.currentTimeMillis() < quietUntil) return;
         running = true;
         Thread t = new Thread(this::work, "song-names");
@@ -159,7 +162,7 @@ final class TitleBook {
     }
 
     /** {id: [title, channel]} for these songs (the ones known). */
-    synchronized JSONObject forPage(Collection<String> ids) {
+    public synchronized JSONObject forPage(Collection<String> ids) {
         JSONObject o = new JSONObject();
         for (String id : ids) {
             String[] t = known.get(id);
@@ -174,7 +177,7 @@ final class TitleBook {
     }
 
     /** For the phone's song list: [{id, title, channel}] in this order. */
-    synchronized JSONArray list(List<String> ids) {
+    public synchronized JSONArray list(List<String> ids) {
         JSONArray a = new JSONArray();
         for (String id : ids) {
             String[] t = known.get(id);
@@ -193,7 +196,7 @@ final class TitleBook {
     }
 
     /** "names known for 120 of 138 songs" */
-    synchronized String describe(Collection<String> ids) {
+    public synchronized String describe(Collection<String> ids) {
         int n = 0;
         for (String id : ids) if (known.containsKey(id)) n++;
         String s = "names known for " + n + " of " + ids.size() + " songs";
@@ -205,7 +208,7 @@ final class TitleBook {
     private void load() {
         if (file == null || !file.exists()) return;
         try {
-            JSONObject o = new JSONObject(readFile(file));
+            JSONObject o = new JSONObject(Disk.readText(file));
             JSONObject t = o.optJSONObject("titles");
             if (t != null) {
                 for (Iterator<String> it = t.keys(); it.hasNext(); ) {
@@ -234,45 +237,15 @@ final class TitleBook {
             for (Map.Entry<String, String[]> e : known.entrySet()) t.put(e.getKey(), new JSONArray(e.getValue()));
             JSONObject f = new JSONObject();
             for (Map.Entry<String, Long> e : failed.entrySet()) f.put(e.getKey(), e.getValue().longValue());
-            writeFile(file, new JSONObject().put("titles", t).put("failed", f).toString());
+            Disk.write(file, new JSONObject().put("titles", t).put("failed", f).toString());
         } catch (IOException | JSONException e) {
             // kept in memory; saved next time
         }
     }
 
-    static String readFile(File f) throws IOException {
-        InputStream in = new FileInputStream(f);
-        try {
-            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[16384];
-            int n;
-            while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
-            return new String(b.toByteArray(), "UTF-8");
-        } finally {
-            in.close();
-        }
-    }
-
-    static void writeFile(File f, String text) throws IOException {
-        writeFile(f, text.getBytes("UTF-8"));
-    }
-
-    static void writeFile(File f, byte[] data) throws IOException {
-        File tmp = new File(f.getPath() + ".tmp");
-        OutputStream out = new FileOutputStream(tmp);
-        try {
-            out.write(data);
-        } finally {
-            out.close();
-        }
-        if (!tmp.renameTo(f)) {
-            f.delete();
-            if (!tmp.renameTo(f)) throw new IOException("couldn't save " + f.getName());
-        }
-    }
 
     /** The IDs from a JSON array (anything else is left out). */
-    static List<String> ids(JSONArray a) {
+    public static List<String> ids(JSONArray a) {
         List<String> out = new ArrayList<>();
         for (int i = 0; a != null && i < a.length(); i++) {
             String id = a.optString(i, "");

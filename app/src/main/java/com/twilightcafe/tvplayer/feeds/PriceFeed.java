@@ -1,4 +1,7 @@
-package com.twilightcafe.tvplayer;
+package com.twilightcafe.tvplayer.feeds;
+
+import com.twilightcafe.tvplayer.util.Disk;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,10 +27,10 @@ import java.util.Locale;
  * down), the Kurdistan gold prices by karat, and the world prices of gold, silver and bitcoin.
  * Plain Java (and org.json), so it can be tested on a computer.
  */
-final class PriceFeed {
+public final class PriceFeed {
 
     /** Fetches one address (the app uses the internet; tests use a stand-in). */
-    interface Fetcher {
+    public interface Fetcher {
         Net.Reply get(String url) throws IOException;
     }
 
@@ -42,35 +45,35 @@ final class PriceFeed {
     private boolean busy;
     private String asked = "";                            // the address asked last
     private volatile int version = 1;
-    volatile String status = "not asked yet";
+    public volatile String status = "not asked yet";
 
-    PriceFeed(File file, Fetcher fetcher) {
+    public PriceFeed(File file, Fetcher fetcher) {
         this.file = file;
         this.fetcher = fetcher;
         load();
     }
 
-    int version() {
+    public int version() {
         return version;
     }
 
-    synchronized boolean due(long now) {
+    public synchronized boolean due(long now) {
         return due(now, URL);
     }
 
     /** Every 5 minutes; at once for a new address. */
-    synchronized boolean due(long now, String url) {
+    public synchronized boolean due(long now, String url) {
         if (!busy && !url.equals(asked)) return true;
         return !busy && now >= waitUntil && now - triedAt >= RETRY && now - fetchedAt >= GAP;
     }
 
     /** Asks tirezh.com for the prices (background thread). */
-    void refresh() {
+    public void refresh() {
         refresh(URL);
     }
 
     /** Asks this address for the prices (background thread). */
-    void refresh(String url) {
+    public void refresh(String url) {
         synchronized (this) {
             if (busy) return;
             busy = true;
@@ -212,7 +215,7 @@ final class PriceFeed {
     }
 
     /** For the page: the prices, and when the app got them; null before the first answer. */
-    synchronized JSONObject forPage() {
+    public synchronized JSONObject forPage() {
         if (prices == null) return null;
         try {
             return new JSONObject(prices.toString()).put("fetched", fetchedAt);
@@ -226,7 +229,7 @@ final class PriceFeed {
      * address (the tirezh worker's own, say https://tirezh.name.workers.dev); tirezh.com when empty
      * or not a web address.
      */
-    static String address(String typed) {
+    public static String address(String typed) {
         String u = typed == null ? "" : typed.trim();
         if (!u.matches("(?i)https?://[^\\s/?#]+(/[^\\s]*)?")) return URL;
         return u.matches("(?i)https?://[^/?#]+/?") ? u.replaceAll("/$", "") + "/api/economy" : u;
@@ -247,7 +250,7 @@ final class PriceFeed {
     private void load() {
         if (file == null || !file.exists()) return;
         try {
-            JSONObject o = new JSONObject(TitleBook.readFile(file));
+            JSONObject o = new JSONObject(Disk.readText(file));
             prices = o.optJSONObject("prices");
             fetchedAt = o.optLong("fetched", 0);
             if (prices != null && fetchedAt > 0) status = "from tirezh.com, " + clock(fetchedAt);
@@ -259,7 +262,7 @@ final class PriceFeed {
     private void save() {
         if (file == null || prices == null) return;
         try {
-            TitleBook.writeFile(file, new JSONObject().put("prices", prices).put("fetched", fetchedAt).toString());
+            Disk.write(file, new JSONObject().put("prices", prices).put("fetched", fetchedAt).toString());
         } catch (IOException | JSONException e) {
             // kept in memory
         }

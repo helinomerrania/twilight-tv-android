@@ -70,7 +70,7 @@ jobs:
           # ("|| true": a search that finds nothing mustn't end the step before the notes are written)
           enc() { sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }'; }
           wrong=$(grep -A 12 "What went wrong" build.log | head -n 40 | enc || true)
-          errors=$(grep -E -A 2 "error:|e: |\.java:[0-9]+:" build.log | head -n 60 | enc || true)
+          errors=$(grep -E -A 2 "error:|^e: |\.java:[0-9]+:" build.log | head -n 60 | enc || true)   # ("^e: ": Kotlin's, not "Note: ")
           tests=$(grep -E -A 3 " FAILED$" build.log | head -n 60 | enc || true)
           # the page tests' failed checks, each with its suite
           pages=$(awk '/^=== /{ s = $0; sub(/^=== /, "", s); sub(/ \([0-9]+ s\)$/, "", s) } /^The page tests/{ s = "in all" } /^  FAIL/{ print s ":" substr($0, 7) }' pages.log 2>/dev/null | head -n 40 | enc || true)

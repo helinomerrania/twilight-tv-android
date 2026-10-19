@@ -10,6 +10,10 @@ const check = (n, c, x) => { if (c) { passes++; console.log('  ok   ' + n); } el
   const port = await new Promise(ok => java.stdout.on('data', d => { const m = /port (\d+) menu (\d+)/.exec(String(d)); if (m) ok(Number(m[1])); }));
   const b = await launch();
   const page = await b.newPage();
+  // Only the app's own server answers: this checks the app's files, and YouTube's player (reachable from GitHub's
+  // computers, slow or not) mustn't decide the result
+  await page.setRequestInterception(true);
+  page.on('request', r => { const u = new URL(r.url()); if (u.hostname === '127.0.0.1' || u.protocol === 'data:' || u.protocol === 'blob:') r.continue(); else r.abort(); });
   const files = {}, errors = [];
   page.on('response', r => { const u = new URL(r.url()); if (u.port == String(port)) files[u.pathname] = [r.status(), r.headers()['content-type'], r.headers()['cache-control']]; });
   page.on('pageerror', e => errors.push(String(e)));
@@ -32,7 +36,7 @@ const check = (n, c, x) => { if (c) { passes++; console.log('  ok   ' + n); } el
   check('its styles apply (the café screen over the video)', s.styled, s);
   check('its letters: Vazirmatn and the café\'s name font, built in', s.fonts === 'TwilightName,Vazirmatn', s.fonts);
   const own = errors.filter(e => !/youtube|YT\b|iframe_api/i.test(e));
-  check('no script errors of its own (YouTube itself can\'t be reached from here)', own.length === 0, own);
+  check('no script errors of its own (YouTube itself isn\'t reached here)', own.length === 0, own);
   const lan = Object.values(os.networkInterfaces()).flat().find(i => i.family === 'IPv4' && !i.internal);
   if (lan) {
     const fromLan = await new Promise(ok => require('http').get({ host: lan.address, port, path: '/tv/tv.js' }, r => ok(r.statusCode)).on('error', e => ok(String(e))));

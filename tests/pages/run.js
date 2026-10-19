@@ -15,6 +15,12 @@ const BROWSER_SUITES = ['tv-files', 'phone', 'phone-settings', 'phone-screens', 
 const SUITE_TIME = 10 * 60e3, TV_TEST_TIME = 5 * 60e3;   // longer than that: stuck
 const TV_SLOW = ['tPrayer', 'tMenuSlides', 'tQuietAndClosing', 'tHours'];   // the longest TV-page tests, started first
 
+// Why a test file stopped early, from its output: the error it printed (else its last line), for the notes on GitHub
+function cause(out) {
+  const lines = out.split('\n').map(l => l.trim()).filter(l => l && !/^(ok|skip) |^Picked up JAVA_TOOL_OPTIONS/.test(l));
+  return (lines.find(l => /^\w*Error\b/.test(l)) || lines.pop() || '').slice(0, 200);
+}
+
 // One test file in a process of its own: its output, and the checks it counted
 function run(file, args, time) {
   return new Promise(done => {
@@ -28,7 +34,8 @@ function run(file, args, time) {
       clearTimeout(timer);
       const m = /(\d+) passed, (\d+) failed\s*$/.exec(out.trimEnd());
       const passed = m ? Number(m[1]) : 0, failed = m ? Number(m[2]) : 0, skipped = (out.match(/^  skip /gm) || []).length;
-      const why = stuck ? 'stopped after ' + time / 60e3 + ' minutes' : !m ? 'stopped before the end' : passed + failed === 0 ? 'no checks ran'
+      const why = stuck ? 'stopped after ' + time / 60e3 + ' minutes' : !m ? 'stopped before the end' + (cause(out) ? ': ' + cause(out) : '')
+        : passed + failed === 0 ? 'no checks ran'
         : failed ? '' : code !== 0 ? 'ended with code ' + code : '';
       done({ out, passed, failed, skipped, ok: !why && !failed, why, seconds: (Date.now() - started) / 1000 });
     });

@@ -5,6 +5,8 @@ name: Ask Jules
 #
 # Start it by putting the label "ask-jules" on an issue (the issue's title and text are the task), or from the
 # Actions tab: Ask Jules → Run workflow, and type the task. Only the café's own GitHub accounts can start it.
+# And once a week by itself: one small improvement of Jules's own choosing (WEEKLY below), unless a pull request
+# is still waiting to be checked.
 # Needs the repository secret JULES_API_KEY (Settings → Secrets and variables → Actions), a key from
 # jules.google.com's settings.
 on:
@@ -15,15 +17,19 @@ on:
       task:
         description: What Jules should do
         required: true
+  schedule:
+    - cron: '0 4 * * 6'    # Saturdays, 07:00 in Ranya
 
 permissions:
   issues: write
+  pull-requests: read
 
 jobs:
   ask:
     if: >-
-      (github.event_name == 'workflow_dispatch' || github.event.label.name == 'ask-jules')
-      && contains(fromJSON('["helinomerrania", "qawechi"]'), github.actor)
+      github.event_name == 'schedule'
+      || ((github.event_name == 'workflow_dispatch' || github.event.label.name == 'ask-jules')
+          && contains(fromJSON('["helinomerrania", "qawechi"]'), github.actor))
     runs-on: ubuntu-24.04
     steps:
       - name: Start a Jules task
@@ -35,6 +41,28 @@ jobs:
           TITLE: ${{ github.event.issue.title }}
           BODY: ${{ github.event.issue.body }}
           TASK: ${{ github.event.inputs.task }}
+          WEEKLY: |
+            Make ONE small improvement to this repository: the one that helps the café's TV app most. Read
+            ARCHITECTURE.md first: it says where everything is and how it fits together.
+
+            Good choices, best first:
+            1. A real bug you can show with a test: add the test, then fix the bug.
+            2. A test for important code that has none, or too few (see the tests in ARCHITECTURE.md).
+            3. A confusing piece of code made clearer, without changing what it does.
+            4. A comment or a document that is wrong or out of date.
+
+            Rules:
+            - What the TV, the phone page and the customers' menu show and do stays the same, unless you are fixing
+              a bug; then say exactly what changes for the café.
+            - Keep it small: a few files at most, one subject.
+            - Don't touch app/twilight-tv.keystore, settings.json, the signing settings in app/build.gradle, or
+              anything in .github.
+            - Keep to ARCHITECTURE.md: code goes in the folder of its job, tests beside it in app/src/test, and a
+              page's files stay on its server's list.
+            - Every test must still pass. GitHub runs them all on your branch (the app's tests and the page tests in
+              tests/pages); you don't need to run the Android build yourself.
+            - In the pull request, say what you changed, why, and how it is tested.
+            - If nothing is worth changing this week, change nothing.
         run: |
           # A note on the issue, when the task came from one
           say() { if [ -n "$ISSUE" ]; then gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" -f body="$1" > /dev/null; fi; }
@@ -43,7 +71,16 @@ jobs:
             echo "::error::No JULES_API_KEY secret"
             exit 1
           fi
-          if [ -n "$ISSUE" ]; then
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            # one improvement a week, and not while one is still waiting to be checked
+            open=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open" --jq length)
+            if [ "$open" != 0 ]; then
+              echo "::notice title=Not this week::$open pull request(s) still waiting to be checked"
+              exit 0
+            fi
+            prompt="$WEEKLY"
+            title="Weekly improvement, $(date -u +%Y-%m-%d)"
+          elif [ -n "$ISSUE" ]; then
             prompt=$(printf '%s\n\n%s\n\nThis is issue #%s of the repository.' "$TITLE" "$BODY" "$ISSUE")
             title="$TITLE (issue #$ISSUE)"
           else

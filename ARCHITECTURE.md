@@ -113,7 +113,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 
 ### The app's tests
 
-`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer: about 80 tests, some of which make many checks in one go (each a sentence saying what it checks, printed "ok" or "FAIL"; `Checks` is their helper), over 400 checks in all.
+`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer: about 100 tests, some of which make many checks in one go (each a sentence saying what it checks, printed "ok" or "FAIL"; `Checks` is their helper), over 400 checks in all.
 
 | Test | What it checks |
 |---|---|
@@ -128,7 +128,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 | `lock/AppLockTest` | What the lock sends away and what it lets through, in every case |
 | `box/VideoSetupTest` | Choices for smooth video: the formats offered to YouTube, graphics Firefox's engine can't use, the screen mode |
 | `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |
-| `util/NetTest` | Web requests and finding the box's address |
+| `util/NetTest`, `DiskTest` | Web requests and finding the box's address; files written whole, and read back as written |
 
 ### The pages' tests
 

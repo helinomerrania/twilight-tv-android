@@ -186,7 +186,6 @@ label.upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .tag { display: inline-block; margin-inline-start: 6px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--line);
        color: var(--soft); font-size: .72rem; font-weight: 500; vertical-align: 2px; }
 .madd { display: block; background: none; color: var(--sun); padding: 10px 0 2px; text-decoration: underline; font-size: .92rem; }
-.mempty { color: var(--soft); font-size: .85rem; padding: 6px 0 0; }
 #menuInfo a { color: var(--sun); }
 /* Editing one thing on the menu */
 #editor { position: fixed; inset: 0; z-index: 6; display: flex; align-items: flex-end; justify-content: center; background: rgba(5, 8, 28, .72); }

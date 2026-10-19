@@ -32,16 +32,10 @@ public final class VideoSetup {
      *    H.264 up to 1080p; the sound comes as AAC instead of Opus.
      *  - vp9: no AV1.
      *  - any: the engine's own choice, AV1 too.
-     * Whatever the format, the video's decoding is never paused (see below).
-     */
-    public static String engineConfig(String format) {
-        return engineConfig(format, false);
-    }
-
-    /**
-     * The same, and with numbers on (engineNumbers) WebRender's own counter over the picture:
-     * frames per second, how many of the page's tiles were drawn again each frame, and whether the
-     * video went to the screen as a layer of its own ("overlays") or was drawn into the page ("blits").
+     * Whatever the format, the video's decoding is never paused (see below). With numbers on (engineNumbers),
+     * WebRender's own counter over the picture: frames per second, how many of the page's tiles were drawn
+     * again each frame, and whether the video went to the screen as a layer of its own ("overlays") or was
+     * drawn into the page ("blits").
      */
     public static String engineConfig(String format, boolean numbers) {
         String f = format(format);

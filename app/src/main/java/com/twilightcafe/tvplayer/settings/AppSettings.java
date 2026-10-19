@@ -93,7 +93,6 @@ public final class AppSettings {
     private static final java.util.List<String> OLD_CREDITS = java.util.Arrays.asList("کەشوهەوا: MET Norway (CC BY 4.0)",
             "Weather: MET Norway (CC BY 4.0)");
 
-
     /** Reads settings.json from GitHub (background thread). True when it changed. */
     public boolean refresh(String repo) {
         if (repo == null || repo.isEmpty()) {

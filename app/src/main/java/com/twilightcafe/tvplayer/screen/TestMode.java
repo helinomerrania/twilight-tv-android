@@ -48,6 +48,7 @@ public final class TestMode {
     /** On or off (then the page opens again, with or without its own details) */
     public void toggle() {
         on = !on;
+        app.core.main.removeCallbacks(tick);             // off and on again within 2 seconds: still one round of updates
         if (on) app.core.main.post(tick);
     }
 

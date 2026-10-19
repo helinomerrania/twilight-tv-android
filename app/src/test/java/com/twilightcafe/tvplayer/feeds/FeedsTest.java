@@ -109,25 +109,25 @@ public class FeedsTest extends Checks {
         File wf = new File(dir, "weather.json");
         WeatherFeed w = new WeatherFeed(wf, mf);
         long now = System.currentTimeMillis();
-        check("nothing yet: due at once; nothing for the page", w.due(now, 36.25491234, 44.8838) && w.forPage() == null, "");
+        check("nothing yet: due at once; nothing for the page", w.due(now, 36.25491234, 44.8838, "") && w.forPage() == null, "");
         w.refresh(36.25491234, 44.88384);
         check("asks MET with at most 4 decimals, the first time without If-Modified-Since",
             metAsked.size() == 1 && metAsked.get(0)[0].equals("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=36.2549&lon=44.8838") && metAsked.get(0)[1].equals("null"), metAsked.get(0)[0]);
         JSONObject wp = w.forPage();
         check("the page gets the hours and when they came", wp != null && wp.getJSONArray("hours").length() == 2 && Math.abs(wp.getLong("at") - now) < 5000, wp);
-        check("not due again before MET's Expires time (40 min) or 30 minutes", !w.due(now + 20 * 60000L, 36.2549, 44.8838) && !w.due(now + 35 * 60000L, 36.2549, 44.8838) &&
-            w.due(now + 46 * 60000L, 36.2549, 44.8838), "");
+        check("not due again before MET's Expires time (40 min) or 30 minutes", !w.due(now + 20 * 60000L, 36.2549, 44.8838, "") && !w.due(now + 35 * 60000L, 36.2549, 44.8838, "") &&
+            w.due(now + 46 * 60000L, 36.2549, 44.8838, ""), "");
         exp[0] = 0;
         int wv = w.version();
         code[0] = 304;
         w.refresh(36.2549, 44.8838);
         check("next time: If-Modified-Since with MET's exact Last-Modified; 304 keeps the forecast", metAsked.get(1)[1].equals("Sun, 11 Oct 2026 19:19:00 GMT") &&
             w.forPage().getJSONArray("hours").length() == 2 && w.version() == wv, metAsked.get(1)[1]);
-        check("...then at least 30 minutes until the next question", !w.due(System.currentTimeMillis() + 25 * 60000L, 36.2549, 44.8838), "");
-        check("another place: due straight away (after a minute)", w.due(System.currentTimeMillis() + 61000, 35.5, 45.4), "");
+        check("...then at least 30 minutes until the next question", !w.due(System.currentTimeMillis() + 25 * 60000L, 36.2549, 44.8838, ""), "");
+        check("another place: due straight away (after a minute)", w.due(System.currentTimeMillis() + 61000, 35.5, 45.4, ""), "");
         code[0] = 429;
         w.refresh(35.5, 45.4);
-        check("MET says 'too many': waits an hour", w.status.contains("slow down") && !w.due(System.currentTimeMillis() + 50 * 60000L, 35.5, 45.4), w.status);
+        check("MET says 'too many': waits an hour", w.status.contains("slow down") && !w.due(System.currentTimeMillis() + 50 * 60000L, 35.5, 45.4, ""), w.status);
         code[0] = -1;
         WeatherFeed w2 = new WeatherFeed(wf, mf);
         check("the forecast is kept in a file: there after a restart", w2.forPage() != null && w2.forPage().getJSONArray("hours").length() == 2, w2.forPage());

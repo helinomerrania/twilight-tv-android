@@ -20,16 +20,16 @@ public class VideoSetupTest extends Checks {
         check("default is h264", VideoSetup.format(null).equals("h264") && VideoSetup.format("").equals("h264") && VideoSetup.format("H264").equals("h264"), VideoSetup.format(null));
         check("vp9 and any kept", VideoSetup.format(" VP9 ").equals("vp9") && VideoSetup.format("any").equals("any"), VideoSetup.format(" VP9 "));
         check("unknown value -> h264", VideoSetup.format("av1").equals("h264"), VideoSetup.format("av1"));
-        String h = VideoSetup.engineConfig("h264"), v = VideoSetup.engineConfig("vp9"), any = VideoSetup.engineConfig("any");
+        String h = VideoSetup.engineConfig("h264", false), v = VideoSetup.engineConfig("vp9", false), any = VideoSetup.engineConfig("any", false);
         String keep = "  media.suspend-background-video.enabled: false\n  media.dormant-on-pause-timeout-ms: -1\n";
         check("h264: AV1 and WebM off (and the video's decoding never paused)", h.equals("prefs:\n" + keep + "  media.av1.enabled: false\n  media.webm.enabled: false\n"), h);
         check("vp9: only AV1 off", v.equals("prefs:\n" + keep + "  media.av1.enabled: false\n"), v);
         check("any: the engine's own formats, the decoding still never paused", any.equals("prefs:\n" + keep), any);
-        check("garbage -> the h264 file", VideoSetup.engineConfig("x").equals(h), VideoSetup.engineConfig("x"));
+        check("garbage -> the h264 file", VideoSetup.engineConfig("x", false).equals(h), VideoSetup.engineConfig("x", false));
         String hn = VideoSetup.engineConfig("h264", true), an = VideoSetup.engineConfig("any", true);
         check("frame counter: h264 prefs plus WebRender's profiler", hn.equals(h + "  gfx.webrender.debug.profiler: true\n  gfx.webrender.debug.profiler-ui: \"" + VideoSetup.NUMBERS + "\"\n"), hn);
         check("frame counter with any: the profiler", an.equals("prefs:\n" + keep + "  gfx.webrender.debug.profiler: true\n  gfx.webrender.debug.profiler-ui: \"" + VideoSetup.NUMBERS + "\"\n"), an);
-        check("numbers off = the plain file", VideoSetup.engineConfig("vp9", false).equals(v) && VideoSetup.engineConfig("any", false).equals(any), "");
+        check("no setting at all -> the h264 file", VideoSetup.engineConfig(null, false).equals(h), VideoSetup.engineConfig(null, false));
         check("the counter's list names WebRender's counters", VideoSetup.NUMBERS.contains("FPS") && VideoSetup.NUMBERS.contains("Compositor surface blits")
             && !VideoSetup.NUMBERS.contains("\""), VideoSetup.NUMBERS);
         check("descriptions", VideoSetup.describe("h264").contains("H.264 only") && VideoSetup.describe("vp9").contains("VP9")

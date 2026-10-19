@@ -36,7 +36,7 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 | Remote | What it does |
 | --- | --- |
 | Up / down | This song louder or quieter, until it ends (the next song is back to the volume in Settings) |
-| Left / right | Zoom this song in or out, for black bars (remembered too) |
+| Left / right | Zoom this song in or out, for black bars (remembered on that TV) |
 | Hold OK for 3 seconds | Test mode on or off. The page's details appear at the top; the phone address, the PIN and the app's details at the bottom right |
 | Back | Nothing, so nobody stops the music by accident |
 | Hold Back for 2 seconds | My TV Plus (the one other app allowed, see below) |

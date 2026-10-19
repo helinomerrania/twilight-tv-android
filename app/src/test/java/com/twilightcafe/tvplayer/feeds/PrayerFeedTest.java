@@ -2,6 +2,7 @@ package com.twilightcafe.tvplayer.feeds;
 
 import com.twilightcafe.tvplayer.Checks;
 import com.twilightcafe.tvplayer.util.Net;
+import com.twilightcafe.tvplayer.util.Times;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -118,7 +119,9 @@ public class PrayerFeedTest extends Checks {
         check("says where they're from", feed.status.startsWith("from amozhgary.tv (Ranya)"), feed.status);
         Calendar c = Calendar.getInstance();
         boolean thisMonth = c.get(Calendar.YEAR) == 2026 && c.get(Calendar.MONTH) == 9;
-        check("then not again the same day (when it's this month)", !thisMonth || !feed.due(now + 60000L * 35, "Ranya"), thisMonth);
+        long later = now + 60000L * 35;                       // past the half hour between two tries...
+        boolean sameDay = Times.day(later).equals(Times.day(now));   // ...unless that's already tomorrow (run just before midnight)
+        check("then not again the same day (when it's this month)", !thisMonth || !sameDay || !feed.due(later, "Ranya"), thisMonth + ", " + sameDay);
         check("...but at once for another town", feed.due(now + 60000L * 35, "Qaladze"), "");
         check("...and the next day", feed.due(now + 24 * 3600000L + 60000L * 35, "Ranya"), "");
         code[0] = 503;

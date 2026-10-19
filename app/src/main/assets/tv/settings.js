@@ -30,7 +30,7 @@ var SETTINGS = {
   fadeOut: 3,
 
   // Volume the page plays at (0-100). On each TV, the remote's up/down arrows
-  // turn the song that is playing up or down, and that TV remembers it.
+  // turn the song that is playing up or down, until it ends.
   volume: 100,
 
   // Fixed volumes for particular songs on every TV, by video ID (test mode shows

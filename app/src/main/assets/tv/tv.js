@@ -98,7 +98,6 @@
   var PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"], prayerDay = "", prayerToday = [], prayerFrom = "", hijriMemo = {}, kurdishMemo = {};
   // Words around a song's name that aren't its name: "(Official Video)", "[4K]", "(Lyrics)"...
   var NOISE = /\s*[(\[{\u3010][^)\]}\u3011]*\b(official|video|audio|lyrics?|clip|klip|music|hd|hq|4k|8k|1080p|live|remaster(ed)?|visuali[sz]er|exclusive|new|full|karaoke)\b[^)\]}\u3011]*[)\]}\u3011]/gi;
-  var lastDur = -1;                          // the song length shown under its name
   // Units: the dollar's price is in dinars; the toman, lira, riyal, dirham and Jordanian dinar are so many
   // for 100 dollars (PER_100: a small "100$" label beside their names); the other currencies, so many
   // dollars. And the currencies' English names.
@@ -1422,9 +1421,8 @@
     return r;
   }
 
-  // Today's prayer times, [{name, at (ms)}], each moved by its prayerAdjust minutes
-  // Today's five prayers, [{name, at}]: amozhgary.tv's times for the town (from the app), else worked
-  // out here; each moved by prayerAdjust
+  // Today's five prayers, [{name, at (ms)}]: amozhgary.tv's times for the town (from the app), else worked
+  // out here; each moved by its prayerAdjust minutes
   function todaysPrayers(now) {
     var d = new Date(now), lat = Number(S.lat), lon = Number(S.lon), adj = S.prayerAdjust || {}, site = siteTimes(d);
     var key = d.toDateString() + JSON.stringify(adj) + lat + "," + lon + (site ? site.join(",") : "");
@@ -2011,9 +2009,8 @@
     return nums((t < 0 ? "−" + -t : String(t)) + "°");
   }
 
-  // The weather now (WeatherAPI.com's measurement, else the hour we're in from the forecast), in one
-  // line: picture, temperature, words, the place; MET Norway's credited under it, in small
-  // The weather now, [time, °C, symbol], from what the app passes on; null when there's none, or it's old
+  // The weather now, [time, °C, symbol], from what the app passes on (WeatherAPI.com's measurement, else the
+  // hour we're in from the forecast); null when there's none, or it's old
   function weatherNow(now) {
     var W = X.weather || {}, hours = W.hours instanceof Array ? W.hours : [], cur = null;
     hours.forEach(function (h) {
@@ -2025,6 +2022,7 @@
     return cur;
   }
 
+  // The weather in one line: picture, temperature, words, the place; MET Norway's credited under it, in small
   function drawWeather(now) {
     var W = X.weather || {}, cur = weatherNow(now);
     $("weather").hidden = !cur;
@@ -2055,7 +2053,6 @@
   // What's playing and what's next (or why the music stopped)
   function drawMusic() {
     var box = $("music"), nextBox = $("nextBox");
-    lastDur = -1;
     box.className = quiet === "prayer" ? "still" : "";
     if (quiet === "prayer") {
       box.hidden = false;

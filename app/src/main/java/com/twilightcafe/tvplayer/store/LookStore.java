@@ -3,9 +3,7 @@ package com.twilightcafe.tvplayer.store;
 import com.twilightcafe.tvplayer.util.Disk;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -97,16 +95,7 @@ public final class LookStore {
         File f = new File(dir, name + (small ? ".small.jpg" : ".jpg"));
         if (small && !f.exists()) f = new File(dir, name + ".jpg");
         try {
-            InputStream in = new FileInputStream(f);
-            try {
-                java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
-                return b.toByteArray();
-            } finally {
-                in.close();
-            }
+            return Disk.readBytes(f);
         } catch (IOException e) {
             return null;
         }

@@ -689,7 +689,7 @@
     if (f.type === "plsched") return scheduleControl(f, id, v, true);
     if (f.type === "list") return listControl(f, id, v);
     if (f.type === "adjust") return adjustControl(f, id, v);
-    if (f.type === "labels") return wordsControl(f, id, v);
+    if (f.type === "labels") return wordsControl(f, id);
     if (f.type === "prices") return pricesControl(f, id, v);
     return el("span", {}, String(v));
   }
@@ -847,10 +847,9 @@
     }
   }
 
-  // The words on the TV: each can be replaced; the English one shows in grey
   // The words on the TV. In grey, the shared word (settings.json) or the English one; typed, this TV's own.
   // Only this TV's own are saved, word by word, so new words in settings.json still reach it.
-  function wordsControl(f, id, v) {
+  function wordsControl(f, id) {
     var words = (data && data.defaults && data.defaults.labelWords) || WORDS;
     var shared = base[f.key] && typeof base[f.key] === "object" ? base[f.key] : {}, mine = {};
     var own = local[f.key] && typeof local[f.key] === "object" ? local[f.key] : {};
@@ -1570,7 +1569,6 @@
   /* ---------- the menu in and out: a spreadsheet, or a backup with the pictures ---------- */
 
   var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "On TV", "Picture", "ID"];
-  var SHEET_KEYS = ["type", "ku", "ar", "en", "price", "nku", "nar", "nen", "shown", "tv", "picture", "id"];
 
   function today() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
@@ -1605,7 +1603,7 @@
 
   // CSV, with the mark that tells Excel it's UTF-8 (or Kurdish comes out as nonsense)
   function toCsv(rows) {
-    return "﻿" + rows.map(function (r) {
+    return "\uFEFF" + rows.map(function (r) {
       return r.map(function (v) {
         v = String(v);
         return /[",;\r\n\t]|^\s|\s$/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -1759,7 +1757,7 @@
 
   // A CSV file as rows: commas, semicolons or tabs (whichever the first row has most of), quotes as Excel writes them
   function readCsv(text) {
-    text = text.replace(/^﻿/, "");
+    text = text.replace(/^\uFEFF/, "");
     var first = text.split(/\r?\n/)[0] || "", delim = ",";
     [";", "\t"].forEach(function (d) { if (first.split(d).length > first.split(delim).length) delim = d; });
     var rows = [], row = [], f = "", q = false;

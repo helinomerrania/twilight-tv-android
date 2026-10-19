@@ -65,12 +65,10 @@ public final class WeatherFeed {
         return String.format(Locale.US, "%.4f,%.4f", lat, lon);
     }
 
-    /** Time to ask again? (MET: never more often than every 30 minutes, or before its Expires time.) */
-    public synchronized boolean due(long now, double lat, double lon) {
-        return due(now, lat, lon, "");
-    }
-
-    /** The same, with a WeatherAPI.com key ("" = MET Norway): every 15 minutes. */
+    /**
+     * Time to ask again? MET Norway (key ""): never more often than every 30 minutes, or before its Expires
+     * time. WeatherAPI.com (with its key): every 15 minutes.
+     */
     public synchronized boolean due(long now, double lat, double lon, String key) {
         if (busy || now < waitUntil) return false;
         String src = key == null || key.trim().isEmpty() ? "met" : "weatherapi";

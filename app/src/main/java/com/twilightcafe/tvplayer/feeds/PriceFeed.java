@@ -56,19 +56,10 @@ public final class PriceFeed {
         return version;
     }
 
-    public synchronized boolean due(long now) {
-        return due(now, URL);
-    }
-
     /** Every 5 minutes; at once for a new address. */
     public synchronized boolean due(long now, String url) {
         if (!busy && !url.equals(asked)) return true;
         return !busy && now >= waitUntil && now - triedAt >= RETRY && now - fetchedAt >= GAP;
-    }
-
-    /** Asks tirezh.com for the prices (background thread). */
-    public void refresh() {
-        refresh(URL);
     }
 
     /** Asks this address for the prices (background thread). */

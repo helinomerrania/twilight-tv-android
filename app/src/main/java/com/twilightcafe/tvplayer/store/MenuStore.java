@@ -7,9 +7,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.SecureRandom;
 import java.util.HashSet;
 import java.util.Set;
@@ -369,16 +367,7 @@ public final class MenuStore {
         if (small && !f.exists()) f = new File(pics, id + ".jpg");
         if (!f.exists()) return null;
         try {
-            InputStream in = new FileInputStream(f);
-            try {
-                java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
-                return b.toByteArray();
-            } finally {
-                in.close();
-            }
+            return Disk.readBytes(f);
         } catch (IOException e) {
             return null;
         }

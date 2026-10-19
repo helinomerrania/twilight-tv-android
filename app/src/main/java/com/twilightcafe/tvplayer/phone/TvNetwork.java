@@ -77,11 +77,6 @@ public final class TvNetwork {
         return f == null ? new ArrayList<String[]>() : f.others();
     }
 
-    /** The phone page's port (0 before the server starts) */
-    public int phonePort() {
-        return server.port();
-    }
-
     /**
      * The menu's address for customers' phones, for the TV's menu code: "" until customers would see something
      * in it. Its own server and port, with nothing else on it: the phone page's address stays with the staff.

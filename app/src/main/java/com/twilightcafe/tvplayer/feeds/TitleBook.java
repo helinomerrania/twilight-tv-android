@@ -186,11 +186,6 @@ public final class TitleBook {
         return a;
     }
 
-    synchronized String title(String id) {
-        String[] t = known.get(id);
-        return t == null ? null : t[0];
-    }
-
     /** "names known for 120 of 138 songs" */
     public synchronized String describe(Collection<String> ids) {
         int n = 0;
@@ -238,7 +233,6 @@ public final class TitleBook {
             // kept in memory; saved next time
         }
     }
-
 
     /** The IDs from a JSON array (anything else is left out). */
     public static List<String> ids(JSONArray a) {

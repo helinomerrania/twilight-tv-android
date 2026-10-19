@@ -111,6 +111,7 @@ public final class PageEngine {
             web = null;
             session = null;
             core.main.postDelayed(() -> {
+                if (web != null) return;                // made meanwhile (a restart), so not a second view
                 make();
                 if (core.onScreen()) opener.run();
             }, 10000);

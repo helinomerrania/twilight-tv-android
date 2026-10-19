@@ -224,7 +224,7 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `otherApp` | The one other app allowed, by its name on the box or its package | `"My TV Plus"` |
 | `pricesUrl` | Where the prices come from: the tirezh worker at another address (`/api/economy` is added to a bare address); `""` = tirezh.com | `"https://tirezh.example.workers.dev"` |
 
-Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `menuSlides`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are at the top of `app/src/main/assets/index.html`.
+Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `menuSlides`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are in `app/src/main/assets/tv/settings.js`.
 
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 
@@ -254,3 +254,4 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 - Firefox's engine keeps its own memory, so the shuffle, song volumes and zooms started fresh when each TV moved to it.
 - After using ADB or Developer options on a box, turn **USB debugging** and any network debugging off again: otherwise anyone on the café Wi-Fi could control the box.
 - Changes on any other branch than `main` are only built as a test. They're never published to the TVs.
+- How the code and the pages are organized, and where a change goes: [ARCHITECTURE.md](ARCHITECTURE.md).

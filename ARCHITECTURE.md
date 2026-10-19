@@ -1,0 +1,128 @@
+# How the app is built
+
+Twilight TV is one Android app with three web pages inside it. The app (Java) runs the TV box: it starts Firefox's engine, serves the pages from its own small web server, keeps the settings, fetches what comes from the internet, and looks after the box. The pages (HTML, CSS and JavaScript) are what people see: the TV page on the TV, the phone page on the staff's phones, and the menu on customers' phones.
+
+This file says where everything is and how the parts fit together. For installing and using the app, see [README.md](README.md).
+
+## The picture
+
+```
+ TV box ─────────────────────────────────────────────────────────────────────────────
+  MainActivity ── Android's events ──> TvApp (makes every part once and wires them)
+
+  Firefox's engine (page/PageEngine) shows the TV page from http://localhost:8080/tv/
+      the page checks in every second (POST /tv/sync): what it's doing; back come
+      new settings, song names, weather, prices, pictures and the phone's commands
+
+  Web server, port 8080 (phone/ControlServer)
+      /tv/...     the TV page and its files .............. the box itself only
+      /, /api/... the phone page, with the PIN ........... staff phones on the café Wi-Fi
+      /menu/...   the menu ................................ also here, for "See it as customers do"
+
+  Web server, port 8090 (a second ControlServer, menu only)
+      /menu/...   the menu, nothing else ................. customers' phones (the menu code on the TV)
+
+  From the internet: settings.json (GitHub), new versions (GitHub releases), song names (YouTube),
+  weather (MET Norway or WeatherAPI.com), prices (tirezh.com), prayer times (amozhgary.tv)
+ ────────────────────────────────────────────────────────────────────────────────────
+```
+
+Each server takes the first free port from 8080 (the menu's from 8090), so normally 8080 and 8090.
+
+## Where things are
+
+```
+settings.json                           settings for every TV (the app reads it every 30 minutes)
+.github/workflows/build.yml             tests and builds every push; from main, publishes the release
+app/build.gradle                        the app's version and what it is built from
+app/src/main/AndroidManifest.xml        what Android starts by name
+app/src/main/java/com/twilightcafe/tvplayer/   the app, a folder for each job (below)
+app/src/main/assets/                    the pages and what they show (below)
+app/src/test/java/com/twilightcafe/tvplayer/   tests that run on a computer, in the same folders as the app
+```
+
+## The app's parts
+
+Each folder has one job. The classes say what they do in a comment at their top.
+
+| Folder | Its job | What's in it |
+|---|---|---|
+| (top) | What Android starts by name | `MainActivity` (the app's screen: passes Android's events and the remote's keys to TvApp), `BootReceiver` (opens the app at power-on and after an update), `InstallResult` (Android's question during an update), `Restart` (a fresh start of the whole app, from a process of its own) |
+| `app/` | Making the parts and wiring them | `TvApp` (makes every part once; the one class that knows them all), `Core` (what every part shares: the screen, the main thread, a background worker, the settings, whether the app is on screen), `AppAssets` (the files built into the app) |
+| `page/` | The TV page in Firefox's engine | `PageEngine` (the engine: starting it, trying again, a new view when it crashed), `PageLink` (the page's check-in every second), `PlayerController` (opening the page in its mode, watching it play, restarting it when it froze), `TvPage` (puts the link to the app into the page) |
+| `phone/` | The phone page, the menu server and the café network | `ControlServer` (the web servers: their addresses, threads and limits), `PinGuard` (who may try the PIN), `Http` (reading requests, writing replies), `PhoneApi` (hands each request to the part that does it), `PhoneCommands`, `PhoneStatus`, `PhoneSettings`, `PhonePin`, `TvNetwork` (this TV's address and name, the addresses phones use), `TvFinder` (the other TVs) |
+| `settings/` | The settings, from their three places | `AppSettings` (the page's built-in values, then settings.json, then this TV's own from the phone; the last good settings.json is kept; the PIN and the weather key are never taken from it) |
+| `feeds/` | What comes from the internet for the TV | `Feeds` (keeps them fresh, on a worker of their own), `TitleBook` (song names), `WeatherFeed`, `PriceFeed`, `PrayerFeed` |
+| `store/` | What the café keeps on the box | `MenuStore` (the menu), `PictureStore` (the café's pictures), `LookStore` (the café screen's own pictures), `Jpeg` |
+| `update/` | New versions | `Updater` (finds a newer release, downloads and checks it, installs it when staff press Install update) |
+| `schedule/` | What happens by the clock | `Schedule` (the rules: times in the settings, once a day at a minute, every so often), `Maintenance` (the jobs, every 30 seconds: settings.json, updates, a frozen page, the feeds, the night's fresh start, the volume at opening time) |
+| `box/` | The TV box itself | `TvVolume`, `Leveller` (sound levelling), `WifiKeeper`, `BoxInfo` and `BoxReport` (what the box is), `VideoSetup` (choices for smooth video) |
+| `screen/` | The TV's screen | `ScreenMode` (lines and refresh rate), `TestMode` (test mode's details on screen) |
+| `lock/` | Keeping the box in Twilight TV | `AppLock` (the rules), `BoxLock` (doing it), `Permissions` (the two questions at the start) |
+| `remote/` | The remote control | `RemoteKeys`, `QualitySetup` and `PointerView` (picking the picture quality with a pointer) |
+| `util/` | Small helpers for any part | `Net` (web requests, the box's address), `Disk` (files, written safely), `Times` (times as text) |
+
+### How they fit together
+
+- **MainActivity only passes things on.** It makes `TvApp` and hands it Android's events: start, stop, the remote's keys.
+- **TvApp is the only place that makes parts.** Each part gets what it needs when it's made, and nothing else, so you can see a part's connections at a glance and test it on its own. A few parts that bring many others together get `TvApp` itself: `PhoneApi`, `PhoneCommands`, `PhoneStatus`, `PhoneSettings`, `Maintenance` and `TestMode`.
+- **The ground floor never reaches up.** `util/` uses nothing else in the app; `settings/`, `store/` and `update/` use only `util/`; `feeds/` and `box/` use only `settings/` and `util/`. The features above (`page/`, `phone/`, `schedule/`, `screen/`, `lock/`, `remote/`) use the ground floor and each other. `ArchitectureTest` checks this on every build.
+- **The rules are plain Java, beside the Android code that uses them,** so they are tested on a computer: `AppLock` beside `BoxLock`, `VideoSetup` beside `BoxInfo`, `Schedule` beside `Maintenance`, `TvPage` beside `PageEngine`, `PinGuard` and `Http` beside `ControlServer`, and the stores and the feeds' readers.
+- **Threads.** Anything that touches the screen runs on the main thread (`core.main`). Slow jobs (settings.json, updates) run on `core.work`; the feeds have a worker of their own; the web servers have their own threads, and the box's own requests have theirs, so a café full of phones never holds up the TV.
+
+### The audit's six parts
+
+The audit suggested taking six jobs out of the old 2,000-line MainActivity. Each is now a part of its own:
+
+| The audit's part | Here |
+|---|---|
+| PlayerController | `page/`: `PlayerController`, with `PageEngine` and `PageLink` |
+| SettingsRepository | `settings/AppSettings`, and `phone/PhoneSettings` for the phone's Settings screen |
+| NetworkControlServer | `phone/`: `ControlServer`, `PinGuard`, `Http`, and `PhoneApi` with its parts |
+| UpdateManager | `update/Updater` |
+| ScheduleManager | `schedule/`: `Schedule` and `Maintenance` |
+| FeedRepository | `feeds/`: `Feeds` and the four feeds |
+
+MainActivity is now about 90 lines.
+
+## The pages
+
+| Folder | Page | Address | For |
+|---|---|---|---|
+| `assets/tv/` | `index.html`, `tv.css`, `fonts.css` (the typefaces, built in), `settings.js` (the page's built-in settings, `var SETTINGS`), `qrcode.js`, `tv.js`; and `bridge.js`, the link to the app, which the app puts in at the top of the page | `http://localhost:8080/tv/index.html` | The TV, from the box itself only |
+| `assets/phone/` | `index.html`, `phone.css`, `phone.js` | `http://<the TV>:8080/` | Staff; everything under `/api` needs the PIN |
+| `assets/menu/` | `index.html`, `menu.css`, `menu.js` | `http://<the TV>:8090/menu/` | Customers, from the menu code on the TV |
+| `assets/home-screen/` | The phone page's icon and its manifest | `/icon-192.png` and the like | The phone page on a phone's home screen |
+| `assets/looks/` | The café screen's built-in pictures, each with a small copy | `/tv/looks/<name>.jpg` | The TV page |
+| `assets/fonts/` | The menu's typefaces | `/menu/fonts/<name>.woff2` | The menu |
+
+Of the pages' own files, each server hands out only those on its lists in `ControlServer` (`TV_FILES`, `PHONE_FILES`, `MENU_FILES`, and `ASSETS` for the icons). Browsers fetch the pages and their files fresh each time, so a new version of the app shows its new pages at once.
+
+**Adding a file to a page:** put it in the page's folder, add it to that page's list in `ControlServer`, and refer to it from the page. `PageFilesTest` checks that every file on the lists is in the app, that each page asks only for files its server hands out, and that nothing unused sits in the folders.
+
+**Inside the scripts.** `tv.js` (about 2,500 lines) and `phone.js` (about 2,100) are each one script, in sections with a heading comment:
+
+- `tv.js`: memory, shuffle, reading the playlist, player events, the watchdog (picture, ads, fades, stalls), picture, sound, zoom, opening hours and the volume schedule, songs from the phone, song names, the call to prayer, special days, between songs (the café screen, messages, pictures, the menu), the frame around the video, the weather, the link to the app, keys, test mode, and the start.
+- `phone.js`: Control, choosing a song, tabs, Settings (and the Screen tab), the café's pictures, the café screen's pictures, the menu (and changing one thing on it), the menu in and out (a spreadsheet or a backup), saving.
+
+## Tests
+
+`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer. GitHub runs them before every build, and a failing test stops the build, so nothing untested reaches the TVs.
+
+| Test | What it checks |
+|---|---|
+| `ArchitectureTest` | The folders keep to the rules above |
+| `phone/PageFilesTest` | The pages' files are all there, and each page asks only for what its server hands out |
+| `phone/ControlServerTest`, `HttpTest`, `PinGuardTest` | Which requests come from the box itself, how long a phone may take to send, reading requests and writing replies, the PIN lockouts |
+| `schedule/ScheduleTest` | Reading times, once a day, every so often, the box's own time zone |
+| `settings/AppSettingsTest` | The PIN and the weather key never from settings.json; the PIN set on the phone is the one used |
+| `lock/AppLockTest` | What the lock sends away and what it lets through |
+| `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |
+| `feeds/TitleBookTest`, `util/NetTest` | Which song IDs are YouTube's; web requests and finding the box's address |
+
+## Making a change
+
+1. Find the part by its job in the table above; new code goes in the folder of its job. Only what the manifest names goes in the top folder.
+2. A new part is made in `TvApp`, and gets what it needs there.
+3. Run `./gradlew testDebugUnitTest`.
+4. Push to any branch other than `main` for a test build. Pushing to `main` publishes a new version to every TV, installed when staff press **Install update** on the phone page.

@@ -14,7 +14,7 @@ import android.os.Process;
 public class Restart extends Activity {
 
     /** Called by the app itself, while it's on screen. */
-    static void now(Activity from) {
+    public static void now(Activity from) {
         Intent i = new Intent(from, Restart.class);
         i.putExtra("pid", Process.myPid());
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

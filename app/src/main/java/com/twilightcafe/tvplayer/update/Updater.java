@@ -1,8 +1,5 @@
 package com.twilightcafe.tvplayer.update;
 
-import com.twilightcafe.tvplayer.InstallResult;
-import com.twilightcafe.tvplayer.util.Net;
-
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
@@ -13,6 +10,9 @@ import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+
+import com.twilightcafe.tvplayer.InstallResult;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

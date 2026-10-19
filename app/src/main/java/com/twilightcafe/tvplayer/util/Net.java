@@ -41,7 +41,7 @@ public final class Net {
         public final long expires;              // from the Expires header, 0 if none
         public final String lastModified;       // the Last-Modified header, exactly as sent (null if none)
 
-        Reply(int code, String body, long expires, String lastModified) {
+        public Reply(int code, String body, long expires, String lastModified) {
             this.code = code;
             this.body = body;
             this.expires = expires;

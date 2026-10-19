@@ -1,7 +1,5 @@
 package com.twilightcafe.tvplayer.box;
 
-import com.twilightcafe.tvplayer.util.Disk;
-
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.opengl.EGL14;
@@ -12,6 +10,8 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.os.Build;
 import android.view.Display;
+
+import com.twilightcafe.tvplayer.util.Disk;
 
 import java.io.File;
 import java.util.LinkedHashMap;

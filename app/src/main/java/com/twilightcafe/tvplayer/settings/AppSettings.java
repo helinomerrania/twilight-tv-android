@@ -1,9 +1,9 @@
 package com.twilightcafe.tvplayer.settings;
 
-import com.twilightcafe.tvplayer.util.Net;
-
 import android.content.Context;
 import android.content.SharedPreferences;
+
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONObject;
 

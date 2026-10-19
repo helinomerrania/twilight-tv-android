@@ -7,11 +7,11 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.security.SecureRandom;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Random;
 import java.util.TimeZone;
 
 /**
@@ -38,7 +38,7 @@ final class WeatherFeed {
 
     private final File file;
     private final Fetcher fetcher;
-    private final long jitter = new Random().nextInt(5 * 60000);   // spread out, as MET asks
+    private final long jitter = new SecureRandom().nextInt(5 * 60000);   // spread out, as MET asks
     private JSONArray hours = new JSONArray();            // [[time ms, °C, MET symbol], ...] one per hour
     private JSONArray now;                                // WeatherAPI.com's measurement: [time ms, °C, symbol], or null
     private long fetchedAt, expires, triedAt, waitUntil;

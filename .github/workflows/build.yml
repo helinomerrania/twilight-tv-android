@@ -32,6 +32,27 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
           ls -l twilight-tv.apk
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/pages/package-lock.json
+
+      - name: Test the pages
+        shell: bash
+        run: |
+          # The TV, phone and menu pages in a browser (tests/pages): if a check fails, nothing is published.
+          # They use Chrome, the app's own web server (compiled here, with the org.json Gradle fetched for the
+          # tests above) and Python's openpyxl and Pillow for the menu's Excel files.
+          cd tests/pages
+          npm ci --no-audit --no-fund
+          python3 -m venv "$RUNNER_TEMP/py"
+          "$RUNNER_TEMP/py/bin/pip" install --quiet openpyxl pillow
+          export PATH="$RUNNER_TEMP/py/bin:$PATH"
+          export CHROME_PATH="$(command -v google-chrome || command -v chromium || true)"
+          node run.js 2>&1 | tee "$GITHUB_WORKSPACE/pages.log"
+
       - name: Show what went wrong
         if: failure()
         shell: bash
@@ -42,9 +63,12 @@ jobs:
           wrong=$(grep -A 12 "What went wrong" build.log | head -n 40 | enc || true)
           errors=$(grep -E -A 2 "error:|e: |\.java:[0-9]+:" build.log | head -n 60 | enc || true)
           tests=$(grep -E -A 3 " FAILED$" build.log | head -n 60 | enc || true)
+          # the page tests' failed checks, each with its suite
+          pages=$(awk '/^=== /{ s = $0; sub(/^=== /, "", s); sub(/ \([0-9]+ s\)$/, "", s) } /^The page tests/{ s = "in all" } /^  FAIL/{ print s ":" substr($0, 7) }' pages.log 2>/dev/null | head -n 40 | enc || true)
           [ -n "$wrong" ] && echo "::error title=What went wrong::$wrong"
           [ -n "$errors" ] && echo "::error title=Compile errors::$errors"
           [ -n "$tests" ] && echo "::error title=Failed tests::$tests"
+          [ -n "$pages" ] && echo "::error title=Failed page checks::$pages"
           true
 
       - name: Keep the APK with this build

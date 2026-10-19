@@ -38,7 +38,8 @@ app/build.gradle                        the app's version and what it is built f
 app/src/main/AndroidManifest.xml        what Android starts by name
 app/src/main/java/com/twilightcafe/tvplayer/   the app, a folder for each job (below)
 app/src/main/assets/                    the pages and what they show (below)
-app/src/test/java/com/twilightcafe/tvplayer/   tests that run on a computer, in the same folders as the app
+app/src/test/java/com/twilightcafe/tvplayer/   the app's tests, in the same folders as the app
+tests/pages/                            the pages' tests, in a browser
 ```
 
 ## The app's parts
@@ -107,7 +108,11 @@ Of the pages' own files, each server hands out only those on its lists in `Contr
 
 ## Tests
 
-`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer. GitHub runs them before every build, and a failing test stops the build, so nothing untested reaches the TVs.
+There are two sets, and GitHub runs both on every push: first the app's, then the pages'. If a check fails, the build stops and nothing is published, so nothing untested reaches the TVs.
+
+### The app's tests
+
+`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer.
 
 | Test | What it checks |
 |---|---|
@@ -120,9 +125,33 @@ Of the pages' own files, each server hands out only those on its lists in `Contr
 | `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |
 | `feeds/TitleBookTest`, `util/NetTest` | Which song IDs are YouTube's; web requests and finding the box's address |
 
+### The pages' tests
+
+`tests/pages` tries the three pages the way people use them: about 600 checks.
+
+```
+cd tests/pages
+npm ci
+node run.js                 # all of them, in about 3 to 5 minutes
+node run.js phone-menu      # or only some
+```
+
+They need Node, Java, Chrome or Chromium (`CHROME_PATH` says where, if it isn't in the usual places), and Python 3 with `openpyxl` and `Pillow`. LibreOffice is used when it's installed. `SHOTS=<folder>` keeps screenshots of the pages.
+
+| Suite | What it tries |
+|---|---|
+| `tv` | The TV page in jsdom, with a stand-in YouTube player and clock: starting, fades, volume and zoom, schedules and opening hours, the call to prayer, special days, the frame around the video, the café screen and menu slides, the link to the app, test mode |
+| `tv-files` | The TV page's files from the app's real server, in Chrome: each arrives with its type, and none of them reaches the café network |
+| `phone`, `phone-settings`, `phone-screens` | The phone page at phone size, against a stand-in TV: the PIN, the controls, choosing songs, Settings, the Screen tab, pictures |
+| `phone-menu`, `menu-io`, `menu-pictures` | The Menu tab against the app's real server and menu store: making a menu, Excel and CSV in and out, backups, descriptions, pictures |
+| `pin-guessing` | What a phone sees while someone is guessing the PIN |
+| `customer-menu` | The customers' menu on a phone: languages, categories, an item up close |
+
+The suites that need the app's server use `tests/pages/server/PageTestServer.java`: the app's real web servers and menu store, compiled from `app/src/main/java`, with a stand-in for the rest of the app.
+
 ## Making a change
 
 1. Find the part by its job in the table above; new code goes in the folder of its job. Only what the manifest names goes in the top folder.
 2. A new part is made in `TvApp`, and gets what it needs there.
-3. Run `./gradlew testDebugUnitTest`.
+3. Run `./gradlew testDebugUnitTest`, and for a change to a page, `node run.js` in `tests/pages`.
 4. Push to any branch other than `main` for a test build. Pushing to `main` publishes a new version to every TV, installed when staff press **Install update** on the phone page.

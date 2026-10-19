@@ -3,3 +3,7 @@ build/
 local.properties
 .idea/
 *.iml
+
+# The page tests (tests/pages)
+tests/pages/node_modules/
+tests/pages/.build/

@@ -1,0 +1,16 @@
+{
+  "name": "twilight-tv-page-tests",
+  "private": true,
+  "description": "Tests for the TV, phone and menu pages (app/src/main/assets): node run.js",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "jsdom": "24.1.3",
+    "jsqr": "1.4.0",
+    "puppeteer-core": "25.13.0"
+  }
+}

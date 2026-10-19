@@ -31,6 +31,11 @@ jobs:
           ./gradlew --no-daemon testDebugUnitTest assembleRelease 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk twilight-tv.apk
           ls -l twilight-tv.apk
+          # what the app's tests found, as a note on the run
+          r=app/build/test-results/testDebugUnitTest
+          tests=$(grep -ho '<testsuite [^>]*tests="[0-9]*"' $r/TEST-*.xml | grep -o 'tests="[0-9]*"' | grep -o '[0-9]*' | awk '{ n += $1 } END { print n + 0 }' || true)
+          checks=$(cat $r/TEST-*.xml | grep -c '^  ok   ' || true)
+          echo "::notice title=App tests::$tests tests passed, $checks small checks among them"
 
       - name: Set up Node
         uses: actions/setup-node@v4

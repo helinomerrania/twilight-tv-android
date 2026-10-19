@@ -112,18 +112,22 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 
 ### The app's tests
 
-`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer.
+`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer: about 80 tests, some of which make many checks in one go (each a sentence saying what it checks, printed "ok" or "FAIL"; `Checks` is their helper), over 400 checks in all.
 
 | Test | What it checks |
 |---|---|
 | `ArchitectureTest` | The folders keep to the rules above |
 | `phone/PageFilesTest` | The pages' files are all there, and each page asks only for what its server hands out |
+| `phone/ControlServerRequestsTest` | The two web servers answering real requests: the PIN and its lockouts, every address, the pictures and the menu, the TV page for the box only, slow or crowding phones, the customers' server |
 | `phone/ControlServerTest`, `HttpTest`, `PinGuardTest` | Which requests come from the box itself, how long a phone may take to send, reading requests and writing replies, the PIN lockouts |
+| `store/MenuStoreTest`, `PictureStoreTest`, `LookStoreTest` | The menu (saving, two phones at once, what customers see, pictures, the TV's slides), the café's pictures, the café screen's pictures |
+| `feeds/FeedsTest`, `PrayerFeedTest`, `PriceFeedTest`, `TitleBookTest` | Song names, the weather, the call to prayer's times from the town's page, the prices from tirezh.com: reading them, keeping them, and what happens offline |
 | `schedule/ScheduleTest` | Reading times, once a day, every so often, the box's own time zone |
-| `settings/AppSettingsTest` | The PIN and the weather key never from settings.json; the PIN set on the phone is the one used |
-| `lock/AppLockTest` | What the lock sends away and what it lets through |
+| `settings/AppSettingsTest` | settings.json and this TV's own settings together; the PIN and the weather key never from settings.json |
+| `lock/AppLockTest` | What the lock sends away and what it lets through, in every case |
+| `box/VideoSetupTest` | Choices for smooth video: the formats offered to YouTube, graphics Firefox's engine can't use, the screen mode |
 | `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |
-| `feeds/TitleBookTest`, `util/NetTest` | Which song IDs are YouTube's; web requests and finding the box's address |
+| `util/NetTest` | Web requests and finding the box's address |
 
 ### The pages' tests
 

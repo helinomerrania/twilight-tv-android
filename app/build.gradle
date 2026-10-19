@@ -82,4 +82,5 @@ dependencies {
     // Only for the tests on a computer (./gradlew test); none of it goes into the app
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20231013'                    // Android's own JSON only works on a box
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.11.0' // a stand-in web server, for Net's tests
 }

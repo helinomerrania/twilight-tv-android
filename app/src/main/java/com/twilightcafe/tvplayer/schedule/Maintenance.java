@@ -31,6 +31,7 @@ public final class Maintenance {
         public void run() {
             long now = System.currentTimeMillis();
             Core core = app.core;
+            app.watch.tick(now);                                          // the diary: how the box is, and what happened since the last run
             app.network.refresh(false);
             if (app.quality.expired(now)) {
                 app.quality.end();
@@ -49,8 +50,8 @@ public final class Maintenance {
             app.player.watch(now);                                        // a frozen page: reloaded, or a new engine view
             app.feeds.refresh(now, core.onScreen());                      // the weather, prayer times, prices, song names
             if (core.onScreen() && nightly.due(now, Schedule.clock(core.settings.text("restartAt", "05:00")))) {
-                if (app.engine.engineChanged()) app.player.restartApp(); // a fresh start every night: the whole app,
-                else app.player.restartEngine();                         // for the engine's new settings, or a new engine
+                if (app.engine.engineChanged()) app.player.restartApp("A fresh start for the night, for the engine's new settings.");
+                else app.player.restartEngine("A fresh start for the night.");   // the whole app for the engine's new settings, else a new engine view
                 app.volume.apply();
             }
             if (opening.due(now, Schedule.opening(core.settings.text("openHours", "")))) {

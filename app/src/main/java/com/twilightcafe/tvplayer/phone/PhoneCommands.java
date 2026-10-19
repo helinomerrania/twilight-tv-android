@@ -80,7 +80,7 @@ public final class PhoneCommands {
                 });
                 return true;
             case "restart":
-                app.core.main.post(app.player::restartApp);
+                app.core.main.post(() -> app.player.restartApp("Restarted from the phone."));
                 return true;
             case "forget":
                 return app.link.toPage("forget");

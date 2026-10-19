@@ -1,5 +1,7 @@
 package com.twilightcafe.tvplayer.box;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.opengl.EGL14;
@@ -145,6 +147,50 @@ public final class BoxInfo {
 
     public static int[] mode(Display.Mode m) {
         return new int[] { m.getModeId(), m.getPhysicalWidth(), m.getPhysicalHeight(), Math.round(m.getRefreshRate() * 100) };
+    }
+
+    /** What Android says about why the box last started ("" when it doesn't), in words where it's a known reason */
+    public static String bootReason() {
+        for (String p : new String[] { "sys.boot.reason", "persist.sys.boot.reason", "ro.boot.bootreason" }) {
+            String r = property(p);
+            if (!r.isEmpty()) return Diary.bootWords(r);
+        }
+        return "";
+    }
+
+    /** How the box is now, for the diary: "310 MB free of 1,868 MB, the chip at 64 °C" ("" if it doesn't say) */
+    public static String health(Context c) {
+        StringBuilder b = new StringBuilder();
+        try {
+            ActivityManager am = (ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
+            ActivityManager.MemoryInfo m = new ActivityManager.MemoryInfo();
+            am.getMemoryInfo(m);
+            if (m.totalMem > 0) {
+                b.append(String.format(Locale.US, "%,d MB free of %,d MB", m.availMem >> 20, m.totalMem >> 20));
+                if (m.lowMemory) b.append(" (Android said memory was low)");
+            }
+        } catch (RuntimeException e) {
+            // not known
+        }
+        int t = temperature();
+        if (t > 0) b.append(b.length() > 0 ? ", " : "").append("the chip at ").append(t).append(" °C");
+        return b.toString();
+    }
+
+    // The chip's temperature in °C (the hottest of its first sensors), or 0 when the box doesn't say
+    static int temperature() {
+        int hottest = 0;
+        for (int i = 0; i < 4; i++) {
+            String s = read("/sys/class/thermal/thermal_zone" + i + "/temp").trim();
+            try {
+                long v = Long.parseLong(s);
+                if (v > 1000) v /= 1000;                // millidegrees, as most boxes say it
+                if (v > 0 && v < 150 && v > hottest) hottest = (int) v;
+            } catch (NumberFormatException e) {
+                // not this one
+            }
+        }
+        return hottest;
     }
 
     // A system property (hidden from apps, so asked for by name); "" if it can't be read

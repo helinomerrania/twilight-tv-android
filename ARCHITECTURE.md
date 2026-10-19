@@ -58,7 +58,7 @@ Each folder has one job. The classes say what they do in a comment at their top.
 | `store/` | What the café keeps on the box | `MenuStore` (the menu), `PictureStore` (the café's pictures), `LookStore` (the café screen's own pictures), `Jpeg` |
 | `update/` | New versions | `Updater` (finds a newer release, downloads and checks it, installs it when staff press Install update) |
 | `schedule/` | What happens by the clock | `Schedule` (the rules: times in the settings, once a day at a minute, every so often), `Maintenance` (the jobs, every 30 seconds: settings.json, updates, a frozen page, the feeds, the night's fresh start, the volume at opening time) |
-| `box/` | The TV box itself | `TvVolume`, `Leveller` (sound levelling), `WifiKeeper`, `BoxInfo` and `BoxReport` (what the box is), `VideoSetup` (choices for smooth video) |
+| `box/` | The TV box itself | `TvVolume`, `Leveller` (sound levelling), `WifiKeeper`, `BoxInfo` and `BoxReport` (what the box is), `VideoSetup` (choices for smooth video), `Diary` and `BoxWatch` (what happened to the box: restarts, crashes, sleep, for the phone page) |
 | `screen/` | The TV's screen | `ScreenMode` (lines and refresh rate), `TestMode` (test mode's details on screen) |
 | `lock/` | Keeping the box in Twilight TV | `AppLock` (the rules), `BoxLock` (doing it), `Permissions` (the two questions at the start) |
 | `remote/` | The remote control | `RemoteKeys`, `QualitySetup` and `PointerView` (picking the picture quality with a pointer) |
@@ -113,7 +113,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 
 ### The app's tests
 
-`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer: about 100 tests, some of which make many checks in one go (each a sentence saying what it checks, printed "ok" or "FAIL"; `Checks` is their helper), over 400 checks in all.
+`./gradlew testDebugUnitTest` runs the tests in `app/src/test`, on a computer: about 120 tests, some of which make many checks in one go (each a sentence saying what it checks, printed "ok" or "FAIL"; `Checks` is their helper), over 400 checks in all.
 
 | Test | What it checks |
 |---|---|
@@ -127,6 +127,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 | `settings/AppSettingsTest` | settings.json and this TV's own settings together; the PIN and the weather key never from settings.json |
 | `lock/AppLockTest` | What the lock sends away and what it lets through, in every case |
 | `box/VideoSetupTest` | Choices for smooth video: the formats offered to YouTube, graphics Firefox's engine can't use, the screen mode |
+| `box/DiaryTest` | The diary: what happened since the app last ran (the box started again by itself or was turned on, the app stopped or was updated), saved at once before the app restarts itself or crashes |
 | `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |
 | `util/NetTest`, `DiskTest` | Web requests and finding the box's address; files written whole, and read back as written |
 

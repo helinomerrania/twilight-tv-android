@@ -159,12 +159,12 @@ public final class PageEngine {
             // The engine crashed or Android closed it to free memory: start the page again
             @Override
             public void onCrash(GeckoSession session) {
-                gone(session);
+                gone(session, "Firefox's engine crashed: started again.");
             }
 
             @Override
             public void onKill(GeckoSession session) {
-                gone(session);
+                gone(session, "Android closed Firefox's engine to free memory: started again.");
             }
         });
         s.open(runtime());
@@ -176,9 +176,11 @@ public final class PageEngine {
         return uri != null && (uri.equals("about:blank") || (p > 0 && uri.startsWith("http://localhost:" + p + "/tv/")));
     }
 
-    private void gone(final GeckoSession which) {
+    private void gone(final GeckoSession which, final String what) {
         core.main.post(() -> {
-            if (session == which) restart();
+            if (session != which) return;
+            core.diary.add(System.currentTimeMillis(), what);
+            restart();
         });
     }
 

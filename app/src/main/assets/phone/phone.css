@@ -81,6 +81,8 @@ li a { color: var(--sun); font-size: .85rem; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .two .wide.go { background: var(--glow); color: #2a1406; border-color: transparent; font-weight: 650; }
 .facts { color: var(--soft); font-size: .8rem; margin: 18px 4px 0; }
+.diary li span { display: block; margin-bottom: 2px; }
+.diary li div { font-size: .92rem; overflow-wrap: anywhere; }
 .facts p { margin: 0 0 4px; }
 .banner { border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; background: rgba(255, 143, 122, .16);
           border: 1px solid rgba(255, 143, 122, .5); }

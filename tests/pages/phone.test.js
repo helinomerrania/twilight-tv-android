@@ -3,8 +3,13 @@ const { launch, shot, servePhonePage } = require('./lib/common');
 const http = require('http'), fs = require('fs');
 const cmds = [];
 let state = { paused: false, closed: false, vol: 80, zoom: 100, tv: 7, update: 0, notice: '', setup: false };
+const DAY = 864e5, TODAY = new Date(); TODAY.setHours(21, 14, 0, 0);
+const DIARY = [{ t: TODAY.getTime(), what: 'The TV box started again by itself, or its power went off for a moment: Twilight TV was running at 19 Oct 21:13.' },
+               { t: TODAY.getTime() - DAY + 5 * 36e5 - 21 * 36e5 - 14 * 6e4, what: 'A fresh start for the night.' },
+               { t: new Date(2026, 9, 12, 14, 2).getTime(), what: 'Twilight TV crashed: IllegalStateException in PageLink.checkIn.' }];
 function status() {
   return {
+    diary: DIARY,
     tv: 'TV 23', build: '1.5', onScreen: true, qualitySetup: state.setup,
     engine: "Firefox's engine (GeckoView 143.0, built into this app)", engineMajor: 143, tvVolume: state.tv, tvVolumeMax: 15, tvVolumeFixed: false,
     levelling: 'on', settings: 'settings.json from GitHub, 10 Oct 19:20', updateReady: state.update, updateStatus: state.update ? 'build 6 is ready to install' : 'up to date (build 5)',
@@ -14,7 +19,7 @@ function status() {
       song: { id: 'abc123xyz00', title: 'Hama Jaza — Bo Kurdistan (Official Video)', position: 83, duration: 245 },
       state: state.closed ? 'closed' : state.paused ? 'paused' : 'playing', picture: 'show', volume: state.vol, scheduleVolume: 100,
       zoom: state.zoom, zoomNote: 'bars found automatically', muted: false, quality: '2160p (4K)', openHours: '10:00-02:00', open: !state.closed,
-      holdUntil: state.paused ? Date.now() + 3 * 3600e3 : 0, adsSkipped: 3,
+      holdUntil: state.paused ? Date.now() + 3 * 3600e3 : 0, adsSkipped: 3, soundFixes: 2, soundFixAt: TODAY.getTime(),
       problems: [{ id: 'dQw4w9WgXcQ', title: 'Old live concert 2009', what: "YouTube error 150 (the owner doesn't allow it on other sites)", count: 3, last: 1 },
                  { id: 'kJQP7kiw5Fk', title: '', what: 'never started (stuck loading)', count: 1, last: 0 }] }
   };
@@ -75,6 +80,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     return li.length === 2 && /Old live concert/.test(li[0].textContent) && /3 times/.test(li[0].textContent) &&
       li[0].querySelector('a').href === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' && /kJQP7kiw5Fk/.test(li[1].textContent) &&
       document.getElementById('problemsTitle').textContent === '2 songs won\'t play'; }));
+  check('what happened on this TV: newest first, each with its day and time', await page.evaluate(() => {
+    const li = [...document.querySelectorAll('#diaryList li')].map(l => l.querySelector('span').textContent + ' | ' + l.querySelector('div').textContent);
+    return !document.getElementById('diaryCard').hidden && li.length === 3 && li[0].startsWith('Today, 21:14 | The TV box started again by itself') &&
+      li[1] === 'Yesterday, 05:00 | A fresh start for the night.' && li[2] === '12 Oct, 14:02 | Twilight TV crashed: IllegalStateException in PageLink.checkIn.'; }),
+    await page.evaluate(() => [...document.querySelectorAll('#diaryList li')].map(l => l.textContent)));
+  check('YouTube changing the volume by itself: how often, with the facts', await page.evaluate(() =>
+    document.getElementById('facts').textContent.includes("Sound: YouTube's player changed the volume by itself 2 times, last at 21:14. The TV set it back at once each time.")));
   check('the PIN is remembered on this phone', await page.evaluate(() => localStorage.getItem('twilight-tv-pin') === '4821'));
   await shot(page, 'phone-main.png', { fullPage: true });
   await page.tap('#next'); await sleep(1700);

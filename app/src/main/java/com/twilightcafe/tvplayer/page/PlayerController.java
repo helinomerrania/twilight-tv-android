@@ -49,24 +49,26 @@ public final class PlayerController {
         engine.load(link.address(p, setup, test.on()), setup);
     }
 
-    /** A fresh engine view and page: every night, and when the page froze and reloading didn't help */
-    public void restartEngine() {
+    /** A fresh engine view and page: every night, and when the page froze and reloading didn't help (why: for the diary) */
+    public void restartEngine(String why) {
+        core.diary.add(System.currentTimeMillis(), why);
         engine.restart();
     }
 
     /**
      * The whole app again from scratch, so Firefox's engine starts again too, with its new start-up settings
-     * (only while on screen: Android doesn't let an app open itself from the background)
+     * (only while on screen: Android doesn't let an app open itself from the background). why: for the diary.
      */
-    public void restartApp() {
+    public void restartApp(String why) {
         if (!core.onScreen()) {
-            restartEngine();
+            restartEngine(why + " Only the engine: the app wasn't on screen.");
             return;
         }
+        core.diary.planned(System.currentTimeMillis(), why);
         try {
             Restart.now(core.activity);
         } catch (RuntimeException e) {
-            restartEngine();                             // couldn't: at least a fresh page
+            restartEngine("The app couldn't start again by itself: a new engine view instead.");   // at least a fresh page
         }
     }
 
@@ -80,8 +82,9 @@ public final class PlayerController {
             lastReload = now;
             if (reloadsInRow >= 3) {
                 reloadsInRow = 0;
-                restartEngine();
+                restartEngine("The TV page stopped answering, a third time in half an hour: a new engine view.");
             } else {
+                core.diary.add(now, "The TV page stopped answering for 2 minutes: opened again.");
                 open();
             }
         }

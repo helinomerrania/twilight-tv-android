@@ -116,6 +116,7 @@ function makePage(opts = {}) {
           return { video_id: this.ad ? 'ADVIDEO0001' : this.vid, title: t ? t[0] : 'Song ' + this.vid, author: t ? t[1] : '' };
         }
         isMuted() { return this.muted; }
+        getVolume() { return this.vol; }
         getAvailableQualityLevels() { return page.levels || []; }
         setPlaybackQualityRange(a, b) { this.calls.push(['qrange', a, b]); }
         setPlaybackQuality(q) { this.calls.push(['quality', q]); }
@@ -746,6 +747,46 @@ async function tSound() {
   q.fake.state = -1; q.fake.frozen = 0;
   await sleep(300); q.clock.now += 20e3; await sleep(400);
   check('browser blocks even silent video: says "tap once", doesn\'t race through songs', /Tap the screen once/.test(note.innerHTML) && q.loads().length === 1);
+  q.close();
+}
+
+async function tSoundSteady() {
+  console.log('\nThe sound stays as the page sets it');
+  const p = makePage({ html: fast({ volume: 80 }), ids: makeIds(5) });
+  await p.start(); await reveal(p);
+  // At a song's start the sound comes on: the volume must be set first, or the player plays a moment at its old one
+  const order = () => { const c = p.fake.calls, load = c.map(x => x[0]).lastIndexOf('load'), on = c.findIndex((x, i) => i > load && x[0] === 'unMute');
+    const vol = c.slice(load, on).filter(x => x[0] === 'vol').pop(); return on > load && vol && vol[1] === 80 ? 'ok' : c.slice(load).map(x => x.join(' ')).join(', '); };
+  check('a song coming on: its volume set before its sound comes on', order() === 'ok', order());
+  p.end(); await reveal(p);
+  check('...the next song too (its volume the same as the last one\'s, set again all the same)', order() === 'ok', order());
+  const steady = async () => { p.clock.now += 2100; await sleep(300); };   // a resync of its own first, so what follows is the quick check
+  await steady();
+  p.fake.vol = 100;                                // YouTube's player turning itself up, on its own
+  p.clock.now += 700; await sleep(300);
+  check('YouTube\'s player turning itself up: back to 80 at once (not at the next resync, up to 2 seconds later)', p.fake.vol === 80, p.fake.vol);
+  check('...counted, with when, for the phone page', p.window.TwilightTV.status().soundFixes === 1 && p.window.TwilightTV.status().soundFixAt === p.clock.now,
+    p.window.TwilightTV.status().soundFixes);
+  await steady();
+  p.fake.muted = true;                             // ...or switching its sound off
+  p.clock.now += 700; await sleep(300);
+  check('its sound switched off by itself: on again at once', !p.fake.muted && p.window.TwilightTV.status().soundFixes === 2, [p.fake.muted, p.window.TwilightTV.status().soundFixes]);
+  await steady();
+  const before = p.fake.calls.length;
+  p.clock.now += 700; await sleep(300); p.clock.now += 700; await sleep(300);
+  check('nothing changed: nothing sent, nothing counted', p.fake.calls.slice(before).every(c => c[0] !== 'vol' && c[0] !== 'unMute') &&
+    p.window.TwilightTV.status().soundFixes === 2, p.fake.calls.slice(before));
+  check('no script errors', p.errors.length === 0, p.errors);
+  p.close();
+
+  // A player that doesn't say its volume truly (it keeps saying 100): put back once, then left to the resync every 2 s
+  const q = makePage({ html: fast({ volume: 80 }), ids: makeIds(5) });
+  await q.start(); await reveal(q);
+  q.clock.now += 2100; await sleep(300);
+  q.fake.getVolume = () => 100;
+  for (let i = 0; i < 5; i++) { q.clock.now += 700; await sleep(300); }
+  check('a player that never says the volume it has: set back once, then not again and again (the 2-second resync carries on)',
+    q.window.TwilightTV.status().soundFixes === 1 && q.fake.vol === 80, [q.window.TwilightTV.status().soundFixes, q.fake.vol]);
   q.close();
 }
 
@@ -1690,6 +1731,22 @@ async function tMenuSlides() {
   const off = await paused(o, 3);
   check('"Menu items between songs" off: none (only the café\'s picture)', off.every(x => x === 'café'), off);
   o.close();
+
+  // A restart (the nightly one, the page's reload, the box turned off and on): the slides carry on where they were
+  const r1 = open(20, KU);
+  await r1.start(); await reveal(r1);
+  const before = await paused(r1, 4);
+  const kept = r1.storage();
+  r1.close();
+  const r2 = makePage({ ids: makeIds(6), size: [1920, 1080], now: NOW, storage: kept,
+    app: { json: JSON.stringify(Object.assign({ titleSeconds: 0, fadeIn: 0, fadeOut: 0, brandEnding: 10 }, KU)), x: extras(20), xv: 2 } });
+  await r2.start(); await reveal(r2);
+  check('after a restart: the café\'s picture first, as ever', nameOf(r2) === 'café', nameOf(r2));
+  const after = await paused(r2, 3);
+  check('...then the menu carries on where it was, rather than from its first item again',
+    JSON.stringify(before) === JSON.stringify(['توایڵایت', 'café', 'چا', 'café']) && JSON.stringify(after) === JSON.stringify(['پرتەقاڵ', 'café', 'ڤانێلا']), [before, after]);
+  check('no script errors', r2.errors.length === 0, r2.errors);
+  r2.close();
 }
 
 async function tSpecialDays() {
@@ -1734,7 +1791,7 @@ async function tSpecialDays() {
 (async () => {
   const args = process.argv.slice(2);
   const tests = [tBrand, tPlaceholder, tStart, tHide, tFades, tVolume, tZoom, tAutoZoom, tAppLink, tCommands, tHours, tSchedule, tProblems, tQualitySetup, tShuffle, tSmall, tReload, tBadVideos, tOddErrors, tUnstoppable,
-                 tSound, tAds, tSubtitles, tCutEnding, tRefresh, tApiKey, tLook, tCorners, tHijriFromSite, tQualityAsk, tFullscreen, tRealPlaylist, tDebug, tSlowYouTube, tBridge,
+                 tSound, tSoundSteady, tAds, tSubtitles, tCutEnding, tRefresh, tApiKey, tLook, tCorners, tHijriFromSite, tQualityAsk, tFullscreen, tRealPlaylist, tDebug, tSlowYouTube, tBridge,
                  tPanel, tKurdishCalendar, tOwnLooks, tMenuCode, tVideoColours, tSongChoice, tSinger, tPrayer, tQuietAndClosing, tPlaylistSchedule, tSlides, tMenuSlides, tSpecialDays];
   if (args.includes('--list')) { console.log(tests.map(t => t.name).join('\n')); return; }
   const only = args.filter(a => !a.startsWith('--'));

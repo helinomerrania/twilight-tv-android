@@ -5,6 +5,7 @@ import android.widget.FrameLayout;
 
 import com.twilightcafe.tvplayer.BuildConfig;
 import com.twilightcafe.tvplayer.box.BoxReport;
+import com.twilightcafe.tvplayer.box.BoxWatch;
 import com.twilightcafe.tvplayer.box.Leveller;
 import com.twilightcafe.tvplayer.box.TvVolume;
 import com.twilightcafe.tvplayer.box.WifiKeeper;
@@ -42,7 +43,7 @@ import java.io.File;
  *                     PhoneStatus, PhoneSettings, PhonePin, TvNetwork
  *   from the internet: Feeds (song names, weather, prices, prayer times), Updater
  *   kept on the box:  the settings (Core), PictureStore, LookStore, MenuStore
- *   the box itself:   TvVolume, Leveller, WifiKeeper, BoxReport, ScreenMode, BoxLock, Permissions
+ *   the box itself:   TvVolume, Leveller, WifiKeeper, BoxReport, ScreenMode, BoxLock, Permissions, BoxWatch (the diary)
  *   on screen:        TestMode, QualitySetup; the remote: RemoteKeys
  *   by the clock:     Maintenance (when each job is due: Schedule)
  */
@@ -60,6 +61,7 @@ public final class TvApp {
     public final PhonePin pin;
     public final Leveller leveller = new Leveller();
     public final BoxReport box = new BoxReport();
+    public final BoxWatch watch;                         // the diary's notes on the box: restarts, sleep, memory, heat
     public final ScreenMode screen;
     public final BoxLock lock;
     public final Permissions permissions;
@@ -79,6 +81,7 @@ public final class TvApp {
 
     public TvApp(Activity activity, FrameLayout root) {
         core = new Core(activity);
+        watch = new BoxWatch(activity, core.diary, Updater.shown(BuildConfig.VERSION_CODE), core.screenAgain);
         assets = new AppAssets(activity);
         updater = new Updater(activity, BuildConfig.REPO, BuildConfig.VERSION_CODE);
         feeds = new Feeds(activity, core.settings);
@@ -115,6 +118,7 @@ public final class TvApp {
         engine.make();
         engine.readVersion();
         box.read();
+        watch.start();
         core.main.postDelayed(screen::apply, 4000);     // once the screen has settled in the box's own mode
         server.start();
         menuServer.start(8090, 8099);                    // customers' phones: the menu alone, on a port of its own
@@ -142,6 +146,7 @@ public final class TvApp {
 
     public void onDestroy() {
         core.destroy();
+        watch.destroy();
         lock.destroy();
         feeds.destroy();
         server.stop();

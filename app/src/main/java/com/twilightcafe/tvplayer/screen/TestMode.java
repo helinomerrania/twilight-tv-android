@@ -98,6 +98,8 @@ public final class TestMode {
             b.append("\nThe chip decodes: ").append(bx.optString("decoders").isEmpty() ? "not known" : bx.optString("decoders"));
         }
         b.append("\nScreen: ").append(app.screen.facts());
+        String noted = app.core.diary.last();
+        if (!noted.isEmpty()) b.append("\nLast in the diary: ").append(noted);
         b.append("\nApp build ").append(BuildConfig.VERSION_NAME);
         return b.toString();
     }

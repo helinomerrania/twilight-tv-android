@@ -58,6 +58,7 @@ public final class PhoneStatus {
             JSONArray others = new JSONArray();
             for (String[] t : app.network.others()) others.put(new JSONObject().put("name", t[0]).put("url", t[1]));
             o.put("others", others);
+            o.put("diary", app.core.diary.recent(20));        // restarts and the like, newest first
             return o.toString();
         } catch (Exception e) {
             return "{\"tv\":" + JSONObject.quote(app.network.name()) + ",\"error\":" + JSONObject.quote(e.toString()) + "}";

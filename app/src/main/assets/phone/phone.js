@@ -7,6 +7,13 @@
 
   function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
   function clock(ms) { var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  // "Today, 21:14", "Yesterday, 05:00", "17 Oct, 05:00"
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dayClock(ms) {
+    var d = new Date(ms), now = new Date(), y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    var day = d.toDateString() === now.toDateString() ? "Today" : d.toDateString() === y.toDateString() ? "Yesterday" : d.getDate() + " " + MONTHS[d.getMonth()];
+    return day + ", " + clock(ms);
+  }
   function el(tag, attrs, text) {
     var e = document.createElement(tag);
     for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
@@ -168,6 +175,16 @@
     });
     $("historyCard").hidden = !(p && p.history && p.history.length);
 
+    // What happened to the TV box: restarts and the like, newest first (the app keeps the diary)
+    var diary = (s.diary || []).filter(function (x) { return x && x.what; });
+    list("diaryList", diary, function (x) {
+      var li = el("li");
+      li.appendChild(el("span", {}, dayClock(x.t)));
+      li.appendChild(el("div", {}, x.what));
+      return li;
+    });
+    $("diaryCard").hidden = !diary.length;
+
     var probs = (p && p.problems) || [];
     $("problems").hidden = !probs.length;
     $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
@@ -182,6 +199,8 @@
 
     var facts = [];
     if (p) facts.push("Playlist: " + p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round. " + p.adsSkipped + " ads skipped.");
+    if (p && p.soundFixes) facts.push("Sound: YouTube's player changed the volume by itself " + (p.soundFixes === 1 ? "once" : p.soundFixes + " times") +
+      ", last at " + clock(p.soundFixAt) + ". The TV set it back at once each time.");
     if (p && p.openHours) facts.push("Opening hours: " + p.openHours + ".");
     if (p && p.prayers && p.prayers.length) facts.push("Call to prayer today: " + p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
       (p.prayersFrom ? ", " + p.prayersFrom + "'s times" : ", worked out on the TV") + " (the music pauses " + p.prayerPause + " min, in opening hours).");

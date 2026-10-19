@@ -72,6 +72,7 @@ The **Control** tab has:
 - **Choose a song:** search the playlist by name or singer, then **Next** (after the song playing now) or **Now**. Or paste any YouTube link (from YouTube's Share button) and press **Play next** or **Play now**. Songs asked for are listed under **Waiting to play**, where × takes one off again.
 - **Last songs:** the last 20 songs, with the time each played. **Again** plays one next.
 - **Songs that won't play:** each one links to YouTube.
+- **What happened on this TV:** restarts, crashes and the box going to sleep and waking up, newest first, each with its time. When the box started again by itself, it says how long it was off, what Android gives as the reason (when it gives one), and how much free memory the box had and how hot its chip was a minute before. If a TV ever turns off by itself, look here.
 - **Install update:** appears when a new version is waiting.
 - With more than one TV box: **Show this TV's name on its screen**, and each TV's name at the top opens that TV's page.
 
@@ -126,7 +127,7 @@ In Kurdish (the words in `settings.json`) the whole screen is mirrored: the vide
 
 The café screen is the café's own pictures: one for every day, one each for Newroz, Eid (both Eids), Barat Night and New Year, and a plain one, the room with no words on it, where the TV writes your messages and the call-to-prayer line. To change one, open **Café screen pictures** on the phone's Screen tab and press **Change** under it, then choose a picture on the phone: 16:9, like 1920x1080 (other shapes are cropped to fit), with your words in it. It goes to every TV at once; **Built-in** puts the app's own back. The built-in ones are in `app/src/main/assets/looks`.
 
-Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn, with an item from the menu after each of them. On a long pause it moves to the next one every 20 seconds. Each one is made before its turn, its pictures already decoded, and the café screen fades over the video rather than the video fading, so the changes stay smooth (see If the video stutters).
+Whenever the café screen comes up between two songs, it shows the café's picture (or the day's), or one of your messages, or one of your pictures, in turn, with an item from the menu after each of them. On a long pause it moves to the next one every 20 seconds. After a restart (the nightly one, or the TV turned off and on) they carry on where they were, so the menu's later items get their turns too. Each one is made before its turn, its pictures already decoded, and the café screen fades over the video rather than the video fading, so the changes stay smooth (see If the video stutters).
 
 - **Messages:** Screen tab, **Add a message**, then Save.
 - **Pictures:** Screen tab, **Add pictures**, and choose photos on the phone. Each is fitted to the TV whole (nothing cut off), on a blurred copy of itself. Up to 30; × deletes one. They're kept on the TV box itself.
@@ -241,6 +242,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 
 - **Sound levelling.** Android's own sound compressor makes quiet and loud songs closer in volume. If the box doesn't allow it, test mode says so and nothing changes.
 - **Wi-Fi at full power** while the app is on screen, so streaming doesn't stutter.
+- **The volume stays as set.** If YouTube's player changes its own volume, the TV puts it back within a quarter of a second. The phone page's facts say how often that happened.
 - **A frozen page is reloaded** after 2 minutes. If that happens three times in half an hour, the app starts a whole new web engine.
 - **A fresh start every night** at `restartAt` (05:00 unless you change it): a new web engine, or the whole app when the video format changed.
 

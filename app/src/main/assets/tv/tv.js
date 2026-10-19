@@ -46,6 +46,7 @@
   var showAt = Infinity, needHold = false, pictureMode = "", fadeStartedAt = 0;
   var picEnding = false, picFadeSecs = 0;   // café screen over the song's last seconds
   var lastState = -1, leftPlayingAt = 0, lastSentMute = null, lastSentVol = -1, resyncAt = 0;
+  var soundSetAt = 0, soundFixes = 0, soundFixAt = 0, soundCheckOff = false;   // the player's sound kept as set (checkSound)
   var adSince = 0, adSkips = 0, adsSkipped = 0, adPauseUntil = 0, soundTriedAt = 0, volTimer = null;
   var reloading = false, noteShown = false;
   var loadedAt = Date.now(), lastSwitch = 0, lastMove = Date.now(), lastTime = -1, lastKick = 0;
@@ -69,8 +70,10 @@
   var softDraw = false;                          // the app says Firefox's engine draws on the box's processor
   // The info panel and the café screen's messages and pictures
   var frameBox = null, frameKey = "", frameLayer = "a";   // the video card, and the colours on it (syncColours)
-  var panelOn = false, panelDirty = true, drawn = {}, slideIdx = 0, slideAt = 0, slideShown = "name:", slideTimer = null;
-  var prepared = null, menuTurn = 0, pictureAt = 0;   // the next slide, made before its turn; the menu's turn; when the picture last changed
+  // Where the slides between songs had got to (the café's own and the menu's turns): a restart carries on from there
+  var SLIDES = "tv-slides", slidesWere = savedSlides();
+  var panelOn = false, panelDirty = true, drawn = {}, slideIdx = slidesWere.s, slideAt = 0, slideShown = "name:", slideTimer = null;
+  var prepared = null, menuTurn = slidesWere.m, pictureAt = 0;   // the next slide, made before its turn; the menu's turn; when the picture last changed
 
   // The words on the TV. Each can be replaced in the labels setting (e.g. with Kurdish ones).
   // "locale" sets how dates are written (e.g. "ckb" for Kurdish); a right-to-left one mirrors the screen.
@@ -161,6 +164,19 @@
 
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // The slides' turns between songs, whatever the playlist: kept, so a restart (the nightly one, the page's reload,
+  // the box turned off and on) carries on rather than showing the menu's first items again
+  function savedSlides() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(SLIDES)); } catch (e) {}
+    var turn = function (v) { v = Math.floor(Number(v)); return v >= 0 && v < 1e9 ? v : 0; };
+    return { s: turn(s && s.s), m: turn(s && s.m) };
+  }
+
+  function keepSlides() {
+    try { localStorage.setItem(SLIDES, JSON.stringify({ s: slideIdx, m: menuTurn })); } catch (e) {}
   }
 
   /* ---------- shuffle with no recent repeats ---------- */
@@ -597,6 +613,7 @@
     else if (st === ENDED && now - lastSwitch > 2000) return next();
 
     if (now - resyncAt > 2000) { resyncAt = now; syncSound(true); }
+    else checkSound(now);
     syncPicture();
 
     if (now - lastMove > 90e3) {                 // stuck for 90 seconds
@@ -814,17 +831,39 @@
   }
 
   // Applies mute / volume: silent while loading or covering an ad, faded
-  // with the fade level (on a natural-sounding curve), at the song's volume.
+  // with the fade level (on a natural-sounding curve), at the song's volume. Coming back on, the volume is set
+  // first: unmuted first, the player would play for a moment at whatever volume it had before.
   function syncSound(force) {
     if (!player || !ready) return;
     var silent = muted || level <= 0.001 || duck <= 0.001 || (guarded && adBlocking());
     var vol = silent ? 0 : Math.max(1, Math.round(songVolume() * scheduleVolume() / 100 * closingShare() * duck *
                                                   Math.pow(10, (level - 1) * 1.5)));
+    var now = Date.now();
+    if (!silent && (force || vol !== lastSentVol || lastSentMute !== false)) {
+      if (vol !== lastSentVol) soundSetAt = now;
+      player.setVolume(vol);
+      lastSentVol = vol;
+    }
     if (force || silent !== lastSentMute) {
+      if (silent !== lastSentMute) soundSetAt = now;
       if (silent) player.mute(); else player.unMute();
       lastSentMute = silent;
     }
-    if (!silent && (force || vol !== lastSentVol)) { player.setVolume(vol); lastSentVol = vol; }
+  }
+
+  // YouTube's player changing its volume, or its sound on or off, by itself: put back at once (4 times a second),
+  // rather than at the next resync up to 2 seconds later, that long too loud. Counted, for the phone page. Only
+  // while the song itself plays (the café screen down), and not just after the page changed the sound itself (the
+  // player says its new volume a moment later).
+  function checkSound(now) {
+    if (soundCheckOff || !player || !ready || guarded || lastSentMute == null || now - soundSetAt < 600) return;
+    if (typeof player.getVolume !== "function" || typeof player.isMuted !== "function") return;
+    var m = !!player.isMuted(), v = Number(player.getVolume());
+    if (m === lastSentMute && (m || isNaN(v) || Math.abs(v - lastSentVol) <= 1)) return;
+    if (soundFixAt && now - soundFixAt < 1500) { soundCheckOff = true; return; }   // still not right just after: it doesn't say truly
+    soundFixes++;
+    soundFixAt = soundSetAt = now;
+    syncSound(true);
   }
 
   function setLevel(v) {
@@ -1561,6 +1600,7 @@
     if (item.kind === "menu") item = menuItem(true) || { kind: "name" };
     showSlide(item);
     slideAt = Date.now();
+    keepSlides();
   }
 
   // What comes after the one on now (for the menu: the item whose turn it will be), to be made before its turn
@@ -2284,6 +2324,8 @@
         open: isOpen(),
         holdUntil: quiet === "paused" ? holdUntil : 0,
         adsSkipped: adsSkipped,
+        soundFixes: soundFixes,
+        soundFixAt: soundFixAt,
         problems: problems,
         upNext: upNextInfo(),
         asked: state.upNext.map(function (id) { return { id: id, title: titleText(id) }; }),
@@ -2486,7 +2528,8 @@
                  mmss(player.getDuration()) + "   picture " + (pictureMode || "off"));
       lines.push("Zoom " + songZoom() + "% (" + zoomNote() + "; remote left/right to change)");
       lines.push("Sound " + (muted ? "OFF (tap the screen or press OK)" : lastSentMute ? "held (loading / ad / fade)" : "on at " + lastSentVol + "%") +
-                 ", this song's volume " + songVolume() + "% (remote up/down to change)");
+                 ", this song's volume " + songVolume() + "% (remote up/down to change)" +
+                 (soundFixes ? "   YouTube's player changed it by itself " + soundFixes + "x, put back at once" : ""));
       lines.push("Opening hours " + (S.openHours ? S.openHours + (isOpen() ? " (open now)" : " (closed now)") : "not set") +
                  ", volume schedule " + scheduleVolume() + "% of normal now" +
                  (quiet === "closed" ? "   MUSIC OFF: outside opening hours" : quiet === "paused" ? "   MUSIC OFF: paused from the phone" :

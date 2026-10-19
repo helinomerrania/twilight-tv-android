@@ -88,7 +88,7 @@ public final class PhoneSettings {
             if (app.engine.engineChanged()) {              // the engine's start-up settings: the app starts again (after this answer)
                 result.put("restarting", true);
                 app.core.main.postDelayed(() -> {
-                    if (app.engine.engineChanged()) app.player.restartApp();
+                    if (app.engine.engineChanged()) app.player.restartApp("Restarted to use the new video settings.");
                 }, 2000);
             }
             return result.toString();

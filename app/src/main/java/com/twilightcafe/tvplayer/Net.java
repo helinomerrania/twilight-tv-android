@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.URL;
 import java.util.Collections;
+import java.util.List;
 
 /** Small internet and network helpers. */
 final class Net {
@@ -89,14 +90,24 @@ final class Net {
     /** This TV's address on the café network (Wi-Fi or cable), e.g. 192.168.1.23, or "" */
     static String localIp() {
         try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            return findLocalIp(Collections.list(NetworkInterface.getNetworkInterfaces()));
+        } catch (Exception e) {
+            // no network yet
+        }
+        return "";
+    }
+
+    /** The first café-network address among these network cards, or "" (on its own, so it can be tested) */
+    static String findLocalIp(List<NetworkInterface> interfaces) {
+        try {
+            for (NetworkInterface ni : interfaces) {
                 if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
                 for (InetAddress a : Collections.list(ni.getInetAddresses())) {
                     if (a instanceof Inet4Address && !a.isLoopbackAddress() && a.isSiteLocalAddress()) return a.getHostAddress();
                 }
             }
         } catch (Exception e) {
-            // no network yet
+            // a card that went away while being read
         }
         return "";
     }

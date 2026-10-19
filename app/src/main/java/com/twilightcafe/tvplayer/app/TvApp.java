@@ -23,6 +23,7 @@ import com.twilightcafe.tvplayer.phone.PhoneStatus;
 import com.twilightcafe.tvplayer.phone.TvNetwork;
 import com.twilightcafe.tvplayer.remote.QualitySetup;
 import com.twilightcafe.tvplayer.remote.RemoteKeys;
+import com.twilightcafe.tvplayer.schedule.Maintenance;
 import com.twilightcafe.tvplayer.screen.ScreenMode;
 import com.twilightcafe.tvplayer.screen.TestMode;
 import com.twilightcafe.tvplayer.store.LookStore;
@@ -43,7 +44,7 @@ import java.io.File;
  *   kept on the box:  the settings (Core), PictureStore, LookStore, MenuStore
  *   the box itself:   TvVolume, Leveller, WifiKeeper, BoxReport, ScreenMode, BoxLock, Permissions
  *   on screen:        TestMode, QualitySetup; the remote: RemoteKeys
- *   by the clock:     Maintenance
+ *   by the clock:     Maintenance (when each job is due: Schedule)
  */
 public final class TvApp {
 

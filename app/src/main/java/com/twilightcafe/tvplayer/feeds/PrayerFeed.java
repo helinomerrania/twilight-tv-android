@@ -2,6 +2,7 @@ package com.twilightcafe.tvplayer.feeds;
 
 import com.twilightcafe.tvplayer.util.Disk;
 import com.twilightcafe.tvplayer.util.Net;
+import com.twilightcafe.tvplayer.util.Times;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -10,13 +11,10 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -76,11 +74,7 @@ public final class PrayerFeed {
         Calendar c = Calendar.getInstance();
         c.setTimeInMillis(now);
         if (month.optInt("year") != c.get(Calendar.YEAR) || month.optInt("month") != c.get(Calendar.MONTH) + 1) return true;
-        return !day(now).equals(day(fetchedAt));
-    }
-
-    private static String day(long t) {
-        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(t));
+        return !Times.day(now).equals(Times.day(fetchedAt));
     }
 
     /** Asks amozhgary.tv for the town's month (background thread). */
@@ -116,7 +110,7 @@ public final class PrayerFeed {
                 version++;
                 save();
             }
-            status = "from amozhgary.tv (" + city.trim() + "), checked " + new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(now));
+            status = "from amozhgary.tv (" + city.trim() + "), checked " + Times.stamp(now);
         } catch (Exception e) {                              // no internet, or an answer that can't be read
             status = "couldn't reach amozhgary.tv (" + e.getClass().getSimpleName() + ")" + (month != null ? "; using the ones kept" : "");
         } finally {
@@ -271,7 +265,7 @@ public final class PrayerFeed {
             JSONObject o = new JSONObject(Disk.readText(file));
             month = o.optJSONObject("month");
             fetchedAt = o.optLong("fetched", 0);
-            if (month != null) status = "from amozhgary.tv (" + month.optString("city") + "), kept from " + new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(fetchedAt));
+            if (month != null) status = "from amozhgary.tv (" + month.optString("city") + "), kept from " + Times.stamp(fetchedAt);
         } catch (IOException | JSONException e) {
             // start again
         }

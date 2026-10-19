@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- YouTube refuses embeds that don't say which website they are on ("Error 153") -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>TV Player</title>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="tv.css">
+</head>
+<body>
+<div id="ambient" aria-hidden="true"><i class="a"></i><i class="b"></i></div>
+<div id="stageBack" aria-hidden="true"></div>
+<div id="stage">
+<div id="brand" aria-hidden="true">
+  <img id="look" alt="" src="looks/cafe.jpg">
+  <p id="brandNote" dir="auto"></p>
+  <div id="slide"></div>
+</div>
+<div id="player"></div>
+<svg id="muted" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill="#fff" d="M3 9v6h4l5 5V4L7 9H3z"/>
+  <path d="M15.5 9.5l5 5m0-5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<div id="vol" dir="auto"></div>
+<div id="note" dir="ltr"></div>
+<i class="corner tl"><i class="ca"></i><i class="cb"></i></i><i class="corner tr"><i class="ca"></i><i class="cb"></i></i>
+<i class="corner bl"><i class="ca"></i><i class="cb"></i></i><i class="corner br"><i class="ca"></i><i class="cb"></i></i>
+</div>
+<div id="shield"></div>
+<!-- The frame around the video (the info panel). Beside it: the time, the date, the weather, QR codes... -->
+<aside id="panel" aria-hidden="true">
+  <div id="when">
+    <p id="clock"><span id="time" class="n"></span><span id="ampm"></span></p>
+    <p id="date"></p>
+    <p id="hijri"></p>
+    <p id="kurdish"></p>
+    <p id="greeting"></p>
+  </div>
+  <div id="weather" hidden><svg id="wicon" viewBox="0 0 64 64"></svg><span id="temp" class="n"></span><span id="wwords"></span><span id="wplace"></span></div>
+  <p id="credit" dir="auto"></p>
+  <div id="codes">
+    <figure class="code card" id="wifiCode" hidden>
+      <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 19.5a26 26 0 0 1 36 0"/><path d="M12.5 26.5a16.5 16.5 0 0 1 23 0"/><path d="M19 33.2a7.4 7.4 0 0 1 10 0"/></g><circle cx="24" cy="39.5" r="3" fill="currentColor"/></svg>
+      <div class="qr"></div><figcaption><b id="wifiLbl"></b><span id="wifiName" dir="auto"></span><span id="wifiPwLbl"></span><span id="wifiPw" class="pw" dir="auto"></span></figcaption></figure>
+    <figure class="code card" id="menuCode" hidden>
+      <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6v10a5 5 0 0 0 10 0V6"/><path d="M18 6v36"/><path d="M33.5 42V27"/><path d="M33.5 27h-4c0-9 1-17 4-21z"/></g></svg>
+      <div class="qr"></div><figcaption><b id="menuLbl"></b><span id="menuHint"></span></figcaption></figure>
+  </div>
+</aside>
+<!-- ...under it, what's playing and what's next... -->
+<div id="band" class="card" aria-hidden="true">
+  <div id="music">
+    <img id="nowThumb" class="thumb" alt="">
+    <div class="np">
+      <p id="nowLbl" class="cap"></p>
+      <p id="nowTitle" dir="auto"><span id="nowSong"></span><span id="nowSinger"></span></p>
+      <div id="progress"><span id="bar"><i id="barFill"></i></span><span id="ptime" class="n"></span>
+        <svg id="eq" viewBox="0 0 36 22" aria-hidden="true"><g fill="currentColor"><rect x="0" y="9" width="2.4" height="4" rx="1.2"/><rect x="4.5" y="6" width="2.4" height="10" rx="1.2"/><rect x="9" y="2" width="2.4" height="18" rx="1.2"/><rect x="13.5" y="7" width="2.4" height="8" rx="1.2"/><rect x="18" y="0" width="2.4" height="22" rx="1.2"/><rect x="22.5" y="5" width="2.4" height="12" rx="1.2"/><rect x="27" y="8" width="2.4" height="6" rx="1.2"/><rect x="31.5" y="4" width="2.4" height="14" rx="1.2"/></g></svg>
+      </div>
+    </div>
+  </div>
+  <div id="nextBox">
+    <img id="nextThumb" class="thumb" alt="">
+    <div class="np"><p id="nextLbl" class="cap"></p><p id="nextTitle" dir="auto"></p></div>
+  </div>
+</div>
+<!-- ...and along the bottom, gold and currency prices -->
+<div id="market" class="card" aria-hidden="true" hidden>
+  <p id="marketHead" class="cap"><span id="marketLbl"></span><span id="marketAt"></span></p>
+  <div id="ticker"><ol id="tiles"></ol></div>
+</div>
+<div id="setupNote" dir="ltr"></div>
+<div id="debug" dir="ltr"></div>
+
+<!-- QR codes for the Wi-Fi and the menu: qrcode-generator 1.4.4 by Kazuhiko Arase (MIT license) -->
+<script src="qrcode.js"></script>
+<!-- The built-in settings (settings.json and the phone page change them), then the page's own script -->
+<script src="settings.js"></script>
+<script src="tv.js"></script>
+</body>
+</html>

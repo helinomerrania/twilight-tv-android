@@ -2,6 +2,7 @@ package com.twilightcafe.tvplayer.feeds;
 
 import com.twilightcafe.tvplayer.util.Disk;
 import com.twilightcafe.tvplayer.util.Net;
+import com.twilightcafe.tvplayer.util.Times;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,7 +14,6 @@ import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -121,7 +121,7 @@ public final class WeatherFeed {
                 version++;
                 save();
             }
-            status = "from WeatherAPI.com, " + clock(now);
+            status = "from WeatherAPI.com, " + Times.stamp(now);
         } catch (Exception e) {
             status = "couldn't reach WeatherAPI.com (" + e.getClass().getSimpleName() + ")";
         } finally {
@@ -225,7 +225,7 @@ public final class WeatherFeed {
                     waitUntil = 0;
                     save();
                 }
-                status = "from MET Norway, checked " + clock(now);
+                status = "from MET Norway, checked " + Times.stamp(now);
                 return;
             }
             if (r.code == 429) {
@@ -257,7 +257,7 @@ public final class WeatherFeed {
                 save();
             }
             // 203: MET will retire this version of their service; it still works for now
-            status = "from MET Norway, " + clock(now) + (r.code == 203 ? " (MET says this version of their service is old)" : "");
+            status = "from MET Norway, " + Times.stamp(now) + (r.code == 203 ? " (MET says this version of their service is old)" : "");
         } catch (Exception e) {                               // no internet, or an answer that can't be read
             status = "couldn't reach the weather service (" + e.getClass().getSimpleName() + ")";
         } finally {
@@ -307,10 +307,6 @@ public final class WeatherFeed {
         }
     }
 
-    private static String clock(long t) {
-        return new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(t));
-    }
-
     private void load() {
         if (file == null || !file.exists()) return;
         try {
@@ -323,7 +319,7 @@ public final class WeatherFeed {
             place = o.optString("place", "");
             source = o.optString("source", "met");
             now = o.optJSONArray("now");
-            if (fetchedAt > 0) status = (source.equals("weatherapi") ? "from WeatherAPI.com, " : "from MET Norway, ") + clock(fetchedAt);
+            if (fetchedAt > 0) status = (source.equals("weatherapi") ? "from WeatherAPI.com, " : "from MET Norway, ") + Times.stamp(fetchedAt);
         } catch (IOException | JSONException e) {
             // start again
         }

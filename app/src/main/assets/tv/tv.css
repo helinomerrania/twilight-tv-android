@@ -1,0 +1,218 @@
+:root { --u: 1px; --ox: 0px; --oy: 0px;
+        /* dark glass: cards a little lighter than the room, white words; green and red only for
+           prices going up and down, the sun's amber only for a special day's greeting; the song's own
+           colour (videoColors) only in the room's light and the progress line */
+        --ink: #0b0f2d; --bg: #0f1217; --text: #f3f5f8; --muted: rgba(243, 245, 248, .64); --faint: rgba(243, 245, 248, .45);
+        --edge: rgba(255, 255, 255, .11); --line: rgba(255, 255, 255, .10); --amber: #ffc580; --up: #3fd08f; --down: #ff6f6f; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--ink); cursor: none; }
+/* With the info panel the video is a card in the top corner (top right in Kurdish), with cards around it */
+body.with-panel { background: radial-gradient(110% 80% at 50% 0%, #1b1f27, var(--bg) 72%); }
+/* Where the video and the café screen are: the whole screen, or the video card with the panel */
+#stage { position: fixed; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;
+         container-type: size; background: var(--ink); }
+/* The video card's shadow and edge, rounded, behind it. Its rounded corners are painted over the video
+   (#stage .corner, in the page's colours, worked out by the script) rather than cut out of it: a video
+   cut to a rounded shape can't be handed to the screen as a layer of its own, and every video frame
+   then redraws everything around it, more than a TV box's graphics can keep up with. */
+#stageBack { position: fixed; left: 0; top: 0; z-index: 0; display: none; border-radius: calc(18 * var(--u));
+             box-shadow: 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(16 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, .45); }
+body.with-panel #stageBack { display: block; }
+.corner { position: absolute; z-index: 4; display: none; width: calc(18 * var(--u)); height: calc(18 * var(--u)); pointer-events: none; }
+body.with-panel .corner { display: block; }
+/* The song's colour around the video (videoColors): the room tinted with it and a soft glow around the
+   video card, worked out by the script. Two layers: a new song's colours fade in over the old ones by
+   opacity alone (the graphics chip's work), with the corners' two layers in step. */
+#ambient { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; display: none; pointer-events: none; }
+body.with-panel #ambient { display: block; }
+#ambient i, .corner i { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+#ambient .b, .corner .cb { opacity: 0; transition: opacity 1.6s ease; }
+html.amb-b #ambient .b, html.amb-b .corner .cb { opacity: 1; }
+.corner.tl { left: 0; top: 0; } .corner.tr { right: 0; top: 0; } .corner.bl { left: 0; bottom: 0; } .corner.br { right: 0; bottom: 0; }
+/* The player: drawn big (for quality), scaled to fit exactly. It never fades itself: the café screen
+   fades over it (#brand) */
+#player { position: absolute; left: 0; top: 0; z-index: 1; border: 0; transform-origin: 0 0; }
+/* Invisible layer over everything: taps and clicks can't pause the video or open YouTube */
+#shield { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 5; }
+/* Small speaker icon, shown only while the TV's browser is blocking sound */
+#muted { position: absolute; inset-inline-end: 3vmin; bottom: 3vmin; z-index: 3; width: 5vmin; height: 5vmin;
+         display: none; opacity: .5; pointer-events: none; }
+/* Song volume, shown for a moment after the remote's up/down arrows */
+#vol { position: absolute; inset-inline-start: 3vmin; bottom: 3vmin; z-index: 3; display: none; padding: .35em .8em;
+       border-radius: .5em; background: rgba(10, 14, 44, .75); color: #fff1e0;
+       font: 600 3vmin/1.4 "Vazirmatn", system-ui, sans-serif; pointer-events: none; }
+/* Setup problems only, on top of the café screen */
+/* Quality setup's instructions: top left, clear of YouTube's controls (bottom, and the top right corner),
+   and inside the part of the picture every TV shows */
+#setupNote { position: fixed; top: 6vh; left: 6vw; z-index: 6; display: none; width: 54vw; width: min(54vw, 46rem);
+             padding: 1.1em 1.4em; border-radius: .8em; background: rgba(10, 14, 44, .88); color: #fff1e0; pointer-events: none;
+             font: 500 2.4vmin/1.5 system-ui, sans-serif; text-shadow: none; }
+#setupNote b { color: #ffcf8a; }
+#setupStatus { margin-top: .6em; opacity: .8; font-size: .85em; }
+#note { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 3; display: none;
+        max-width: 80%; padding: .8em 1.2em; border-radius: .6em; background: rgba(10, 14, 44, .85);
+        color: #ffe9d6; text-align: center; font: 2.4vmin/1.5 system-ui, sans-serif; pointer-events: none; }
+/* Test mode only (?debug=1) */
+#debug { position: fixed; top: 12px; left: 12px; z-index: 7; display: none; max-width: 75%;
+         padding: 10px 14px; border-radius: 8px; background: rgba(0, 0, 0, .75); color: #fff;
+         font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; pointer-events: none; }
+
+/* ---------- the frame around the video ---------- */
+/* Laid out on a 1920x1080 screen (--u is one of its pixels; another shape gets the same, centered):
+   the video card 1280x720 in the top corner, what's playing in a card under it, the time, the weather
+   and two QR cards beside it, and gold and currency prices in a card along the bottom. Vazirmatn
+   for every word and number. Mirrored for right-to-left languages. */
+#panel, #band, #market { position: fixed; z-index: 2; display: none; box-sizing: border-box; color: var(--text);
+                         font-family: "Vazirmatn", Roboto, "Noto Sans", "Noto Naskh Arabic", system-ui, sans-serif; }
+body.with-panel #panel, body.with-panel #band, body.with-panel #market { display: flex; }
+:where(#panel, #band, #market) :where(p, ol, li, figure) { margin: 0; padding: 0; }
+:where(#panel, #band, #market) ol { list-style: none; }
+html[dir="rtl"] :where(#panel, #band, #market) :where(p, figcaption) { text-align: right; }   /* also song names in other scripts */
+.n { unicode-bidi: isolate; direction: ltr; }       /* one number (with its ° or :), never split or turned around */
+.card { border-radius: calc(18 * var(--u)); background: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .035));
+        box-shadow: inset 0 0 0 calc(1 * var(--u)) var(--edge), 0 calc(12 * var(--u)) calc(32 * var(--u)) rgba(0, 0, 0, .32); }
+.cap { font-size: calc(17 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--muted); }
+html[dir="ltr"] .cap { text-transform: uppercase; letter-spacing: .07em; }
+
+/* Beside the video: the time, the date, the weather; the Wi-Fi's and the menu's QR codes */
+#panel { top: calc(var(--oy) + 40 * var(--u)); left: calc(var(--ox) + 1340 * var(--u)); width: calc(540 * var(--u));
+         height: calc(876 * var(--u)); flex-direction: column; }
+html[dir="rtl"] #panel { left: calc(var(--ox) + 40 * var(--u)); }
+#when { padding-top: calc(10 * var(--u)); }
+#panel #when p { text-align: center; }
+#clock { display: flex; justify-content: center; align-items: baseline; gap: calc(16 * var(--u)); white-space: nowrap; }
+#time { font-size: calc(126 * var(--u)); line-height: 1.05; font-weight: 600; letter-spacing: -.01em; }
+#ampm { font-size: calc(44 * var(--u)); line-height: 1; font-weight: 600; }
+#date { margin-top: calc(6 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.4; }
+#hijri, #kurdish { font-size: calc(23 * var(--u)); line-height: 1.45; color: var(--muted); }
+#kurdish:empty { display: none; }
+#greeting { margin-top: calc(4 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.4; font-weight: 600; color: var(--amber); }
+#greeting:empty { display: none; }
+#weather { margin: calc(16 * var(--u)) calc(30 * var(--u)) 0; padding-top: calc(16 * var(--u)); border-top: calc(1 * var(--u)) solid var(--line);
+           display: flex; justify-content: center; align-items: center; gap: calc(12 * var(--u)); white-space: nowrap; }
+#wicon { width: calc(68 * var(--u)); height: calc(68 * var(--u)); flex: none; margin: calc(-8 * var(--u)) 0; }
+#temp { font-size: calc(40 * var(--u)); line-height: 1.2; font-weight: 600; }
+#wwords { font-size: calc(27 * var(--u)); line-height: 1.4; }
+#wplace { font-size: calc(27 * var(--u)); line-height: 1.4; color: var(--muted); }
+#wwords::before, #wplace::before { content: "·"; margin-inline-end: calc(12 * var(--u)); color: var(--faint); }
+#credit { margin-top: calc(4 * var(--u)); font-size: calc(12 * var(--u)); line-height: 1.4; color: var(--faint); }
+#credit:empty { display: none; }
+#panel #credit { text-align: center; }
+/* The QR cards: 500 high, a little less on a special day (its greeting is one more line above them) */
+#codes { margin-top: auto; flex: 0 1 calc(500 * var(--u)); min-height: calc(456 * var(--u)); display: flex; gap: calc(20 * var(--u)); }
+.code { flex: 1 1 0; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
+        padding: calc(32 * var(--u)) calc(18 * var(--u)) calc(14 * var(--u)); }
+.code .ico { width: calc(50 * var(--u)); height: calc(50 * var(--u)); color: var(--muted); flex: none; }
+.code .qr { width: calc(204 * var(--u)); height: calc(204 * var(--u)); margin: calc(22 * var(--u)) 0 calc(24 * var(--u)); flex: none;
+            border-radius: calc(14 * var(--u)); overflow: hidden; background: #fff; }
+.code .qr svg { display: block; width: 100%; height: 100%; }
+.code figcaption { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; }
+.code figcaption, html[dir="rtl"] .code figcaption { text-align: center; }
+.code b { font-size: calc(26 * var(--u)); line-height: 1.35; font-weight: 600; }
+html[dir="ltr"] .code b { text-transform: uppercase; letter-spacing: .05em; }
+.code span { font-size: calc(19 * var(--u)); line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+.code span.pw { color: var(--text); font-weight: 600; }
+
+/* Under the video: what's playing (how far into it) and what's next */
+#band { top: calc(var(--oy) + 780 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1280 * var(--u)); height: calc(136 * var(--u));
+        align-items: center; padding: 0 calc(22 * var(--u)); }
+html[dir="rtl"] #band { left: calc(var(--ox) + 600 * var(--u)); }
+.thumb { flex: none; display: block; object-fit: cover; border-radius: calc(10 * var(--u)); background: rgba(255, 255, 255, .06); }
+#music { flex: 1.9 1 0; min-width: 0; display: flex; align-items: center; gap: calc(20 * var(--u)); padding-inline-end: calc(26 * var(--u)); }
+#music.still { justify-content: center; }
+#band.empty { justify-content: center; }
+#band.empty::after { content: attr(data-name); font-family: "TwilightName", "Vazirmatn", sans-serif; font-weight: 700;
+                     font-size: calc(46 * var(--u)); line-height: 1.5; color: var(--muted); }
+#nowThumb { width: calc(160 * var(--u)); height: calc(90 * var(--u)); }
+.np { flex: 1 1 auto; min-width: 0; }
+#nowTitle { font-size: calc(29 * var(--u)); line-height: 1.4; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#nowSinger { font-weight: 400; color: var(--muted); }
+#nowSinger:not(:empty)::before { content: " — "; }
+#progress { display: flex; align-items: center; gap: calc(14 * var(--u)); margin-top: calc(8 * var(--u)); }
+#bar { flex: 1 1 auto; height: calc(5 * var(--u)); border-radius: calc(3 * var(--u)); background: rgba(255, 255, 255, .16); overflow: hidden; }
+#barFill { display: block; height: 100%; background: var(--accent, var(--text)); transform-origin: left; transform: scaleX(0);
+           transition: background-color 1.6s ease; }
+html[dir="rtl"] #barFill { transform-origin: right; }
+#ptime { flex: none; min-width: calc(118 * var(--u)); font-size: calc(17 * var(--u)); line-height: 1; color: var(--muted); text-align: center;
+         font-variant-numeric: tabular-nums; }
+#eq { flex: none; width: calc(36 * var(--u)); height: calc(22 * var(--u)); color: var(--muted); }
+#nextBox { flex: 1 1 0; min-width: 0; height: calc(96 * var(--u)); display: flex; align-items: center; gap: calc(18 * var(--u));
+           padding-inline-start: calc(26 * var(--u)); border-inline-start: calc(1 * var(--u)) solid var(--line); }
+#nextThumb { width: calc(128 * var(--u)); height: calc(72 * var(--u)); }
+#nextTitle { font-size: calc(24 * var(--u)); line-height: 1.35; font-weight: 600; overflow: hidden; display: -webkit-box;
+             -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+/* Along the bottom: gold and currency prices from Tirezh Index (tirezh.com), and when they were set */
+#market { top: calc(var(--oy) + 936 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1840 * var(--u)); height: calc(104 * var(--u));
+          flex-direction: column; justify-content: center; padding: 0 calc(28 * var(--u)); }
+#marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u)); white-space: nowrap; }
+#marketAt { color: var(--faint); font-weight: 400; }
+/* Seven prices at most, in one row, centred. Nothing moves (anything moving beside the video makes the
+   box draw it again 60 times a second); a row too long is drawn a little smaller (--fit, by the script). */
+#ticker { margin-top: calc(6 * var(--u)); overflow: hidden; display: flex; justify-content: center; }
+#tiles { display: flex; flex: none; white-space: nowrap; transform: scale(var(--fit, 1)); }
+#tiles li { display: flex; align-items: baseline; gap: calc(10 * var(--u)); padding-inline: calc(20 * var(--u));
+            border-inline-start: calc(1 * var(--u)) solid var(--line); font-size: calc(24 * var(--u)); line-height: 1.5; }
+#tiles li:first-child { border-inline-start: 0; padding-inline-start: 0; }
+#tiles li:last-child { padding-inline-end: 0; }
+.tn { font-weight: 600; }
+.tv { font-weight: 600; }
+.tv.up { color: var(--up); } .tv.down { color: var(--down); }
+.tu { font-size: calc(16 * var(--u)); color: var(--muted); }
+/* "100$" beside a currency priced for 100 dollars: a small label as Bootstrap draws one */
+.per { padding: .42em .65em .28em; border-radius: calc(6 * var(--u)); background: #6c757d; color: #fff;
+       font-size: .75em; font-weight: 700; line-height: 1; }
+#tiles svg { width: calc(13 * var(--u)); height: calc(10 * var(--u)); align-self: center; }
+#tiles svg.up { color: var(--up); } #tiles svg.down { color: var(--down); }
+[hidden] { display: none !important; }
+
+/* Café screen: the café's own pictures (looks/, drawn for it), whenever no video is on: its picture or
+   a special day's, and the plain one (no words on it) under the TV's own words: the messages and the
+   call to prayer's line. Nothing on it moves.
+   It lies over the video and fades away to show it (and back over its last seconds): the video itself
+   never fades. A fading video is drawn twice for each of its frames, the second time into a layer of
+   its own at the size YouTube draws it (bigger than the card), and a TV box's graphics chip falls
+   behind: the fade stutters. A still picture fading over a video costs next to nothing. Faded away, it
+   is hidden altogether, so the video goes to the screen on its own. */
+#brand { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 2; overflow: hidden; background: #0d0b14;
+         will-change: opacity; }
+#brand.away { opacity: 0; visibility: hidden; }
+#brand img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The TV's words on the plain picture, in the café's gold, low in the room where it is dark and calm */
+#brandNote, #slide .msg { position: absolute; left: 0; right: 0; top: 60%; transform: translateY(-50%); margin: 0; padding: 0 10%;
+                          text-align: center; color: #f3d9a0; font: 600 6vmin/1.45 "Vazirmatn", Roboto, "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif;
+                          text-wrap: balance; overflow-wrap: anywhere;
+                          text-shadow: 0 .05em .3em rgba(0, 0, 0, .9), 0 0 1em rgba(0, 0, 0, .8), 0 0 2.4em rgba(0, 0, 0, .6); }
+/* Why the music stopped for a moment (the call to prayer) */
+#brandNote { font-size: min(7cqmin, 5cqw); transition: opacity .6s ease; }
+/* Between songs: the café's own messages and pictures from the phone page, and items from its menu.
+   Each is a page made before its turn, its pictures already decoded, so nothing is worked out during a
+   fade; on the café screen a new one fades in over the one before. */
+#slide { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity .6s ease; }
+#slide.on { opacity: 1; }
+#slide .page { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity .8s ease; }
+#slide .page.shown { opacity: 1; }
+#slide .msg { font-size: min(var(--msg, 6.4cqmin), 5cqw); }
+#brand.slide-on #brandNote { opacity: 0; }
+/* An item from the menu: its picture big at the end side, on a blurred, darkened copy of it (drawn once,
+   small, on a canvas the size of a stamp, so the graphics chip blurs nothing), its category, name,
+   description and price at the start side */
+#slide .menu { color: #fff3e2; }
+#slide .menu .haze { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#brand #slide .menu img.ph { left: auto; top: 9cqh; inset-inline-end: 5.5cqw; width: 82cqh; height: 82cqh; object-fit: cover;
+                             border-radius: 2.6cqh; box-shadow: 0 2.4cqh 7cqh rgba(0, 0, 0, .55), 0 0 0 .15cqh rgba(255, 255, 255, .08); }
+#slide .words { position: absolute; top: 0; bottom: 0; inset-inline-start: 6cqw; width: calc(100cqw - 82cqh - 17.5cqw);
+                display: flex; flex-direction: column; justify-content: center;
+                font-family: "Vazirmatn", Roboto, "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif; }
+#slide .words p, #slide .words h2 { margin: 0; overflow-wrap: anywhere; }
+#slide .from { margin-bottom: 1.4cqh; color: #f3d9a0; font-size: 3.2cqh; font-weight: 600; line-height: 1.5; }
+#slide .from .sep { margin: 0 .45em; opacity: .7; }
+#slide .words h2 { font-size: 10cqh; font-weight: 800; line-height: 1.25; text-shadow: 0 .06em .5em rgba(0, 0, 0, .5); }
+#slide .words h2.long { font-size: 7.6cqh; }
+#slide .words h2.longer { font-size: 6cqh; }
+#slide .words .note { margin-top: 2cqh; color: rgba(255, 243, 226, .82); font-size: 3.7cqh; line-height: 1.6;
+                      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; overflow: hidden; }
+#slide .words .note.long { font-size: 3.2cqh; }
+#slide .words .note.longer { font-size: 2.8cqh; }
+#slide .words .pr { margin-top: 4.4cqh; font-size: 7.4cqh; font-weight: 800; line-height: 1.1; }
+#slide .words .pr b { color: #ffc580; font-weight: 800; }
+#slide .words .pr small { margin-inline-start: .35em; color: rgba(255, 243, 226, .55); font-size: .55em; font-weight: 600; }

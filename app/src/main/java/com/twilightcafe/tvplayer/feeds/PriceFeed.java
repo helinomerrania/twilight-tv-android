@@ -2,6 +2,7 @@ package com.twilightcafe.tvplayer.feeds;
 
 import com.twilightcafe.tvplayer.util.Disk;
 import com.twilightcafe.tvplayer.util.Net;
+import com.twilightcafe.tvplayer.util.Times;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -9,13 +10,11 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
-import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -108,7 +107,7 @@ public final class PriceFeed {
                 version++;
                 save();
             }
-            status = "from " + site + ", " + clock(now);
+            status = "from " + site + ", " + Times.stamp(now);
         } catch (Exception e) {                           // no internet, or an answer that can't be read
             status = "couldn't reach " + site + " (" + e.getClass().getSimpleName() + ")";
         } finally {
@@ -243,17 +242,13 @@ public final class PriceFeed {
         return m.find() ? m.group(1) : String.valueOf(url);
     }
 
-    private static String clock(long t) {
-        return new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(t));
-    }
-
     private void load() {
         if (file == null || !file.exists()) return;
         try {
             JSONObject o = new JSONObject(Disk.readText(file));
             prices = o.optJSONObject("prices");
             fetchedAt = o.optLong("fetched", 0);
-            if (prices != null && fetchedAt > 0) status = "from tirezh.com, " + clock(fetchedAt);
+            if (prices != null && fetchedAt > 0) status = "from tirezh.com, " + Times.stamp(fetchedAt);
         } catch (IOException | JSONException e) {
             // start again
         }

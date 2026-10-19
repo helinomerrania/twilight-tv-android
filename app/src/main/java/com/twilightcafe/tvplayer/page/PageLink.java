@@ -25,7 +25,7 @@ import java.util.Map;
 
 /**
  * The link with the TV page. Firefox's engine has no way for the app to hand the page an object, so the app's
- * small web server serves the page at http://localhost to this box only, with assets/bridge.js put in at the
+ * small web server serves the page at http://localhost to this box only, with assets/tv/bridge.js put in at the
  * top, and a key only this page knows. The page checks in every second: what it's doing and that it's alive;
  * the app answers with new settings, new extras (song names, the weather, prices, prayer times, the café's
  * pictures, its menu) and the phone's commands.
@@ -83,7 +83,7 @@ public final class PageLink {
         return lastAlive;
     }
 
-    /** The page as Firefox's engine gets it: with assets/bridge.js put in at the top, and what it needs to start */
+    /** The page as Firefox's engine gets it: with assets/tv/bridge.js put in at the top, and what it needs to start */
     public byte[] tvPage() {
         try {
             JSONObject boot = new JSONObject();

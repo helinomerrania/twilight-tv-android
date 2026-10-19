@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ckb" dir="rtl" translate="no">
+<head>
+<meta charset="utf-8">
+<!-- no "Translate this page?" from the phone's browser: the menu has its own languages -->
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080b26">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="../icon-192.png">
+<title>Twilight</title>
+<!--
+  The café's menu, for customers' phones: the menu code on the TV leads here. The TV box serves it at
+  /menu/ on the café Wi-Fi, with what the phone page's Menu tab put in it (data), its pictures (pics/)
+  and its letters (fonts/). Every address here is relative, so the same page works from anywhere.
+-->
+<link rel="stylesheet" href="menu.css">
+</head>
+<body class="notranslate">
+<header class="sky">
+  <h1 class="name" id="name" dir="auto"></h1>
+  <p class="word" id="word" dir="auto"></p>
+  <div class="langs" id="langs" role="group" hidden></div>
+</header>
+<nav class="bar" id="bar" hidden><div class="chips" id="chips"></div></nav>
+<main id="menu">
+  <div class="wait" id="wait"><div class="ring" id="ring" hidden></div>
+    <button class="again" id="again" type="button" aria-label="Try again" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+    </button>
+  </div>
+</main>
+<div id="end" aria-hidden="true" style="height:1px"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+
+<script src="menu.js"></script>
+</body>
+</html>

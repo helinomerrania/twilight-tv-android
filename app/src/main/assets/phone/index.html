@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1030">
+<!-- So it can go on a phone's home screen, with the café's icon -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Twilight TV">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Twilight TV</title>
+<link rel="stylesheet" href="/phone/phone.css">
+</head>
+<body class="notranslate">
+<main>
+  <header>
+    <p class="cafe" id="cafe" dir="auto">Twilight TV</p>
+    <nav class="tvs" id="tvs" aria-label="TVs" hidden></nav>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabControl" aria-selected="true" aria-controls="controlView">Control</button>
+    <button type="button" role="tab" id="tabScreen" aria-selected="false" aria-controls="screenView">Screen</button>
+    <button type="button" role="tab" id="tabMenu" aria-selected="false" aria-controls="menuView">Menu</button>
+    <button type="button" role="tab" id="tabSettings" aria-selected="false" aria-controls="settingsView">Settings</button>
+  </div>
+
+  <div class="banner" id="offline" hidden>Can't reach this TV. Check that your phone is on the café Wi-Fi.</div>
+  <div class="banner" id="notOn" hidden><span id="notOnText">The Twilight TV app isn't on screen on this TV. Open it with the TV remote.</span>
+    <button class="wide" id="backHome" data-cmd="backhome" type="button" style="margin-top:10px" hidden>Back to Twilight TV</button></div>
+  <div class="banner notice" id="notice" hidden></div>
+
+  <div id="controlView" role="tabpanel">
+    <section class="card" aria-live="polite">
+      <p class="label">Now playing</p>
+      <p class="title" id="song" dir="auto">–</p>
+      <div class="bar"><i id="progress"></i></div>
+      <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+      <p class="state" id="state"></p>
+      <p class="upnext" id="upNext" hidden></p>
+    </section>
+
+    <div class="big">
+      <button id="pause" class="main" data-cmd="pause" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="pauseIcon" fill="currentColor" d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+        <span id="pauseText">Pause music</span>
+      </button>
+      <button id="next" data-cmd="next" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5.5v13l9-6.5zM16 5h2.5v14H16z"/></svg>
+        <span>Next song</span>
+      </button>
+    </div>
+    <button class="wide quiet" id="quiet" data-cmd="quiet:60" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="quietText">Quiet for a minute</span>
+    </button>
+    <button class="wide" id="unfreeze" data-cmd="unfreeze" type="button" style="margin-top:10px">Picture stuck? Get it moving again</button>
+    <button class="wide" id="otherApp" data-cmd="otherapp" type="button" style="margin-top:10px" hidden>Open My TV Plus</button>
+
+    <section class="card">
+      <div class="row">
+        <div class="what">This song's volume<small>Until it ends; the next one is back to Settings</small></div>
+        <button class="step" data-cmd="vol-" type="button" aria-label="Song quieter">−</button>
+        <div class="val" id="vol">–</div>
+        <button class="step" data-cmd="vol+" type="button" aria-label="Song louder">+</button>
+      </div>
+      <div class="row">
+        <div class="what">Zoom<small>For black bars, this song</small></div>
+        <button class="step" data-cmd="zoom-" type="button" aria-label="Zoom out">−</button>
+        <div class="val" id="zoom">–</div>
+        <button class="step" data-cmd="zoom+" type="button" aria-label="Zoom in">+</button>
+      </div>
+      <div class="row" id="tvRow">
+        <div class="what">TV volume<small id="tvvolNote">The box's own volume</small></div>
+        <button class="step" data-cmd="tvvol-" type="button" aria-label="TV quieter">−</button>
+        <div class="val" id="tvvol">–</div>
+        <button class="step" data-cmd="tvvol+" type="button" aria-label="TV louder">+</button>
+      </div>
+    </section>
+
+    <section class="card" id="pickCard">
+      <p class="title">Choose a song</p>
+      <p class="label" style="margin-top:4px">It plays next, or right now. Songs from the playlist count as played for this round.</p>
+      <input type="search" id="search" placeholder="Search the playlist" autocomplete="off" spellcheck="false" aria-label="Search the playlist" style="margin-top:10px">
+      <p class="hint" id="songsInfo"></p>
+      <ul class="songs" id="results"></ul>
+      <p class="label" style="margin-top:16px">Or any song on YouTube: paste its link</p>
+      <input type="url" id="link" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" aria-label="YouTube link">
+      <div class="two">
+        <button class="wide" id="linkNext" type="button">Play next</button>
+        <button class="wide go" id="linkNow" type="button">Play now</button>
+      </div>
+      <p class="err" id="linkErr" hidden></p>
+    </section>
+
+    <section class="card" id="askedCard" hidden>
+      <p class="title">Waiting to play</p>
+      <ul class="songs" id="askedList"></ul>
+    </section>
+
+    <section class="card" id="qualityCard">
+      <p class="label">Picture quality</p>
+      <p class="title" id="qualityNow">–</p>
+      <div id="qualityIdle">
+        <p class="label" style="margin-top:8px">YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on the TV. YouTube then remembers it on that TV for weeks.</p>
+        <button class="wide" data-cmd="qualitysetup" type="button" style="margin-top:8px">Choose the highest quality on the TV</button>
+      </div>
+      <div id="qualityOn" hidden>
+        <ol class="steps">
+          <li>On the TV, a pointer appears. The remote's arrow buttons move it and <b>OK</b> clicks. A USB mouse works too.</li>
+          <li>Move it over the video, so YouTube shows its controls at the bottom. If they don't appear, click the video once.</li>
+          <li>Click the gear ⚙ at the bottom right (or top right), then <b>Quality</b>, then the highest number (2160p on a 4K TV).</li>
+        </ol>
+        <button class="wide" data-cmd="qualitydone" type="button">Done</button>
+        <p class="label" style="margin-top:8px">Pressing Back on the TV remote also finishes. It ends by itself after 10 minutes.</p>
+      </div>
+    </section>
+
+    <section class="card update" id="update" hidden>
+      <p class="title" id="updateTitle">A new version is ready</p>
+      <p class="label" style="margin-top:6px">After you press the button, look at the TV and press Install with the remote. Music stops for about a minute.</p>
+      <button class="wide" data-cmd="update" type="button">Install update</button>
+    </section>
+
+    <button class="wide" id="identify" data-cmd="identify" type="button" style="margin-bottom:14px" hidden>Show this TV's name on its screen</button>
+
+    <section class="card" id="historyCard" hidden>
+      <p class="title">Last songs</p>
+      <ul class="songs" id="historyList"></ul>
+    </section>
+
+    <section class="card" id="problems" hidden>
+      <p class="title" id="problemsTitle">Songs that won't play</p>
+      <p class="label" style="margin-top:4px">They're skipped automatically. Check them on YouTube, or remove them from the playlist.</p>
+      <ul id="problemList"></ul>
+    </section>
+
+    <div class="facts" id="facts"></div>
+  </div>
+
+  <div id="screenView" role="tabpanel" hidden>
+    <p class="intro">What the TV shows beside the video and between the songs. Prices, messages and the QR codes change when you press Save; pictures straight away.</p>
+    <div id="screenForm"><p class="intro">Loading…</p></div>
+  </div>
+
+  <div id="menuView" role="tabpanel" hidden>
+    <p class="intro">The menu customers open by scanning the menu code on the TV. Tap anything to change it. Each change is saved on the TV at once.</p>
+    <section class="card" id="menuInfo" aria-live="polite"><p class="label">Loading the menu…</p></section>
+    <div id="menuList"></div>
+    <button class="wide" id="addCat" type="button" hidden>Add a category</button>
+    <p class="group">Import and export</p>
+    <section class="card" id="ioCard">
+      <p class="label">The whole menu as a spreadsheet: write names and prices in Excel or Google Sheets, then import the file here. Rows keep their ID, so pictures stay with them.</p>
+      <div class="two">
+        <button class="wide" type="button" id="ioXlsx">Save as Excel</button>
+        <button class="wide" type="button" id="ioCsv">Save as CSV</button>
+      </div>
+      <button class="wide" type="button" id="ioBackup" style="margin-top:10px">Save a backup with the pictures</button>
+      <label class="wide upload" style="margin-top:10px"><input type="file" id="ioFile" accept=".xlsx,.csv,.txt,.json,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><span>Import a file</span></label>
+      <button class="wide" type="button" id="ioPaste" style="margin-top:10px">Paste a table</button>
+      <div id="pasteBox" hidden style="margin-top:10px">
+        <textarea id="pasteText" rows="6" dir="auto" spellcheck="false" aria-label="The table, pasted"
+          placeholder="Paste a table here: Gemini's answer as it is, or cells copied from a spreadsheet. The first row has the columns' names."></textarea>
+        <div class="two">
+          <button class="wide" type="button" id="pasteCancel">Cancel</button>
+          <button class="wide go" type="button" id="pasteUse">Use it</button>
+        </div>
+      </div>
+      <p class="hint">An Excel or CSV file, a backup, or a table pasted from Gemini. A whole menu (with a Type column) takes the place of the one on the TV; a table with an ID column and some others (descriptions, say) changes only those. Either way, after you say yes.</p>
+      <p class="hint" id="ioMsg" role="status"></p>
+    </section>
+  </div>
+
+  <div id="settingsView" role="tabpanel" hidden>
+    <p class="intro">Changes are saved on this TV and used straight away. Each setting shows where its value comes from:
+      <b>built-in</b>, <b>settings.json</b> (shared by every TV, on GitHub) or <b>this TV</b>.</p>
+    <div id="form"><p class="intro">Loading the settings…</p></div>
+
+    <p class="group">Tools</p>
+    <section class="card tools">
+      <button class="wide" type="button" data-tool="testmode">Show or hide details on the TV (test mode)</button>
+      <button class="wide" type="button" data-tool="restart">Restart the app on the TV</button>
+      <button class="wide" type="button" data-tool="checkupdate">Look for a new version now</button>
+      <button class="wide" type="button" data-tool="unlock" id="unlockBox" hidden>Unlock the box for 15 minutes</button>
+      <button class="wide" type="button" data-tool="lock" id="lockBox" hidden>Lock the box again now</button>
+      <p class="hint" id="lockMsg"></p>
+      <button class="wide danger" type="button" data-tool="forget">Forget this TV's memory</button>
+      <p class="hint" id="toolMsg"></p>
+    </section>
+  </div>
+
+  <div class="savebar" id="savebar" hidden>
+    <label id="allBox" hidden><input type="checkbox" id="saveAll"> <span id="allText">Also on the other TVs</span></label>
+    <button class="primary" type="button" id="save">Save on this TV</button>
+    <p id="saveMsg" role="status"></p>
+  </div>
+</main>
+
+<div id="say" role="status" hidden></div>
+<div id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden></div>
+
+<div id="pin" hidden>
+  <form id="pinForm" autocomplete="off">
+    <h2>Enter this TV's PIN</h2>
+    <p>On the TV remote, hold OK for 3 seconds. The PIN is shown at the bottom right of the screen.</p>
+    <input id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="8" aria-label="PIN">
+    <button type="submit">Open</button>
+    <p id="pinErr" role="alert"></p>
+  </form>
+</div>
+
+<script src="/phone/phone.js"></script>
+</body>
+</html>

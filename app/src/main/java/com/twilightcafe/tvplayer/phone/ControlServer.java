@@ -1,23 +1,31 @@
 package com.twilightcafe.tvplayer.phone;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URLDecoder;
-import java.nio.charset.Charset;
-import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import static com.twilightcafe.tvplayer.phone.Http.UTF8;
+import static com.twilightcafe.tvplayer.phone.Http.busy;
+import static com.twilightcafe.tvplayer.phone.Http.json;
+import static com.twilightcafe.tvplayer.phone.Http.notFound;
+import static com.twilightcafe.tvplayer.phone.Http.parseQuery;
+import static com.twilightcafe.tvplayer.phone.Http.readLine;
+import static com.twilightcafe.tvplayer.phone.Http.redirect;
+import static com.twilightcafe.tvplayer.phone.Http.send;
+import static com.twilightcafe.tvplayer.phone.Http.text;
 
 /**
  * A tiny web server on the café network, for the phone control page.
@@ -39,8 +47,9 @@ import java.util.concurrent.TimeUnit;
  *   GET  /api/menu?pin=1234         the café's menu, hidden things too; POST saves it (JSON body: the whole
  *                                   menu and the version it was changed from)
  *   POST /api/menu/picture?pin=1234 a picture for the menu (JSON body); back comes its id
+ *   GET  /phone/phone.css, /phone/phone.js  the control page's styles and script (assets/phone)
  *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
- *                                   so the phone page can go on a phone's home screen with its icon
+ *                                   so the phone page can go on a phone's home screen with its icon (assets/home-screen)
  *
  * For customers, with no PIN: the menu code on the TV leads to a second server, on a port of its own (8090),
  * that has nothing but these (and sends / on to /menu/), so the phone page's address is never shown to them.
@@ -49,17 +58,19 @@ import java.util.concurrent.TimeUnit;
  *   GET  /menu/data                 the menu, without what's hidden (JSON)
  *   GET  /menu/pics/<id>.jpg        its pictures (<id>.small.jpg: the small copies)
  *   GET  /menu/fonts/<name>.woff2   its letters (assets/fonts)
+ *   GET  /menu/menu.css, menu.js    its styles and script (assets/menu)
  *
  * And for the TV box itself only (the app shows the TV page from here, at http://localhost):
  *   GET  /tv/index.html?k=key       the TV page
  *   POST /tv/sync?k=key             the TV page's check-in every second (JSON both ways)
  *   GET  /tv/pictures/<id>.jpg      the café's pictures, for between songs
  *   GET  /tv/looks/<name>.jpg       the café screen's own pictures, built into the app (assets/looks)
+ *   GET  /tv/tv.css, fonts.css, qrcode.js, settings.js, tv.js   the page's styles and scripts (assets/tv)
  *
  * Everything under /api needs the TV's PIN. Ten wrong PINs from one phone lock it
  * out for 10 minutes, so customers on the café Wi-Fi can't guess their way in; and as a
  * new address is easy to take, 20 wrong PINs in an hour from all phones together leave
- * only the phones that already had the right PIN able to try (see shutOut). The box's
+ * only the phones that already had the right PIN able to try (see PinGuard). The box's
  * own requests (the TV page) have threads of their own, so customers reading the menu
  * never hold up the TV, and connections waiting for a thread are limited (QUEUE).
  * Plain Java only (no Android classes), so it can be tested on a computer.
@@ -139,7 +150,7 @@ public final class ControlServer {
             return null;
         }
 
-        /** The customers' menu page (assets/menu.html), or null. */
+        /** The customers' menu page (assets/menu/index.html), or null. */
         default byte[] menuPage() {
             return null;
         }
@@ -181,25 +192,13 @@ public final class ControlServer {
     static final int BODY_TIME = 10000;                   // the body: this, and about a second more for every 64 KB
     static final int QUEUE = 128;                         // connections waiting for a thread; past that, "busy" (503)
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
-    private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
-
     private final Tv tv;
     private final boolean menuOnly;                       // the customers' server: the menu and nothing else
-    private final Map<String, Integer> fails = new HashMap<>();
-    private final Map<String, Long> lockedUntil = new HashMap<>();
-    private final Map<String, Long> trusted = new HashMap<>();    // phones that gave the right PIN: when they last did
-    private final ArrayDeque<Long> wrongs = new ArrayDeque<>();   // when each wrong PIN came, from any phone
-    private long guessingUntil;                                   // someone guessing: only known phones until then
+    final PinGuard guard = new PinGuard();                // who may try the PIN
     private ServerSocket socket;
     private ExecutorService pool, boxPool;
     private volatile boolean running;
     private volatile int port;
-    long lockMillis = 10 * 60 * 1000L;
-    int maxFails = 10;
-    int maxWrongAll = 20;                                 // wrong PINs from all phones together...
-    long guessWindow = 60 * 60 * 1000L;                   // ...in this long
-    long trustMillis = 24 * 60 * 60 * 1000L;              // a phone that gave the right PIN is known for a day
 
     public ControlServer(Tv tv) {
         this(tv, false);
@@ -255,6 +254,11 @@ public final class ControlServer {
         if (boxPool != null) boxPool.shutdownNow();
     }
 
+    /** For the phone page: the wrong PINs in the last hour while new phones are being kept out (else 0) */
+    public int guessing() {
+        return guard.guessing();
+    }
+
     private void acceptLoop() {
         while (running) {
             try {
@@ -282,7 +286,7 @@ public final class ControlServer {
             if (request == null || request.isEmpty()) return;
             String[] parts = request.split(" ");
             if (parts.length < 2) {
-                send(out, 400, "text/plain; charset=utf-8", "Bad request".getBytes(UTF8));
+                text(out, 400, "Bad request");
                 return;
             }
             String method = parts[0], target = parts[1], path = target, query = "";
@@ -312,7 +316,7 @@ public final class ControlServer {
             int limit = big && pinOk(params, ip) ? (picture ? MAX_PICTURE_BODY : MAX_MENU_BODY) : MAX_BODY;
             if (length < 0 || length > limit) {
                 if (big && limit == MAX_BODY) respond(out, method, path, params, ip, "");   // wrong PIN or locked: say so
-                else send(out, 413, "text/plain; charset=utf-8", "Too big".getBytes(UTF8));
+                else text(out, 413, "Too big");
                 return;
             }
             byte[] body = new byte[length];
@@ -338,7 +342,7 @@ public final class ControlServer {
 
     private boolean pinOk(Map<String, String> params, String ip) {
         String pin = tv.pin();
-        return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !isLocked(ip) && !shutOut(ip);
+        return pin != null && !pin.isEmpty() && pin.equals(params.get("pin")) && !guard.isLocked(ip) && !guard.shutOut(ip);
     }
 
     void respond(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
@@ -349,10 +353,10 @@ public final class ControlServer {
                 menuRequest(out, method, path);
             } else if (ASSETS.containsKey(path) && ASSETS.get(path).endsWith(".png")) {
                 byte[] b = tv.asset(ASSETS.get(path));
-                if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+                if (b == null) notFound(out);
                 else send(out, 200, "image/png", b, "no-referrer", "public, max-age=86400");
             } else {
-                send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+                notFound(out);
             }
             return;
         }
@@ -364,10 +368,14 @@ public final class ControlServer {
             send(out, 200, "text/html; charset=utf-8", tv.page());
             return;
         }
+        if (PHONE_FILES.contains(path)) {                      // the control page's styles and script: nothing private in them
+            pageFile(out, path.substring(1));
+            return;
+        }
         String asset = ASSETS.get(path);
         if (asset != null) {                                   // the home-screen icon: no PIN, nothing private in it
             byte[] b = tv.asset(asset);
-            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (b == null) notFound(out);
             else send(out, 200, asset.endsWith(".png") ? "image/png" : "application/manifest+json; charset=utf-8", b,
                     "no-referrer", "public, max-age=86400");
             return;
@@ -377,25 +385,25 @@ public final class ControlServer {
             return;
         }
         if (!path.startsWith("/api/")) {
-            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            notFound(out);
             return;
         }
-        if (isLocked(ip)) {
+        if (guard.isLocked(ip)) {
             json(out, 429, "{\"error\":\"locked\",\"message\":\"Too many wrong PINs. Try again in 10 minutes.\"}");
             return;
         }
-        if (shutOut(ip)) {
+        if (guard.shutOut(ip)) {
             json(out, 429, "{\"error\":\"guessing\",\"message\":\"Someone on the Wi-Fi has been guessing the PIN, so for now only "
                     + "phones that already had it can come in. Try again in 10 minutes.\"}");
             return;
         }
         String pin = tv.pin();
         if (pin == null || pin.isEmpty() || !pin.equals(params.get("pin"))) {
-            wrongPin(ip);
+            guard.wrongPin(ip);
             json(out, 401, "{\"error\":\"pin\",\"message\":\"Wrong PIN.\"}");
             return;
         }
-        rightPin(ip);
+        guard.rightPin(ip);
         if (path.equals("/api/status")) {
             String s = tv.status();
             json(out, 200, s == null ? "{}" : s);
@@ -486,14 +494,14 @@ public final class ControlServer {
     // The menu for customers: open to anyone on the café Wi-Fi, nothing to change, nothing private in it
     private void menuRequest(OutputStream out, String method, String path) throws IOException {
         if (!method.equals("GET")) {
-            send(out, 405, "text/plain; charset=utf-8", "Use GET".getBytes(UTF8));
+            text(out, 405, "Use GET");
             return;
         }
         if (path.equals("/menu")) {
             redirect(out, "/menu/");
         } else if (path.equals("/menu/")) {
             byte[] page = tv.menuPage();
-            if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (page == null) notFound(out);
             else send(out, 200, "text/html; charset=utf-8", page, "no-referrer", "no-cache");
         } else if (path.equals("/menu/data")) {
             String m = tv.menuForCustomers();
@@ -503,57 +511,75 @@ public final class ControlServer {
             String name = path.substring("/menu/pics/".length(), path.length() - 4);
             boolean small = name.endsWith(".small");
             byte[] b = tv.menuPicture(small ? name.substring(0, name.length() - 6) : name, small);
-            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (b == null) notFound(out);
             // a picture never changes: a new one gets a new id
             else send(out, 200, "image/jpeg", b, "no-referrer", "public, max-age=31536000, immutable");
         } else if (path.matches("/menu/fonts/[a-z0-9-]{1,40}\\.woff2")) {
             byte[] b = tv.asset("fonts/" + path.substring("/menu/fonts/".length()));
-            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (b == null) notFound(out);
             else send(out, 200, "font/woff2", b, "no-referrer", "public, max-age=2592000");
+        } else if (MENU_FILES.contains(path)) {
+            pageFile(out, path.substring(1));
         } else {
-            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            notFound(out);
         }
     }
 
+    // The pages' own styles and scripts, by address (the asset is the address without its first "/")
+    static final List<String> TV_FILES = Arrays.asList("/tv/tv.css", "/tv/fonts.css", "/tv/qrcode.js", "/tv/settings.js", "/tv/tv.js");
+    static final List<String> PHONE_FILES = Arrays.asList("/phone/phone.css", "/phone/phone.js");
+    static final List<String> MENU_FILES = Arrays.asList("/menu/menu.css", "/menu/menu.js");
+
+    // One of them, never kept by the browser: a new version of the app brings its own with its pages
+    private void pageFile(OutputStream out, String name) throws IOException {
+        byte[] b = tv.asset(name);
+        if (b == null) notFound(out);
+        else send(out, 200, name.endsWith(".css") ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8", b);
+    }
+
     // The home-screen icon's files, by address
-    private static final Map<String, String> ASSETS = new HashMap<>();
+    static final Map<String, String> ASSETS;
 
     static {
-        ASSETS.put("/manifest.webmanifest", "manifest.webmanifest");
-        ASSETS.put("/icon-192.png", "icon-192.png");
-        ASSETS.put("/icon-512.png", "icon-512.png");
-        ASSETS.put("/apple-touch-icon.png", "apple-touch-icon.png");
-        ASSETS.put("/apple-touch-icon-precomposed.png", "apple-touch-icon.png");
-        ASSETS.put("/favicon.ico", "icon-192.png");
+        Map<String, String> a = new HashMap<>();
+        a.put("/manifest.webmanifest", "home-screen/manifest.webmanifest");
+        a.put("/icon-192.png", "home-screen/icon-192.png");
+        a.put("/icon-512.png", "home-screen/icon-512.png");
+        a.put("/apple-touch-icon.png", "home-screen/apple-touch-icon.png");
+        a.put("/apple-touch-icon-precomposed.png", "home-screen/apple-touch-icon.png");
+        a.put("/favicon.ico", "home-screen/icon-192.png");
+        ASSETS = Collections.unmodifiableMap(a);
     }
 
     // The TV page and its check-in: only for the box itself, never for the café network
     private void tvRequest(OutputStream out, String method, String path, Map<String, String> params, String ip, String body) throws IOException {
         if (!isLoopback(ip)) {
-            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            notFound(out);
             return;
         }
         if (path.equals("/tv/index.html") && method.equals("GET")) {
             byte[] page = tv.tvPage();
-            if (page == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (page == null) notFound(out);
             // YouTube needs to see which page its player is on, so this one does send its address
             else send(out, 200, "text/html; charset=utf-8", page, "strict-origin-when-cross-origin");
         } else if (path.equals("/tv/sync") && method.equals("POST")) {
             String r = tv.tvSync(params.get("k"), body);
             if (r == null) json(out, 403, "{\"error\":\"key\"}");
             else json(out, 200, r);
+        } else if (TV_FILES.contains(path) && method.equals("GET")) {
+            pageFile(out, path.substring(1));
         } else if (path.matches("/tv/looks/[a-z]{1,20}\\.jpg") && method.equals("GET")) {
             byte[] b = tv.look(path.substring("/tv/looks/".length(), path.length() - 4));
-            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (b == null) notFound(out);
             // checked again each time the page loads: a new version of the app may bring new ones
             else send(out, 200, "image/jpeg", b, "no-referrer", "no-cache");
         } else if (path.startsWith("/tv/pictures/") && path.endsWith(".jpg") && method.equals("GET")) {
             String id = path.substring("/tv/pictures/".length(), path.length() - 4);
             byte[] b = tv.picture(id, false);
-            if (b == null) send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            if (b == null) notFound(out);
             else send(out, 200, "image/jpeg", b, "no-referrer", "private, max-age=604800");
         } else {
-            send(out, 404, "text/plain; charset=utf-8", "Not found".getBytes(UTF8));
+            notFound(out);
         }
     }
 
@@ -562,161 +588,11 @@ public final class ControlServer {
                 || ip.startsWith("::ffff:127."));
     }
 
-    private synchronized boolean isLocked(String ip) {
-        Long until = lockedUntil.get(ip);
-        if (until == null) return false;
-        if (System.currentTimeMillis() < until) return true;
-        lockedUntil.remove(ip);
-        return false;
-    }
-
-    private synchronized void wrongPin(String ip) {
-        Integer n = fails.get(ip);
-        n = n == null ? 1 : n + 1;
-        if (n >= maxFails) {
-            fails.remove(ip);
-            lockedUntil.put(ip, System.currentTimeMillis() + lockMillis);
-        } else {
-            fails.put(ip, n);
-        }
-        long now = System.currentTimeMillis();
-        wrongs.addLast(now);
-        forgetOldWrongs(now);
-        if (wrongs.size() >= maxWrongAll) guessingUntil = now + lockMillis;
-    }
-
-    private synchronized void rightPin(String ip) {
-        fails.remove(ip);
-        long now = System.currentTimeMillis();
-        trusted.put(ip, now);
-        if (trusted.size() > 200) trusted.values().removeIf(t -> now - t >= trustMillis);
-    }
-
-    /**
-     * Someone guessing the PIN from one address after another (each gets its 10 tries): once 20 wrong PINs
-     * have come in an hour from all phones together, only phones that gave the right PIN in the last day can
-     * try, until 10 minutes after the last wrong one. Then one more guess, and it starts again: a few guesses
-     * an hour instead of thousands. The staff's phones that already had the PIN never notice.
-     */
-    private synchronized boolean shutOut(String ip) {
-        long now = System.currentTimeMillis();
-        if (now >= guessingUntil) return false;
-        Long t = trusted.get(ip);
-        return t == null || now - t >= trustMillis;
-    }
-
-    /** For the phone page: the wrong PINs in the last hour while new phones are being kept out (else 0) */
-    public synchronized int guessing() {
-        long now = System.currentTimeMillis();
-        if (now >= guessingUntil) return 0;
-        forgetOldWrongs(now);
-        return Math.max(1, wrongs.size());
-    }
-
-    private void forgetOldWrongs(long now) {
-        while (!wrongs.isEmpty() && (wrongs.peekFirst() < now - guessWindow || wrongs.size() > 1000)) wrongs.removeFirst();
-    }
-
-    // Every thread busy and the queue full (a crowd at once, or connections opened on purpose to block the
-    // server): a short "busy" instead of waiting connections piling up until the app runs out of them
-    private static void busy(Socket c) {
-        try {
-            c.getOutputStream().write("HTTP/1.1 503 Service Unavailable\r\nRetry-After: 5\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                    .getBytes(LATIN1));
-        } catch (IOException e) {
-            // gone already
-        }
-        try {
-            c.close();
-        } catch (IOException e) {
-            // closed
-        }
-    }
-
-    private static void redirect(OutputStream out, String to) throws IOException {
-        String head = "HTTP/1.1 301 Moved Permanently\r\nLocation: " + to + "\r\nContent-Length: 0\r\nCache-Control: no-cache\r\n"
-                + "Referrer-Policy: no-referrer\r\nConnection: close\r\n\r\n";
-        out.write(head.getBytes(LATIN1));
-        out.flush();
-    }
-
-    private static void json(OutputStream out, int code, String body) throws IOException {
-        send(out, code, "application/json; charset=utf-8", body.getBytes(UTF8));
-    }
-
-    private static void send(OutputStream out, int code, String type, byte[] body) throws IOException {
-        send(out, code, type, body, "no-referrer");
-    }
-
-    private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy) throws IOException {
-        send(out, code, type, body, referrerPolicy, "no-store");
-    }
-
-    private static void send(OutputStream out, int code, String type, byte[] body, String referrerPolicy, String cache) throws IOException {
-        if (body == null) body = new byte[0];
-        String head = "HTTP/1.1 " + code + " " + reason(code) + "\r\n"
-                + "Content-Type: " + type + "\r\n"
-                + "Content-Length: " + body.length + "\r\n"
-                + "Cache-Control: " + cache + "\r\n"
-                + "X-Content-Type-Options: nosniff\r\n"
-                + "Referrer-Policy: " + referrerPolicy + "\r\n"
-                + "Connection: close\r\n\r\n";
-        out.write(head.getBytes(LATIN1));
-        out.write(body);
-        out.flush();
-    }
-
-    private static String reason(int code) {
-        switch (code) {
-            case 200: return "OK";
-            case 400: return "Bad Request";
-            case 401: return "Unauthorized";
-            case 403: return "Forbidden";
-            case 404: return "Not Found";
-            case 405: return "Method Not Allowed";
-            case 409: return "Conflict";
-            case 413: return "Payload Too Large";
-            case 429: return "Too Many Requests";
-            case 503: return "Service Unavailable";
-            default: return "Error";
-        }
-    }
-
     /**
      * How long a body of this many bytes may take to arrive: 10 seconds, and about a second for every
      * 64 KB, so a big picture still gets through from a phone on a weak Wi-Fi (9 MB: two and a half minutes)
      */
     static long bodyTime(int length) {
         return BODY_TIME + length / 64;
-    }
-
-    /** One line of the request (up to 8 KB), without the line break; all of it by the deadline. */
-    private static String readLine(InputStream in, long deadline) throws IOException {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        int ch;
-        while ((ch = in.read()) != -1) {
-            if (ch == '\n') break;
-            if (ch != '\r') b.write(ch);
-            if (b.size() > 8192) throw new IOException("line too long");
-            if (System.currentTimeMillis() > deadline) throw new IOException("too slow");
-        }
-        if (ch == -1 && b.size() == 0) return null;
-        return new String(b.toByteArray(), LATIN1);
-    }
-
-    static Map<String, String> parseQuery(String q) {
-        Map<String, String> m = new HashMap<>();
-        if (q == null || q.isEmpty()) return m;
-        for (String pair : q.split("&")) {
-            int eq = pair.indexOf('=');
-            String k = eq < 0 ? pair : pair.substring(0, eq);
-            String v = eq < 0 ? "" : pair.substring(eq + 1);
-            try {
-                m.put(URLDecoder.decode(k, "UTF-8"), URLDecoder.decode(v, "UTF-8"));
-            } catch (UnsupportedEncodingException | IllegalArgumentException e) {
-                // skip a broken pair
-            }
-        }
-        return m;
     }
 }

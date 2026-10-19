@@ -4,17 +4,15 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.twilightcafe.tvplayer.util.Net;
+import com.twilightcafe.tvplayer.util.Times;
 
 import org.json.JSONObject;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Iterator;
-import java.util.Locale;
 
 /**
  * The TV's settings, from three places (later ones win):
- *   1. the page's built-in values (assets/index.html),
+ *   1. the page's built-in values (assets/tv/settings.js),
  *   2. settings.json in the GitHub repository (every TV, read at start and every 30 minutes),
  *   3. this TV's own settings, saved from the phone page's Settings screen.
  * The last good copy of settings.json is kept, so it also works offline.
@@ -45,7 +43,7 @@ public final class AppSettings {
         effective = merge(file, local);
         builtIn = orEmpty(parse(prefs.getString("pageDefaults", "{}")));
         long t = prefs.getLong("time", 0);
-        status = t > 0 ? "settings.json from GitHub, " + when(t) : "built-in settings (settings.json not read yet)";
+        status = t > 0 ? "settings.json from GitHub, " + Times.stamp(t) : "built-in settings (settings.json not read yet)";
     }
 
     private static JSONObject parse(String s) {
@@ -95,9 +93,6 @@ public final class AppSettings {
     private static final java.util.List<String> OLD_CREDITS = java.util.Arrays.asList("کەشوهەوا: MET Norway (CC BY 4.0)",
             "Weather: MET Norway (CC BY 4.0)");
 
-    private static String when(long t) {
-        return new SimpleDateFormat("d MMM HH:mm", Locale.US).format(new Date(t));
-    }
 
     /** Reads settings.json from GitHub (background thread). True when it changed. */
     public boolean refresh(String repo) {
@@ -131,7 +126,7 @@ public final class AppSettings {
             prefs.edit().putString("json", fresh.toString()).putInt("version", version).putLong("time", now).apply();
         }
         status = body == null ? "no settings.json in the repository, so the built-in settings are used"
-                              : "settings.json from GitHub, " + when(now)
+                              : "settings.json from GitHub, " + Times.stamp(now)
                                 + (ignored.isEmpty() ? "" : " (its " + ignored + " left out: that's set on the phone, never in a public file)");
         return changed;
     }

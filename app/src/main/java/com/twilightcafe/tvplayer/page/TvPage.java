@@ -4,7 +4,7 @@ import java.nio.charset.Charset;
 
 /**
  * The TV page as the app's own web server hands it to Firefox's engine: the page from
- * the app (assets/index.html) with the link to the app (assets/bridge.js) put in at the
+ * the app (assets/tv/index.html) with the link to the app (assets/tv/bridge.js) put in at the
  * top, before the page's own script runs. Plain Java, so it can be tested on a computer.
  */
 public final class TvPage {

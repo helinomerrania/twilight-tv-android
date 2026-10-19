@@ -311,10 +311,12 @@ final class ControlServer {
             }
             byte[] body = new byte[length];
             int got = 0;
+            long start = System.currentTimeMillis();
             while (got < length) {
                 int n = in.read(body, got, length - got);
                 if (n < 0) break;
                 got += n;
+                if (System.currentTimeMillis() - start > 10000) throw new IOException("read too slow");
             }
             respond(out, method, path, params, ip, new String(body, 0, got, UTF8));
         } catch (IOException | RuntimeException e) {
@@ -625,10 +627,12 @@ final class ControlServer {
     private static String readLine(InputStream in) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         int ch;
+        long start = System.currentTimeMillis();
         while ((ch = in.read()) != -1) {
             if (ch == '\n') break;
             if (ch != '\r') b.write(ch);
             if (b.size() > 8192) throw new IOException("line too long");
+            if (System.currentTimeMillis() - start > 10000) throw new IOException("read too slow");
         }
         if (ch == -1 && b.size() == 0) return null;
         return new String(b.toByteArray(), LATIN1);

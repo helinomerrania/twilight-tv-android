@@ -140,6 +140,8 @@ final class TitleBook {
                         break;
                     } else if (r.code >= 500) {
                         wanted.add(id);                       // YouTube's own trouble: again later
+                        quietUntil = System.currentTimeMillis() + SLOW_DOWN;
+                        status = "YouTube has trouble; song names carry on in 15 minutes";
                         break;
                     } else {
                         failed.put(id, System.currentTimeMillis());   // private, removed, or not shown on other sites

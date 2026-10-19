@@ -7,3 +7,7 @@ local.properties
 # The page tests (tests/pages)
 tests/pages/node_modules/
 tests/pages/.build/
+
+# Logs a build or the page tests leave behind
+build.log
+pages.log

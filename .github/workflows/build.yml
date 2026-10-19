@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04   # a fixed build machine, so GitHub updates don't change the build
     steps:
       - name: Get the project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0    # the whole history, to see whether the app changed since the last release
 
@@ -41,7 +41,7 @@ jobs:
           echo "::notice title=App tests::$tests tests passed, $checks small checks among them"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -81,7 +81,7 @@ jobs:
           true
 
       - name: Keep the APK with this build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: twilight-tv
           path: twilight-tv.apk

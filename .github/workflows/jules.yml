@@ -1,0 +1,64 @@
+name: Ask Jules
+
+# Hands a task to Jules, Google's coding agent, which works on it and opens a pull request. GitHub's build tests
+# that like any other change, and it's checked before it's merged: nothing reaches the TVs by itself.
+#
+# Start it by putting the label "ask-jules" on an issue (the issue's title and text are the task), or from the
+# Actions tab: Ask Jules → Run workflow, and type the task. Only the café's own GitHub accounts can start it.
+# Needs the repository secret JULES_API_KEY (Settings → Secrets and variables → Actions), a key from
+# jules.google.com's settings.
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: What Jules should do
+        required: true
+
+permissions:
+  issues: write
+
+jobs:
+  ask:
+    if: >-
+      (github.event_name == 'workflow_dispatch' || github.event.label.name == 'ask-jules')
+      && contains(fromJSON('["helinomerrania", "qawechi"]'), github.actor)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Start a Jules task
+        shell: bash
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body }}
+          TASK: ${{ github.event.inputs.task }}
+        run: |
+          # A note on the issue, when the task came from one
+          say() { if [ -n "$ISSUE" ]; then gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" -f body="$1" > /dev/null; fi; }
+          if [ -z "$JULES_API_KEY" ]; then
+            say "Jules couldn't start: the repository has no JULES_API_KEY secret yet (Settings → Secrets and variables → Actions)."
+            echo "::error::No JULES_API_KEY secret"
+            exit 1
+          fi
+          if [ -n "$ISSUE" ]; then
+            prompt=$(printf '%s\n\n%s\n\nThis is issue #%s of the repository.' "$TITLE" "$BODY" "$ISSUE")
+            title="$TITLE (issue #$ISSUE)"
+          else
+            prompt="$TASK"
+            title="${TASK:0:80}"
+          fi
+          jq -n --arg prompt "$prompt" --arg title "$title" --arg source "sources/github/$GITHUB_REPOSITORY" \
+            '{prompt: $prompt, title: $title, sourceContext: {source: $source, githubRepoContext: {startingBranch: "main"}}, automationMode: "AUTO_CREATE_PR"}' > task.json
+          code=$(curl -sS -o reply.json -w '%{http_code}' -X POST https://jules.googleapis.com/v1alpha/sessions \
+            -H "Content-Type: application/json" -H "x-goog-api-key: $JULES_API_KEY" --data-binary @task.json || true)
+          if [ "$code" != 200 ]; then
+            say "Jules couldn't start (it answered $code). The run on the Actions tab says why."
+            echo "::error title=Jules answered $code::$(head -c 400 reply.json | tr '\n' ' ')"
+            exit 1
+          fi
+          url=$(jq -r '.url // empty' reply.json)
+          say "Jules has started: $url. It will open a pull request when it's done; GitHub's build tests it, and it's checked before it's merged."
+          echo "::notice title=Jules started::$url"

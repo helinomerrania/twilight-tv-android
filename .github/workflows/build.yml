@@ -1,11 +1,14 @@
 name: Build the TV app
 
-# Runs every time something in the project changes (or by hand from the Actions tab).
+# Runs every time something in the project changes (or by hand from the Actions tab), except the menu's
+# 3D models alone (models/: customers' phones fetch them from GitHub; nothing in the app changes).
 # Changes to the app on the main branch are published as the latest release (twilight-tv.apk);
 # a change to only the tests, the documents or the build's own steps isn't (the TVs would download
 # the same app again), and other branches are only built, as a test.
 on:
   push:
+    paths-ignore:
+      - 'models/**'
   workflow_dispatch:
 
 permissions:

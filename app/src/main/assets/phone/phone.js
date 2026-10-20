@@ -1433,6 +1433,7 @@
       var t = el("span", { class: "t" }), name = el("b", { dir: "auto" }, mainName(it));
       if (it.hidden) name.appendChild(el("span", { class: "tag" }, "hidden"));
       else if (it.tv === false) name.appendChild(el("span", { class: "tag" }, "not on the TV"));
+      if (it.model) name.appendChild(el("span", { class: "tag" }, "3D"));
       t.appendChild(name);
       var o = otherNames(it);
       if (o) t.appendChild(el("span", { dir: "auto" }, o));
@@ -1511,7 +1512,8 @@
     if (id && !loc) return;
     var n = loc ? loc.node : {};
     ed = { kind: kind, id: id, isNew: !id, home: loc ? loc.home : home, uploading: false,
-           draft: { name: copy(n.name || {}), note: copy(n.note || {}), price: n.price, picture: n.picture || null, hidden: !!n.hidden, tv: n.tv !== false } };
+           draft: { name: copy(n.name || {}), note: copy(n.note || {}), price: n.price, picture: n.picture || null, model: n.model || null,
+                    hidden: !!n.hidden, tv: n.tv !== false } };
     var listNow = listAt(menu.categories, kind, ed.home) || [];
     ed.place = loc ? loc.at : listNow.length;
     ed.startHome = ed.home;
@@ -1578,8 +1580,10 @@
       "Square is best, like 1200×1200: shown small beside it (cut to a square from the middle), and big when a customer taps it." :
       kind === "sub" ?
       "Wide is best, 2:1 like 1200×600: a strip across the menu with its name and description on it, along the bottom, cut to that shape." :
-      "Wide is best, 16:9 like 1200×675: across the whole width of the phone, with its name and description on it along the bottom, cut to that shape."));
+      "Wide is best, 16:9 like 1200×675: across the menu, rounded, with its name and description on it along the bottom, cut to that shape."));
     f.appendChild(pic);
+
+    if (kind === "item") f.appendChild(modelField(d));
 
     var notes = el("details", { class: "field words" }), sum = el("summary", {}, "Description (optional)"), nb = el("div", { class: "names" });
     notes.appendChild(sum);
@@ -1655,6 +1659,38 @@
     var first = f.querySelector("input[data-name=ku]");
     if (ed.isNew && first) setTimeout(function () { first.focus(); }, 60);
   }
+
+  // An item's 3D model: one of the .glb files in the project's models folder on GitHub (the TV lists them).
+  // Customers turn it with a finger, and see it on their table (AR) where their phone can.
+  function modelField(d) {
+    var box = el("div", { class: "field" }), sel = el("select", { id: "edModel" }), msg = el("p", { class: "hint", id: "edModelMsg", role: "status" });
+    box.appendChild(el("label", { class: "fhead", for: "edModel" }, "3D model"));
+    var fill = function (names) {
+      sel.innerHTML = "";
+      sel.appendChild(el("option", { value: "" }, "None"));
+      names.forEach(function (m) { sel.appendChild(el("option", { value: m[0] }, m[1])); });
+      if (d.model && !names.some(function (m) { return m[0] === d.model; })) sel.appendChild(el("option", { value: d.model }, d.model));
+      sel.value = d.model || "";
+    };
+    fill([]);
+    sel.addEventListener("change", function () { d.model = sel.value || null; });
+    box.appendChild(sel);
+    msg.textContent = "Looking in the models folder on GitHub…";
+    box.appendChild(msg);
+    api("/api/menu/models").then(function (r) {
+      if (!r || !(r.models instanceof Array)) throw new Error("none");
+      fill(r.models.map(function (m) { return [m.name, m.name + (m.size ? " (" + mb(m.size) + ")" : "")]; }));
+      msg.textContent = r.models.length ? "Customers turn it with a finger, and see it on their table (AR) where their phone can. " +
+        "Small files open fastest: under 5 MB is best." :
+        "No models yet. Put .glb files in the models folder of the project on GitHub, and choose one here.";
+    }).catch(function (e) {
+      if (e.message === "pin" || e.message === "locked") return;
+      msg.textContent = "GitHub can't be reached from the TV now, so the models can't be listed. Try again later.";
+    });
+    return box;
+  }
+
+  function mb(bytes) { return (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0) + " MB"; }
 
   // The places in the chosen list: 1 (the top) to the last
   function drawPlaces() {
@@ -1740,6 +1776,7 @@
       if (kind === "item") {
         if (d.price != null) node.price = d.price; else delete node.price;
         if (d.tv === false) node.tv = false; else delete node.tv;
+        if (d.model) node.model = d.model; else delete node.model;
       }
       var list = listAt(cats, kind, e.home);
       list.splice(Math.max(0, Math.min(e.place, list.length)), 0, node);
@@ -1815,7 +1852,8 @@
 
   /* ---------- the menu in and out: a spreadsheet, or a backup with the pictures ---------- */
 
-  var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "On TV", "Picture", "ID"];
+  var SHEET_COLUMNS = ["Type", "Kurdish", "Arabic", "English", "Price", "Kurdish description", "Arabic description", "English description", "On menu", "On TV", "Picture",
+    "3D model", "ID"];
 
   function today() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
@@ -1835,7 +1873,7 @@
     var row = function (type, n) {
       var nm = n.name || {}, nt = n.note || {};
       return [type, nm.ku || "", nm.ar || "", nm.en || "", type === "item" && n.price != null ? Number(n.price) : "", nt.ku || "", nt.ar || "", nt.en || "",
-              n.hidden ? "no" : "yes", type === "item" ? (n.tv === false ? "no" : "yes") : "", n.picture || "", n.id || ""];
+              n.hidden ? "no" : "yes", type === "item" ? (n.tv === false ? "no" : "yes") : "", n.picture || "", type === "item" ? n.model || "" : "", n.id || ""];
     };
     cats.forEach(function (c) {
       rows.push(row("category", c));
@@ -1865,7 +1903,7 @@
     };
     var colName = function (i) { var s = ""; i++; while (i) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
     var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
-    var widths = [14, 26, 26, 26, 11, 30, 30, 30, 10, 18, 18];
+    var widths = [14, 26, 26, 26, 11, 30, 30, 30, 10, 18, 18, 18];
     var sheet = head + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">' +
       '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' +
       widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join("") + "</cols><sheetData>";
@@ -2037,6 +2075,7 @@
     if (/^(on (the )?menu|shown|visible)$/.test(c)) return "shown";
     if (/^(on (the )?tv|tv)$/.test(c)) return "tv";
     if (/^(picture|photo|image)$/.test(c)) return "picture";
+    if (/^(3d( model)?|model|3d file)$/.test(c)) return "model";
     if (lang) return lang;
     return c === "name" ? "en" : null;
   }
@@ -2111,6 +2150,7 @@
           node.price = v;
         }
         if (/^(no|false|0|off|x)$/i.test(get("tv"))) node.tv = false;
+        if (get("model")) node.model = get("model");
         (sub || cat).items.push(node); counts.i++;
       } else {
         throw new Error("Row " + n + ": its Type should be category, subcategory or item.");

@@ -1,8 +1,11 @@
 package com.twilightcafe.tvplayer.phone;
 
+import com.twilightcafe.tvplayer.BuildConfig;
 import com.twilightcafe.tvplayer.app.TvApp;
 import com.twilightcafe.tvplayer.store.LookStore;
+import com.twilightcafe.tvplayer.store.MenuStore;
 import com.twilightcafe.tvplayer.store.PictureStore;
+import com.twilightcafe.tvplayer.util.Net;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -17,9 +20,20 @@ import java.util.List;
 public final class PhoneApi implements ControlServer.Tv {
 
     private final TvApp app;
+    private volatile String models;                     // the models folder on GitHub, as read last (kept a minute)
+    private volatile long modelsAt;
 
     public PhoneApi(TvApp app) {
         this.app = app;
+    }
+
+    // The project on GitHub (this build's, else the café's own), and where its 3D models are, for anyone to fetch
+    private static String repo() {
+        return BuildConfig.REPO == null || BuildConfig.REPO.isEmpty() ? "helinomerrania/twilight-tv-android" : BuildConfig.REPO;
+    }
+
+    private static String modelBase() {
+        return "https://raw.githubusercontent.com/" + repo() + "/main/models/";
     }
 
     @Override
@@ -185,8 +199,41 @@ public final class PhoneApi implements ControlServer.Tv {
 
     @Override
     public String menuForCustomers() {
-        return app.menus.forCustomers(app.core.settings.text("brandName", ""), app.core.settings.label("menu", ""),
+        String menu = app.menus.forCustomers(app.core.settings.text("brandName", ""), app.core.settings.label("menu", ""),
                 app.core.settings.text("numerals", "auto"));
+        if (menu == null) return null;                  // not ready
+        try {                                            // where the items' 3D models are (on GitHub: https, for AR)
+            return new JSONObject(menu).put("models", modelBase()).toString();
+        } catch (JSONException e) {
+            return menu;
+        }
+    }
+
+    @Override
+    public String menuNow() {
+        String page = app.link.pageNow();
+        try {
+            JSONArray tint = page == null ? null : new JSONObject(page).optJSONArray("tint");
+            return tint == null ? "{}" : new JSONObject().put("tint", tint).toString();
+        } catch (JSONException e) {
+            return "{}";
+        }
+    }
+
+    @Override
+    public String menuModels() {
+        long now = System.currentTimeMillis();
+        String kept = models;
+        if (kept != null && now - modelsAt < 60000L) return kept;
+        try {
+            String listing = Net.get("https://api.github.com/repos/" + repo() + "/contents/models?ref=main", 10000);
+            kept = new JSONObject(MenuStore.modelsFrom(listing)).put("base", modelBase()).toString();
+            models = kept;
+            modelsAt = now;
+            return kept;
+        } catch (Exception e) {
+            return null;                                 // GitHub out of reach (or busy): the phone says so
+        }
     }
 
     @Override

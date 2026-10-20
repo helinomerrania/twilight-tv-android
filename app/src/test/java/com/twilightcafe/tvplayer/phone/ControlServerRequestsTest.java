@@ -329,6 +329,8 @@ public class ControlServerRequestsTest extends Checks {
             public String saveMenu(String b) { menuSaves.add(b); return b.contains("old") ? "{\"ok\":false,\"conflict\":true,\"message\":\"changed on another phone\"}"
                 : b.contains("noname") ? "{\"ok\":false,\"message\":\"Every item needs a name\"}" : "{\"ok\":true,\"v\":4}"; }
             public String addMenuPicture(String b) { menuPics.add(b); return "{\"ok\":true,\"id\":\"newpic1\"}"; }
+            public String menuNow() { return "{\"tint\":[215,0.6]}"; }
+            public String menuModels() { return "{\"models\":[{\"name\":\"kunafa.glb\",\"size\":42}],\"base\":\"https://raw.githubusercontent.com/x/y/main/models/\"}"; }
         });
         int p5 = w.start(); int keep5 = port; port = p5;
         r = call("GET", "/menu/");
@@ -343,6 +345,13 @@ public class ControlServerRequestsTest extends Checks {
         check("the menu itself, as JSON, no PIN, never kept stale", r[0].equals("200") && r[1].contains("کافتریا") && r[2].startsWith("application/json") && r[3].equals("no-cache"), Arrays.toString(r));
         r = call("POST", "/menu/data", "{}");
         check("...nothing can be sent to it (405)", r[0].equals("405"), r[0]);
+        r = call("GET", "/menu/now");
+        check("the song's colour on the TV now, for the menu's glow: no PIN, never kept", r[0].equals("200") && r[1].equals("{\"tint\":[215,0.6]}")
+            && r[2].startsWith("application/json") && r[3].equals("no-store"), Arrays.toString(r));
+        r = call("GET", "/api/menu/models");
+        String[] models = call("GET", "/api/menu/models?pin=4821");
+        check("the 3D models on GitHub, for the phone's menu editor: only with the PIN", r[0].equals("401") && models[0].equals("200")
+            && models[1].contains("kunafa.glb") && models[1].contains("raw.githubusercontent.com"), r[0] + " " + Arrays.toString(models));
         r = call("GET", "/menu/pics/abcd1234.jpg");
         String[] sm = call("GET", "/menu/pics/abcd1234.small.jpg");
         check("its pictures: JPEGs a phone keeps for good (a new picture gets a new address); the small copies too",
@@ -423,13 +432,15 @@ public class ControlServerRequestsTest extends Checks {
             check("its / (the menu's address without /menu/): on to the menu, never the phone page", resp.startsWith("HTTP/1.1 301") && resp.contains("\r\nLocation: /menu/\r\n") && !resp.contains("ADMIN"), resp);
         }
         r = call("GET", "/menu/");
-        String[] cd = call("GET", "/menu/data");
-        check("the menu page and the menu, as on the phone page's server", r[0].equals("200") && r[1].contains("مینیو") && cd[0].equals("200") && cd[1].contains("\"v\":3"), r[0] + cd[0]);
+        String[] cd = call("GET", "/menu/data"), cn = call("GET", "/menu/now");
+        check("the menu page, the menu and the TV's colour, as on the phone page's server (no colour without a song: {})", r[0].equals("200") && r[1].contains("مینیو")
+            && cd[0].equals("200") && cd[1].contains("\"v\":3") && cn[0].equals("200") && cn[1].equals("{}"), r[0] + cd[0] + Arrays.toString(cn));
         int before = menuSaves.size();
         String a1 = call("GET", "/api/status?pin=4821")[0], a2 = call("GET", "/api/menu?pin=4821")[0], a3 = call("POST", "/api/menu?pin=4821", "{}")[0],
-               a4 = call("POST", "/api/cmd?pin=4821&do=next")[0], a5 = call("GET", "/api/settings?pin=4821")[0], a6 = call("GET", "/index.html")[0];
-        check("nothing of the phone page, even with the right PIN: no status, menu changes, commands or settings (404)", a1.equals("404") && a2.equals("404") && a3.equals("404")
-            && a4.equals("404") && a5.equals("404") && menuSaves.size() == before, a1 + a2 + a3 + a4 + a5 + a6 + menuSaves);
+               a4 = call("POST", "/api/cmd?pin=4821&do=next")[0], a5 = call("GET", "/api/settings?pin=4821")[0], a6 = call("GET", "/index.html")[0],
+               a7 = call("GET", "/api/menu/models?pin=4821")[0];
+        check("nothing of the phone page, even with the right PIN: no status, menu changes, commands, settings or models (404)", a1.equals("404") && a2.equals("404") && a3.equals("404")
+            && a4.equals("404") && a5.equals("404") && a7.equals("404") && menuSaves.size() == before, a1 + a2 + a3 + a4 + a5 + a6 + a7 + menuSaves);
         check("...nor the TV page, from the box itself", call("GET", "/tv/index.html?k=x")[0].equals("404"), "");
         r = call("GET", "/icon-192.png");
         check("its icon, for the browser's tab", r[0].equals("200") && r[1].equals("PNG:home-screen/icon-192.png"), Arrays.toString(r));

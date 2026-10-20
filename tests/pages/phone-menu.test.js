@@ -152,6 +152,40 @@ function post(port, p, body) {
   const energyItems = await page.$$eval('#menuList .mcat', l => [...l[1].querySelectorAll('.msub')[0].querySelectorAll('.mitem .t b')].map(e => e.textContent));
   check('moved to Drink › Energy', energyItems.join() === 'سێوی دووانە' && (await items(0)).map(i => i[0]).join() === 'ترێ,نەعنا', [energyItems, await items(0)]);
 
+  console.log('\nA 3D model for an item');
+  const openMint = () => page.evaluate(() => [...document.querySelectorAll('#menuList .mcat')[0].querySelectorAll('.mitem')].find(b => /نەعنا/.test(b.textContent)).click());
+  await openMint();
+  await page.waitForFunction(() => /finger/.test((document.getElementById('edModelMsg') || {}).textContent || ''), { timeout: 8000 }).catch(() => {});
+  const choices = await page.$$eval('#edModel option', l => l.map(o => o.value + '=' + o.textContent));
+  check('the editor lists the .glb files in the models folder on GitHub (through the TV), with their sizes; None to start with',
+    choices.join('|') === '=None|coffee-cup.glb=coffee-cup.glb (0.9 MB)|kunafa.glb=kunafa.glb (4.0 MB)' && await page.$eval('#edModel', s => s.value) === ''
+    && /see it on their table \(AR\)/.test(await text('#edModelMsg')), [choices, await text('#edModelMsg')]);
+  await page.select('#edModel', 'kunafa.glb');
+  await page.click('#edSave');
+  await sleep(450);
+  const mint = JSON.parse((await get(port, '/api/menu?pin=4821'))[1]).categories[0].items.find(i => i.name.ku === 'نەعنا');
+  const mintTag = await page.evaluate(() => { const m = [...document.querySelectorAll('#menuList .mcat')[0].querySelectorAll('.mitem')].find(b => /نەعنا/.test(b.textContent));
+    return [...m.querySelectorAll('.tag')].map(t => t.textContent).join(); });
+  check('...chosen and saved: kept on the TV with the item, "3D" beside it in the list', mint.model === 'kunafa.glb' && mintTag === '3D', [mint.model, mintTag]);
+  const forCustomers = JSON.parse((await get(menuPort, '/menu/data'))[1]);
+  check('...customers get it, and where the models are (GitHub, https)', forCustomers.models === 'https://raw.githubusercontent.com/test/twilight/main/models/'
+    && forCustomers.categories[0].items.find(i => i.name.ku === 'نەعنا').model === 'kunafa.glb', forCustomers.models);
+  await openMint();
+  await sleep(300);
+  check('...opened again: chosen, as saved', await page.$eval('#edModel', s => s.value) === 'kunafa.glb');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  const sneak = JSON.parse((await get(port, '/api/menu?pin=4821'))[1]);
+  sneak.categories[0].items.find(i => i.name.ku === 'نەعنا').model = '../settings.json';
+  const sneaked = await post(port, '/api/menu?pin=4821', JSON.stringify({ base: sneak.v, menu: { categories: sneak.categories } }));
+  const mint2 = JSON.parse((await get(port, '/api/menu?pin=4821'))[1]).categories[0].items.find(i => i.name.ku === 'نەعنا');
+  check('a model that isn\'t a .glb file\'s name (a path, say) isn\'t kept', sneaked[0] === 200 && mint2.model === undefined, mint2);
+  const back = JSON.parse((await get(port, '/api/menu?pin=4821'))[1]);
+  back.categories[0].items.find(i => i.name.ku === 'نەعنا').model = 'kunafa.glb';
+  await post(port, '/api/menu?pin=4821', JSON.stringify({ base: back.v, menu: { categories: back.categories } }));
+  await page.evaluate(() => document.getElementById('tabMenu').click());
+  await sleep(400);
+
   console.log('\nCategories and subcategories');
   await page.evaluate(() => [...document.querySelectorAll('#menuList .mcat')[2].querySelectorAll('.madd')].find(b => b.textContent === '+ Add a subcategory').click());
   await sleep(150);
@@ -240,6 +274,12 @@ function post(port, p, body) {
   check('the picture from the phone, loaded from the TV', await c.$eval('main .row img', i => i.complete && i.naturalWidth > 0));
   check('the note under the category', await c.$eval('main section .note', e => e.textContent) === 'Every flavour has its own pipe.');
   check('Kurdish and English to choose from (no Arabic names yet)', (await c.$$eval('#langs button', l => l.map(b => b.textContent))).join() === 'کوردی,English');
+  const mint3d = await c.evaluate(() => { const li = [...document.querySelectorAll('main .items li')].find(l => /نەعنا/.test(l.textContent));
+    const t = li.querySelector('button.thumb'); return [li.className, t && t.className, t && t.textContent, t && t.getAttribute('aria-label')]; });
+  check('the item with a 3D model: a gold cube beside it (it has no picture) that opens it in 3D', JSON.stringify(mint3d) === JSON.stringify(['has3d', 'thumb bare', '3D', 'نەعنا, 3D']), mint3d);
+  await sleep(300);
+  check('the room in the colour of the song on the TV (its /menu/now)', await c.$eval('html', h => h.getAttribute('data-tint') + '|' + h.classList.contains('room-b')) === '28 0.9|true',
+    await c.$eval('html', h => h.getAttribute('data-tint')));
   await shot(c, 'customer-ku.png', { fullPage: true });
   await c.evaluate(() => [...document.querySelectorAll('#langs button')].find(b => b.textContent === 'English').click());
   await sleep(200);

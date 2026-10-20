@@ -5,23 +5,28 @@
 <!-- no "Translate this page?" from the phone's browser: the menu has its own languages -->
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#080b26">
+<meta name="theme-color" content="#0a0d2c">
 <meta name="color-scheme" content="dark">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="../icon-192.png">
 <title>Twilight</title>
 <!--
   The café's menu, for customers' phones: the menu code on the TV leads here. The TV box serves it at
-  /menu/ on the café Wi-Fi, with what the phone page's Menu tab put in it (data), its pictures (pics/)
-  and its letters (fonts/). Every address here is relative, so the same page works from anywhere.
+  /menu/ on the café Wi-Fi, with what the phone page's Menu tab put in it (data), its pictures (pics/),
+  its letters (fonts/) and the colour of the song on the TV now (now). Every address here is relative,
+  so the same page works from anywhere. An item with a 3D model (from the project's models folder on
+  GitHub) can be seen in 3D, and on the table (AR).
 -->
 <link rel="stylesheet" href="menu.css">
 </head>
 <body class="notranslate">
-<header class="sky">
-  <h1 class="name" id="name" dir="auto"></h1>
-  <p class="word" id="word" dir="auto"></p>
+<!-- The room's light: the TV's colours, and the song's when one is playing (two layers, one fading over the other) -->
+<div class="room" aria-hidden="true"><i class="a"></i><i class="b"></i></div>
+
+<header class="head">
   <div class="langs" id="langs" role="group" hidden></div>
+  <h1 class="name" id="name" dir="auto"></h1>
+  <p class="word" id="word"><span id="wordText" dir="auto"></span></p>
 </header>
 <nav class="bar" id="bar" hidden><div class="chips" id="chips"></div></nav>
 <main id="menu">
@@ -31,8 +36,28 @@
     </button>
   </div>
 </main>
+<footer class="foot" id="foot" hidden><p class="fname" id="fname" dir="auto"></p></footer>
 <div id="end" aria-hidden="true" style="height:1px"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+
+<!-- One item in 3D: turned with a finger, and on the table (AR) where the phone can -->
+<div class="view3d" id="view3d" role="dialog" aria-modal="true" aria-labelledby="v3Name" hidden>
+  <div class="v3top">
+    <p class="v3name" id="v3Name" dir="auto"></p>
+    <button class="close" id="v3Close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="v3stage" id="v3Stage"></div>
+  <div class="v3bar" id="v3Bar" hidden><i id="v3Fill"></i></div>
+  <div class="v3wait" id="v3Wait"><div class="ring"></div></div>
+  <div class="v3fail" id="v3Fail" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M8.5 6.2A6 6 0 0 1 18 10a4 4 0 0 1 2.4 6.9M17 19H7a5 5 0 0 1-1.6-9.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <button class="again" id="v3Again" type="button" aria-label="Try again">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+    </button>
+  </div>
+</div>
 
 <script src="menu.js"></script>
 </body>

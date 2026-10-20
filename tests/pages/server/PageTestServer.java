@@ -16,6 +16,8 @@ import java.nio.file.Files;
  * args: the assets folder, a folder for the menu, and the menu's link (optional)
  */
 public class PageTestServer {
+    static final String MODELS = "https://raw.githubusercontent.com/test/twilight/main/models/";
+
     public static void main(String[] a) throws Exception {
         final File assets = new File(a[0]);
         final MenuStore menus = new MenuStore(new File(a[1]));
@@ -39,7 +41,26 @@ public class PageTestServer {
                         "{\"k\":\"testkey\",\"v\":1,\"s\":{},\"xv\":0,\"x\":{}}");
             }
             public String tvSync(String key, String body) { return "testkey".equals(key) ? "{\"v\":1,\"cmds\":[]}" : null; }
-            public String menuForCustomers() { return menus.forCustomers("کافتریا و ڕێستورانتی توایڵایت", "مینیو", "auto"); }
+            public String menuForCustomers() {
+                String m = menus.forCustomers("کافتریا و ڕێستورانتی توایڵایت", "مینیو", "auto");
+                try {
+                    return new JSONObject(m).put("models", MODELS).toString();
+                } catch (Exception e) {
+                    return m;
+                }
+            }
+            // a song playing on the TV, in a warm amber
+            public String menuNow() { return "{\"tint\":[28,0.9]}"; }
+            // GitHub's listing of the models folder, as its contents API gives it: two models, and files that aren't
+            public String menuModels() {
+                try {
+                    return new JSONObject(MenuStore.modelsFrom("[{\"name\":\"README.md\",\"type\":\"file\",\"size\":900},"
+                            + "{\"name\":\"coffee-cup.glb\",\"type\":\"file\",\"size\":943718},{\"name\":\"old\",\"type\":\"dir\",\"size\":0},"
+                            + "{\"name\":\"kunafa.glb\",\"type\":\"file\",\"size\":4194304}]")).put("base", MODELS).toString();
+                } catch (Exception e) {
+                    return null;
+                }
+            }
             public byte[] menuPicture(String id, boolean small) { return menus.picture(id, small); }
             public String menu() { return withAddress(menus.full()); }
             public String saveMenu(String body) {

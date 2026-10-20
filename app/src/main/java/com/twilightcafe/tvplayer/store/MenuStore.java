@@ -192,6 +192,7 @@ public final class MenuStore {
             try {
                 JSONObject o = open(it);
                 if (it.has("price")) o.put("price", it.optLong("price"));
+                if (it.has("model")) o.put("model", it.optString("model"));
                 out.put(o);
             } catch (JSONException e) {
                 // left out
@@ -258,6 +259,8 @@ public final class MenuStore {
             if (price > MAX_PRICE && !lenient) throw new IllegalArgumentException("“" + anyName(o) + "”: that price is too big.");
             if (price >= 0 && price <= MAX_PRICE) o.put("price", price);
             if (Boolean.FALSE.equals(it.opt("tv"))) o.put("tv", false);   // kept off the TV's slides between songs
+            String model = text(it, "model");
+            if (validModel(model)) o.put("model", model);                 // its 3D model, in the models folder on GitHub
             out.put(o);
         }
         return out;
@@ -280,6 +283,25 @@ public final class MenuStore {
         if (validId(pic) && new File(pics, pic + ".jpg").exists()) o.put("picture", pic);
         if (n.optBoolean("hidden", false)) o.put("hidden", true);
         return o;
+    }
+
+    /** A 3D model's file name in the models folder: letters, digits, dots, dashes and underscores, ending .glb */
+    static boolean validModel(String name) {
+        return name != null && name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,79}\\.(glb|GLB)");
+    }
+
+    /**
+     * The 3D models in GitHub's listing of the models folder (its contents API's answer; null when there's no such
+     * folder): {"models":[{"name":"kunafa.glb","size":4200000}, ...]}, the files with a name a model may have
+     */
+    public static String modelsFrom(String listing) throws JSONException {
+        JSONArray out = new JSONArray(), in = listing == null ? new JSONArray() : new JSONArray(listing);
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject f = in.optJSONObject(i);
+            if (f == null || !"file".equals(f.optString("type")) || !validModel(f.optString("name"))) continue;
+            out.put(new JSONObject().put("name", f.optString("name")).put("size", f.optLong("size")));
+        }
+        return new JSONObject().put("models", out).toString();
     }
 
     // {"ku": ..., "ar": ..., "en": ...}: each trimmed, without control characters, cut to length; empty ones left out.

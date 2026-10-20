@@ -67,7 +67,7 @@ async function waitFile(dir, re, ms = 8000) {
   const m0 = await json(A.port, '/api/menu?pin=4821');
   m0.categories[0].name = { ku: 'نێرگلە', ar: 'أراكيل', en: 'Hookah Flavors' };
   m0.categories[0].note = { en: 'Every flavour, its own pipe; ask us.' };
-  m0.categories[0].items = [{ id: 'apple0001', name: { ku: 'سێوی دووانە', en: 'Double Apple' }, price: 10000, picture: pic },
+  m0.categories[0].items = [{ id: 'apple0001', name: { ku: 'سێوی دووانە', en: 'Double Apple' }, price: 10000, picture: pic, model: 'apple-bowl.glb' },
                             { id: 'grape0001', name: { ku: 'ترێ', en: 'Grape' }, price: 10000, hidden: true }];
   m0.categories[1].subs[0].items = [{ id: 'bull00001', name: { en: 'Red Bull' }, price: 3000, note: { en: 'Cold, "can"' } }];
   const s0 = JSON.parse((await req(A.port, 'POST', '/api/menu?pin=4821', JSON.stringify({ base: m0.v, menu: { categories: m0.categories } })))[1]);
@@ -104,10 +104,11 @@ ws = wb.worksheets[0]
 print(json.dumps({"title": ws.title, "frozen": ws.freeze_panes, "bold": ws["A1"].font.b,
   "rows": [[("" if c is None else c) for c in r] for r in ws.iter_rows(values_only=True)]}, ensure_ascii=False))`, xlsxFile));
   check('Excel opens it (openpyxl): one sheet "Menu", the column names in bold, kept in sight', rows.title === 'Menu' && rows.frozen === 'A2' && rows.bold === true
-    && rows.rows[0].join('|') === 'Type|Kurdish|Arabic|English|Price|Kurdish description|Arabic description|English description|On menu|On TV|Picture|ID', rows);
+    && rows.rows[0].join('|') === 'Type|Kurdish|Arabic|English|Price|Kurdish description|Arabic description|English description|On menu|On TV|Picture|3D model|ID', rows);
   const r = rows.rows;
   check('the menu row by row: the category, its items, then each subcategory with its items', r[1][0] === 'category' && r[1][1] === 'نێرگلە' && r[1][2] === 'أراكيل'
-    && r[2][0] === 'item' && r[2][1] === 'سێوی دووانە' && r[2][4] === 10000 && r[2][9] === 'yes' && r[1][9] === '' && r[2][10] === pic && r[2][11] === 'apple0001'
+    && r[2][0] === 'item' && r[2][1] === 'سێوی دووانە' && r[2][4] === 10000 && r[2][9] === 'yes' && r[1][9] === '' && r[2][10] === pic && r[2][11] === 'apple-bowl.glb'
+    && r[1][11] === '' && r[3][11] === '' && r[2][12] === 'apple0001'
     && r[3][1] === 'ترێ' && r[3][8] === 'no' && r[4][0] === 'category' && r[4][3] === 'Drink' && r[5][0] === 'subcategory' && r[5][3] === 'Energy'
     && r[6][3] === 'Red Bull' && r[6][7] === 'Cold, "can"', r.slice(0, 8));
   check('...prices as numbers (Excel can add them up)', typeof r[2][4] === 'number');
@@ -129,6 +130,7 @@ ws["D3"] = "Two Apples"                # a new English name
 ws["C3"] = "تفاحتين"                   # and an Arabic one
 ws["I4"] = "yes"                       # Grape back on the menu
 ws["J3"] = "no"                        # Double Apple kept off the TV's slides
+ws["L4"] = "grape-bowl.glb"            # Grape: a 3D model
 ws.insert_rows(5)                      # a new item, no id, after Grape
 for col, v in zip("ABCDE", ["item", "نەعنا", "", "Mint", "11,000"]): ws[col + "5"] = v
 wb.save(sys.argv[2])`, xlsxFile, edited);
@@ -155,6 +157,7 @@ z = zipfile.ZipFile(sys.argv[1]); print(sorted(set(i.compress_type for i in z.in
     && hk[0].name.ar === 'تفاحتين' && hk[0].name.ku === 'سێوی دووانە' && !hk[1].hidden, hk);
   check('...and "On TV" no: that item kept off the TV\'s slides between songs (the others on it)', hk[0].tv === false && hk[1].tv === undefined, [hk[0].tv, hk[1].tv]);
   check('...the picture still with its item (same ID)', hk[0].picture === pic, hk[0]);
+  check('...its 3D model kept; the one added in Excel for Grape too', hk[0].model === 'apple-bowl.glb' && hk[1].model === 'grape-bowl.glb', [hk[0].model, hk[1].model]);
   check('...the new row a new item in its place, its price "11,000" in dinars', hk[2] && hk[2].name.ku === 'نەعنا' && hk[2].name.en === 'Mint' && hk[2].price === 11000
     && /^[a-z0-9]{4,24}$/.test(hk[2].id), hk[2]);
   check('...the rest as it was (the category\'s note, the subcategory\'s item)', after.categories[0].note.en === 'Every flavour, its own pipe; ask us.'
@@ -167,8 +170,8 @@ z = zipfile.ZipFile(sys.argv[1]); print(sorted(set(i.compress_type for i in z.in
   await page.click('#ioCsv');
   const csvFile = await waitFile(DL, /\.csv$/);
   const csv = fs.readFileSync(csvFile, 'utf8');
-  check('a CSV file, marked as UTF-8 for Excel, the same rows', csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n')[0] === '﻿Type,Kurdish,Arabic,English,Price,Kurdish description,Arabic description,English description,On menu,On TV,Picture,ID'
-    && csv.includes('item,سێوی دووانە,تفاحتين,Two Apples,12000,,,,yes,no,' + pic + ',apple0001')   // On TV: no, as imported above && csv.includes('"Every flavour, its own pipe; ask us."')
+  check('a CSV file, marked as UTF-8 for Excel, the same rows', csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n')[0] === '﻿Type,Kurdish,Arabic,English,Price,Kurdish description,Arabic description,English description,On menu,On TV,Picture,3D model,ID'
+    && csv.includes('item,سێوی دووانە,تفاحتين,Two Apples,12000,,,,yes,no,' + pic + ',apple-bowl.glb,apple0001')   // On TV: no, as imported above && csv.includes('"Every flavour, its own pipe; ask us."')
     && csv.includes('"Cold, ""can"""'), csv.slice(0, 400));
   const semi = path.join(TMP, 'from-excel.csv');
   fs.writeFileSync(semi, '﻿Type;Kurdish;English;Price;On menu\r\ncategory;چا;Tea;;\r\nitem;چای سوور;"Black; strong";1000;yes\r\nitem;چای سەوز;Green tea;١٬٥٠٠;no\r\n\r\nsubcategory;;Herbal;;\r\nitem;;Chamomile;2000;\r\n');

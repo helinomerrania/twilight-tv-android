@@ -22,7 +22,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   console.log('\nPicture sizes, and see-through pictures');
   await page.evaluate(() => document.querySelectorAll('#menuList .mcat')[0].querySelector('.mhead').click());
   await sleep(200);
-  check('a category: "Wide is best, 16:9 like 1200×675", across the whole width of the phone', (await page.$eval('#edPicMsg', e => e.textContent)).startsWith('Wide is best, 16:9 like 1200×675: across the whole width'));
+  check('a category: "Wide is best, 16:9 like 1200×675", across the menu', (await page.$eval('#edPicMsg', e => e.textContent)).startsWith('Wide is best, 16:9 like 1200×675: across the menu'));
   await page.keyboard.press('Escape');
   await sleep(100);
   await page.evaluate(() => document.querySelector('#menuList .msub .mhead').click());

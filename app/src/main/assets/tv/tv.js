@@ -2340,7 +2340,9 @@
         prayerName: quiet === "prayer" ? prayerName : "",
         closingIn: closingShare() < 1 ? Math.ceil(minutesToClose()) : 0,
         day: activeDay(),
-        panel: panelOn
+        panel: panelOn,
+        // the song's colour, as the frame takes it ([hue, strength]): the menu on customers' phones glows with it too
+        tint: S.videoColors !== false && current && quiet !== "closed" && state.tint[current] instanceof Array ? state.tint[current] : null
       };
     },
     // The songs the app should find names for: the playlist, then any asked for from a link

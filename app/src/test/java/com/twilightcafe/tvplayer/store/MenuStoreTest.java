@@ -232,6 +232,29 @@ public class MenuStoreTest extends Checks {
         check("an unreadable file: kept aside as menu.json.bad, the café's categories again", new File(dir, "menu.json.bad").exists()
             && new JSONObject(fresh.full()).getJSONArray("categories").length() == 5 && fresh.shownItems() == 0, fresh.full());
 
+        System.out.println("3D models, from the models folder on GitHub");
+        File mdir = Files.createTempDirectory("menu3d").toFile();
+        MenuStore m3 = new MenuStore(mdir);
+        JSONArray mcats = new JSONArray().put(new JSONObject().put("id", "seedhookah").put("name", name("نێرگەلە", null, "Hookah")).put("items", new JSONArray()
+            .put(item("mmmm1", name("کونافە", null, "Kunafa"), 5000).put("model", "kunafa-v2.glb"))
+            .put(item("mmmm2", name("چا", null, "Tea"), 500).put("model", "../../etc/passwd.glb"))
+            .put(item("mmmm3", name("قاوە", null, "Coffee"), 900).put("model", "coffee.obj"))));
+        JSONObject saved3d = new JSONObject(m3.save(body(m3.version(), mcats)));
+        JSONArray its = saved3d.getJSONObject("menu").getJSONArray("categories").getJSONObject(0).getJSONArray("items");
+        check("an item's 3D model kept by its file name; a path or another kind of file isn't", saved3d.optBoolean("ok") && its.getJSONObject(0).getString("model").equals("kunafa-v2.glb")
+            && !its.getJSONObject(1).has("model") && !its.getJSONObject(2).has("model"), its);
+        JSONObject cu3d = new JSONObject(m3.forCustomers("", "", "auto")).getJSONArray("categories").getJSONObject(0).getJSONArray("items").getJSONObject(0);
+        check("...customers get it, to see the dish in 3D and on their table", cu3d.getString("model").equals("kunafa-v2.glb"), cu3d);
+        String listing = new JSONArray()
+            .put(new JSONObject().put("name", "kunafa-v2.glb").put("type", "file").put("size", 4200000))
+            .put(new JSONObject().put("name", "README.md").put("type", "file").put("size", 300))
+            .put(new JSONObject().put("name", "old").put("type", "dir").put("size", 0))
+            .put(new JSONObject().put("name", "tea set.glb").put("type", "file").put("size", 10)).toString();
+        JSONArray found = new JSONObject(MenuStore.modelsFrom(listing)).getJSONArray("models");
+        check("GitHub's list of the models folder: the .glb files with a name a model may have, and their sizes", found.length() == 1
+            && found.getJSONObject(0).getString("name").equals("kunafa-v2.glb") && found.getJSONObject(0).getLong("size") == 4200000, found);
+        check("...no models folder yet: none", MenuStore.modelsFrom(null).equals("{\"models\":[]}"));
+
         System.out.println("Prices typed on a phone");
         check("\"5,000\" 5000; \"٥٬٠٠٠\" 5000; \"۷۵۰۰\" 7500; \"4500.75\" 4500", MenuStore.price("5,000") == 5000 && MenuStore.price("٥٬٠٠٠") == 5000
             && MenuStore.price("۷۵۰۰") == 7500 && MenuStore.price("4500.75") == 4500);

@@ -23,8 +23,12 @@ This file says where everything is and how the parts fit together. For installin
       /menu/...   the menu, nothing else ................. customers' phones (the menu code on the TV)
 
   From the internet: settings.json (GitHub), new versions (GitHub releases), song names (YouTube),
-  weather (MET Norway or WeatherAPI.com), prices (tirezh.com), prayer times (amozhgary.tv)
+  weather (MET Norway or WeatherAPI.com), prices (tirezh.com), prayer times (amozhgary.tv),
+  the list of the menu's 3D models (GitHub, for the phone page)
  ────────────────────────────────────────────────────────────────────────────────────
+
+ Customers' phones, from the internet, only when someone opens an item in 3D: the 3D viewer
+ (model-viewer, from jsDelivr or unpkg) and the model (the models folder, from GitHub over https)
 ```
 
 Each server takes the first free port from 8080 (the menu's from 8090), so normally 8080 and 8090.
@@ -33,7 +37,8 @@ Each server takes the first free port from 8080 (the menu's from 8090), so norma
 
 ```
 settings.json                           settings for every TV (the app reads it every 30 minutes)
-.github/workflows/build.yml             tests and builds every push; from main, publishes a release when the app changed
+models/                                 the menu's 3D models (.glb), fetched by customers' phones from GitHub
+.github/workflows/build.yml             tests and builds every push (but one of only models); from main, publishes a release when the app changed
 .github/workflows/jules.yml             hands a task to Jules (an issue labelled ask-jules)
 app/build.gradle                        the app's version and what it is built from
 app/src/main/AndroidManifest.xml        what Android starts by name
@@ -96,7 +101,7 @@ MainActivity is now about 90 lines.
 | `assets/menu/` | `index.html`, `menu.css`, `menu.js` | `http://<the TV>:8090/menu/` | Customers, from the menu code on the TV |
 | `assets/home-screen/` | The phone page's icon and its manifest | `/icon-192.png` and the like | The phone page on a phone's home screen |
 | `assets/looks/` | The café screen's built-in pictures, each with a small copy | `/tv/looks/<name>.jpg` | The TV page |
-| `assets/fonts/` | The menu's typefaces | `/menu/fonts/<name>.woff2` | The menu |
+| `assets/fonts/` | The typefaces: Vazirmatn, the café's name (only its letters), Aref Ruqaa's Arabic and Latin letters for the menu | `/menu/fonts/<name>.woff2` | The menu, the phone page |
 
 Of the pages' own files, each server hands out only those on its lists in `ControlServer` (`TV_FILES`, `PHONE_FILES`, `MENU_FILES`, and `ASSETS` for the icons). Browsers fetch the pages and their files fresh each time, so a new version of the app shows its new pages at once.
 
@@ -152,7 +157,7 @@ They need Node, Java, Chrome or Chromium (`CHROME_PATH` says where, if it isn't 
 | `phone`, `phone-settings`, `phone-screens` | The phone page at phone size, against a stand-in TV: the PIN, the tabs, the controls, choosing songs, the Settings tab's pages and the Save bar, Status and diary, the Screen tab, pictures |
 | `phone-menu`, `menu-io`, `menu-pictures` | The Menu tab against the app's real server and menu store: making a menu, Excel and CSV in and out, backups, descriptions, pictures |
 | `pin-guessing` | What a phone sees while someone is guessing the PIN |
-| `customer-menu` | The customers' menu on a phone: languages, categories, an item up close |
+| `customer-menu` | The customers' menu on a phone: the room in the colours of the song on the TV (held against the TV's own formula), names in two languages, categories, the lists' three layouts, an item up close (Back and pulling it down), 3D and AR (model-viewer stood in for; and the real one's fetching, blocked) |
 
 The suites that need the app's server use `tests/pages/server/PageTestServer.java`: the app's real web servers and menu store, compiled from `app/src/main/java`, with a stand-in for the rest of the app.
 

@@ -1,5 +1,6 @@
-/* Vazirmatn (the TV's letters too): by the Vazirmatn Project Authors, SIL Open Font License 1.1.
-   The café's name in Aref Ruqaa Bold, only its own letters: by Abdullah Aref, SIL Open Font License 1.1. */
+/* Letters: Vazirmatn for reading (the TV's letters too), by the Vazirmatn Project Authors; Aref Ruqaa Bold for the
+   café's name and the categories' names (its Kurdish and Arabic letters are Ruqaa calligraphy, its Latin ones come
+   from Hermann Zapf's Euler), by the Aref Ruqaa Project Authors. Both SIL Open Font License 1.1. */
 @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap; unicode-range: U+0600-06FF, U+200C-200F, U+2010-2011;
              src: url("fonts/vazirmatn-arabic.woff2") format("woff2"); }
 @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
@@ -8,146 +9,315 @@
 @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
              unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
              src: url("fonts/vazirmatn-latin-ext.woff2") format("woff2"); }
-@font-face { font-family: "TwilightName"; font-weight: 700; font-display: block; src: url("fonts/twilight-name.woff2") format("woff2"); }
+@font-face { font-family: "Ruqaa"; font-weight: 700; font-display: fallback;
+             unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+200C-200E, U+2010-2011, U+FB50-FDFF, U+FE70-FEFC;
+             src: url("fonts/aref-ruqaa-arabic-700.woff2") format("woff2"); }
+@font-face { font-family: "Ruqaa"; font-weight: 700; font-display: fallback;
+             unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201E, U+2022, U+2026, U+20AC;
+             src: url("fonts/aref-ruqaa-latin-700.woff2") format("woff2"); }
+/* The same Latin letters alone: a name in English under a Kurdish one; Kurdish and Arabic under English stay in Vazirmatn */
+@font-face { font-family: "Ruqaa Latin"; font-weight: 700; font-display: fallback;
+             unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201E, U+2022, U+2026, U+20AC;
+             src: url("fonts/aref-ruqaa-latin-700.woff2") format("woff2"); }
 
 :root {
-  --night: #0d1030; --deep: #080b26; --dusk: #171a45; --plum: #2c2457;
-  --glow: #f0985c; --sun: #ffcf8a; --cream: #fff1e0;
-  --mist: rgba(255, 241, 224, .66); --faint: rgba(255, 241, 224, .46); --line: rgba(255, 241, 224, .11);
-  --bar: 57px;
+  --night: #0b0f2d;                                       /* the TV's own blue */
+  --cream: #f7f0e3; --mist: rgba(247, 240, 227, .7); --faint: rgba(247, 240, 227, .46);
+  --gold: #e8c47f; --gold-soft: rgba(232, 196, 127, .78); --gold-line: rgba(232, 196, 127, .3);
+  --gold-text: linear-gradient(180deg, #fff4d2 0%, #f2d18d 36%, #c9944a 64%, #f4d898 100%);
+  --gold-fill: linear-gradient(180deg, #fadf9f 0%, #e5b86a 52%, #c58f45 100%);
+  --on-gold: #1c1733;
+  --glass: linear-gradient(165deg, rgba(255, 255, 255, .085) 0%, rgba(255, 255, 255, .032) 58%, rgba(255, 255, 255, .05) 100%);
+  --edge: rgba(255, 230, 186, .14); --hair: rgba(255, 230, 186, .085);
+  --bar: 58px;
+  --room-top: #161b49; --room-end: #090c27;               /* the room's colours now (the script sets them) */
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; background: var(--night); scroll-padding-top: calc(var(--bar) + 6px); }
+html { -webkit-text-size-adjust: 100%; background: var(--night); scroll-padding-top: calc(var(--bar) + 10px); }
 body {
-  margin: 0; min-height: 100vh; overflow-x: hidden; color: var(--cream); background: var(--night);
-  font: 400 16px/1.55 "Vazirmatn", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif;
+  margin: 0; min-height: 100vh; overflow-x: hidden; color: var(--cream); background: transparent;
+  font: 400 16px/1.6 "Vazirmatn", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif;
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
-button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 [hidden] { display: none !important; }
+svg { display: block; }
 
-/* The sky over the café: night above, the last of the sun along the horizon, the name in its own letters */
-.sky {
-  position: relative; overflow: hidden; text-align: center;
-  padding: max(46px, calc(env(safe-area-inset-top) + 30px)) 20px 30px;
-  background:
-    radial-gradient(85% 70% at 50% 128%, rgba(255, 176, 108, .78), rgba(240, 152, 92, .30) 42%, rgba(240, 152, 92, 0) 72%),
-    linear-gradient(180deg, #070a22 0%, #11143b 38%, #251e4f 72%, #3a2754 100%);
+/* ---------- The room: the TV's colours, the song's when one is playing ---------- */
+
+/* Two layers: a new song's colours fade in over the old ones (or the old fade out from over them), as on the TV.
+   The script paints them; this is how it looks with no song. */
+.room { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--night); }
+.room i {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(120% 52% at 50% 0%, rgba(232, 182, 104, .1), rgba(232, 182, 104, .045) 45%, rgba(232, 182, 104, 0) 100%),
+                    radial-gradient(135% 90% at 50% 0%, #161b49, #090c27 74%);
 }
-.sky::before {                                   /* the first stars */
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .75;
-  background-image:
-    radial-gradient(1.3px 1.3px at 9% 22%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 23% 9%, #fff7ea, transparent 70%),
-    radial-gradient(1.6px 1.6px at 81% 16%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 67% 31%, #fff7ea, transparent 70%),
-    radial-gradient(1.2px 1.2px at 92% 41%, #fff7ea, transparent 70%), radial-gradient(1px 1px at 38% 26%, #fff7ea, transparent 70%);
-}
-.sky::after {                                    /* the horizon */
-  content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, rgba(255, 207, 138, 0), rgba(255, 207, 138, .75), rgba(255, 207, 138, 0));
-}
-.name {
-  position: relative; margin: 0; font-family: "TwilightName", "Vazirmatn", serif; font-weight: 700;
-  font-size: clamp(30px, 9.4vw, 46px); line-height: 1.55; text-wrap: balance; text-shadow: 0 0 .55em rgba(255, 171, 107, .38);
-}
-.word { position: relative; margin: 0; color: var(--mist); font-size: 15px; }
+.room .b { opacity: 0; transition: opacity 1.6s ease; }
+html.room-b .room .b { opacity: 1; }
+
+/* ---------- The café's name ---------- */
+
+.head { padding: max(18px, calc(env(safe-area-inset-top) + 12px)) 20px 30px; text-align: center; }
 .langs {
-  position: relative; display: inline-flex; gap: 2px; margin-top: 18px; padding: 3px; border-radius: 999px;
-  background: rgba(8, 11, 38, .5); border: 1px solid var(--line);
+  display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px;
+  background: rgba(6, 8, 30, .38); border: 1px solid var(--edge);
 }
-.langs button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--mist); font-size: 14px; }
-.langs button[aria-pressed="true"] { background: var(--cream); color: #1b1640; font-weight: 700; }
+.langs button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--mist); font-size: 13.5px; font-weight: 600; }
+.langs button[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); font-weight: 700; }
+.name {
+  margin: 26px 0 0; font-family: "Ruqaa", "Vazirmatn", serif; font-weight: 700; font-size: clamp(38px, 11.5vw, 60px); line-height: 1.36;
+  text-wrap: balance; background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.langs[hidden] + .name { margin-top: 30px; }
+/* The word for the menu between two gold lines (laid out left to right whatever the language: the lines fade
+   away from the word on both sides) */
+.word { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: 19rem; margin: 6px auto 0; direction: ltr; color: var(--gold); font-size: 15px; font-weight: 600; }
+.word::before, .word::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(232, 196, 127, 0), rgba(232, 196, 127, .62)); }
+.word::after { transform: scaleX(-1); }
+:lang(en) .word { font-family: "Ruqaa Latin", "Vazirmatn", serif; font-size: 18px; }
 
-/* The categories, along the top while scrolling (solid: a blur behind it would be redrawn every frame) */
+/* The room lighting up, the one moment that moves by itself (none for those who'd rather not) */
+@media (prefers-reduced-motion: no-preference) {
+  .name, .word { animation: arrive 1.1s .1s cubic-bezier(.2, .7, .2, 1) both; }
+  .word { animation-delay: .3s; }
+}
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- The categories along the top ---------- */
+
 .bar {
-  position: sticky; top: 0; z-index: 3; min-height: var(--bar);
-  background: rgba(11, 14, 42, .97); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5; border-block: 1px solid var(--hair);
+  background: rgba(4, 5, 14, .42); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
 }
 .chips {
-  display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; overscroll-behavior-x: contain;
+  display: flex; gap: 6px; overflow-x: auto; padding: 9px 12px; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
 }
 .chips::-webkit-scrollbar { display: none; }
 .chips button {
-  flex: none; min-height: 36px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
-  border: 1px solid var(--line); background: rgba(255, 241, 224, .05); font-size: 15px; font-weight: 600;
+  flex: none; min-height: 38px; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: none;
+  color: var(--mist); font-size: 15px; font-weight: 600; white-space: nowrap; transition: color .2s, border-color .2s, background-color .2s;
 }
-.chips button[aria-current="true"] { background: var(--glow); border-color: var(--glow); color: #2a1406; }
+.chips button[aria-current="true"] { color: #fbe5b5; border-color: rgba(240, 205, 140, .55); background-color: rgba(240, 205, 140, .1); }
 
-main { max-width: 40rem; margin: 0 auto; padding: 4px 16px max(48px, calc(env(safe-area-inset-bottom) + 28px)); }
-section { padding-top: 32px; }
-h2 { margin: 0; font-size: 25px; line-height: 1.35; font-weight: 800; }
-h3 { display: flex; align-items: center; gap: 12px; margin: 24px 0 0; color: var(--sun); font-size: 18px; line-height: 1.4; font-weight: 700; }
-h3::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), rgba(255, 241, 224, .03)); }
-[dir="rtl"] h3::after { background: linear-gradient(270deg, var(--line), rgba(255, 241, 224, .03)); }
+/* ---------- The menu ---------- */
+
+main { max-width: 40rem; margin: 0 auto; padding: 0 16px; }
+section { padding-top: 42px; }
+/* A category's name in gold, and in another language under it */
+h2 {
+  margin: 0; font-family: "Ruqaa", "Vazirmatn", serif; font-size: 37px; line-height: 1.38; font-weight: 700;
+  background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+:lang(en) h2 { font-size: 34px; line-height: 1.3; }
+.alt { display: block; color: var(--gold-soft); font-family: "Ruqaa Latin", "Vazirmatn", sans-serif; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.alt:lang(ckb), .alt:lang(ar) { font-weight: 500; }
+/* Words in another language (a name under a name, a description not written in this one) on the same side as
+   the rest, whichever way their own words go */
+[dir="rtl"] .alt, [dir="rtl"] .note, [dir="rtl"] .ds { text-align: right; }
+[dir="ltr"] .alt, [dir="ltr"] .note, [dir="ltr"] .ds { text-align: left; }
+.title > .alt { margin-top: -2px; font-size: 16px; }
+.title { margin-bottom: 14px; }
 .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
-/* A subcategory's name comes after its category's: "Beverages › Energy Drinks" (‹ right to left) */
+.title + .note { margin: -8px 0 14px; }
+/* A subcategory's name after its category's: "Beverages › Energy Drinks" (‹ right to left) */
+h3 { display: flex; align-items: center; gap: 0 10px; flex-wrap: wrap; margin: 30px 0 12px; color: var(--gold); font-size: 17.5px; line-height: 1.45; font-weight: 700; }
+h3::after { content: ""; flex: 1; min-width: 24px; height: 1px; background: linear-gradient(90deg, rgba(232, 196, 127, .45), rgba(232, 196, 127, 0)); }
+[dir="rtl"] h3::after { background: linear-gradient(270deg, rgba(232, 196, 127, .45), rgba(232, 196, 127, 0)); }
 h3 .from { color: var(--mist); font-size: 14px; font-weight: 600; }
 h3 .sep { color: var(--faint); font-weight: 400; }
+h3 + .note { margin: -6px 0 12px; font-size: 14.5px; }
 
-/* A category's picture opens it like a chapter: the phone's whole width, square-cornered, a big name. A
-   subcategory's is a shorter, rounded strip inside the margins, like the items under it. Either way its name and
-   description sit on it, along the bottom over a dark fade: the picture clear above, the words easy to read.
-   Picture and words share one spot, so a long description makes the picture taller rather than being cut off. */
-.cover { --r: 0px; display: grid; margin-inline: -16px; border-radius: var(--r); background: var(--dusk); }
+/* A category's picture opens it like a chapter: rounded, its name and description on it along the bottom over a
+   dark fade. A subcategory's is a wider strip. Picture and words share one spot, so a long description makes the
+   picture taller rather than being cut off. */
+.cover {
+  display: grid; margin-bottom: 14px; overflow: hidden; border-radius: 26px; border: 1px solid var(--edge); background: rgba(255, 255, 255, .05);
+  box-shadow: 0 22px 44px -26px rgba(0, 0, 0, .75);
+}
 .cover > img, .cover > .cap { grid-area: 1 / 1; }
-.cover > img { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: inherit; }
+.cover > img { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
 .cap {
-  position: relative; align-self: end; padding: 68px 16px 16px; border-radius: 0 0 var(--r) var(--r);
-  background: linear-gradient(0deg, rgba(8, 11, 38, .93) 0%, rgba(8, 11, 38, .74) 46%, rgba(8, 11, 38, 0) 100%);
-  text-shadow: 0 1px 2px rgba(4, 6, 22, .55), 0 0 18px rgba(4, 6, 22, .6);
+  position: relative; align-self: end; padding: 56px 18px 15px;
+  background: linear-gradient(0deg, rgba(7, 9, 30, .95) 0%, rgba(7, 9, 30, .72) 46%, rgba(7, 9, 30, 0) 100%);
 }
-.cap h2 { margin: 0; color: var(--cream); font-size: 31px; line-height: 1.3; }
-.cap .note { margin-top: 3px; color: rgba(255, 241, 224, .86); font-size: 14.5px; line-height: 1.5; }
-.cover.sub { --r: 16px; margin: 22px 0 0; }
+.cap .title { margin: 0; }
+.cap h2 { font-size: 40px; }
+:lang(en) .cap h2 { font-size: 35px; }
+.cap .note { margin-top: 2px; color: rgba(247, 240, 227, .86); font-size: 14.5px; line-height: 1.5; text-shadow: 0 1px 2px rgba(4, 6, 22, .6); }
+.cover.sub { margin-top: 30px; border-radius: 22px; }
 .cover.sub > img { aspect-ratio: 2 / 1; }
-.cover.sub .cap { padding: 40px 14px 12px; }
-.cap h3 { flex-wrap: wrap; align-items: baseline; gap: 0 7px; margin: 0; color: var(--sun); font-size: 21px; }
+.cover.sub .cap { padding: 44px 16px 13px; }
+.cap h3 { margin: 0; font-size: 20px; }
 .cap h3::after { display: none; }
-.cap h3 .from { color: rgba(255, 241, 224, .8); }
-.cap h3 .sep { color: rgba(255, 241, 224, .6); }
+.cap h3 .from { color: rgba(247, 240, 227, .8); }
+.cap h3 .sep { color: rgba(247, 240, 227, .6); }
 .cover.sub .note { font-size: 13.5px; }
-@media (min-width: 42rem) { .cover { --r: 18px; } }     /* a wide screen: room around the column, so rounded */
 
-.items { list-style: none; margin: 4px 0 0; padding: 0; }
-.items li + li { border-top: 1px solid var(--line); }
-/* An item: its picture (if any), then its name with the price at the end of the same line. Its description
-   is for when it's tapped. */
-.row {
-  display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 0; border: 0; background: none; text-align: start;
-}
-.row img { flex: none; width: 64px; height: 64px; border-radius: 13px; object-fit: cover; background: var(--dusk); }
-.txt { flex: 1; min-width: 0; }
-.top { display: flex; align-items: baseline; gap: 14px; }
-.nm { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
-.pr { flex: none; color: var(--sun); font-size: 16px; font-weight: 700; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pr { flex: none; color: var(--gold); font-size: 16px; font-weight: 700; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pr .u { margin-inline-start: 4px; color: var(--faint); font-size: 12px; font-weight: 600; }
-button.row:active .nm { color: var(--sun); }
 
-/* One item, bigger: its picture, name, description and price (no picture: the name clear of the × ) */
-.sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(4, 6, 22, .66); }
+/* What's on the menu sits on glass: one pane for a list of lines, a pane each for pictures */
+.items, .flavors {
+  border-radius: 24px; background: var(--glass); border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 18px 40px -24px rgba(0, 0, 0, .6);
+}
+
+/* A list as lines: its picture small (if any), the name and under it in another language, a dotted line to the
+   price, and the start of its description. A whole line opens the item when there's more to see. */
+.items { list-style: none; margin: 0; padding: 3px 0; }
+.items li { position: relative; display: flex; align-items: center; }
+.items li + li::before { content: ""; position: absolute; top: 0; inset-inline: 18px; height: 1px; background: var(--hair); }
+.row { display: flex; flex: 1; align-items: center; gap: 14px; min-width: 0; padding: 14px 18px; border: 0; border-radius: 20px; background: none; text-align: start; }
+.row > img, .thumb { flex: none; width: 64px; height: 64px; border-radius: 15px; object-fit: cover; background: rgba(255, 255, 255, .06); }
+.txt { flex: 1; min-width: 0; }
+.top { display: flex; align-items: baseline; gap: 8px; }
+.nm { min-width: 0; font-size: 16.5px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.dots { flex: 1; min-width: 16px; position: relative; top: -4px; border-bottom: 2px dotted rgba(232, 196, 127, .26); }
+.row .alt { margin-top: 1px; font-size: 13.5px; }
+.ds {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin-top: 3px; color: var(--mist); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere;
+}
+button.row:active { background: rgba(255, 255, 255, .04); }
+button.row:active .nm { color: #fbe5b5; }
+
+/* An item with a 3D model: its picture (or a gold cube) opens it in 3D, the chip on it says so */
+.items li.has3d { padding-inline-start: 18px; }
+.items li.has3d .row { padding-inline-start: 14px; }
+.thumb { position: relative; display: grid; place-items: center; padding: 0; border: 0; overflow: hidden; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb .chip { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
+/* no picture: the cube big, the word under it */
+.thumb.bare { background: linear-gradient(155deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .035)); box-shadow: inset 0 0 0 1px rgba(240, 205, 140, .24); }
+.thumb .cube { width: 28px; height: 28px; margin-top: -12px; color: var(--gold); }
+.thumb.bare .chip { bottom: 6px; height: auto; padding: 0; border: 0; background: none; color: var(--gold); }
+.thumb.bare .chip svg { display: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 23px; padding: 0 8px 0 7px; border-radius: 999px;
+  border: 1px solid rgba(240, 205, 140, .6); background: rgba(9, 11, 34, .74); color: #fbe5b5;
+  font: 700 11.5px/1 "Vazirmatn", sans-serif; letter-spacing: .02em; white-space: nowrap; direction: ltr;
+}
+.chip svg { width: 13px; height: 13px; }
+
+/* A list whose items nearly all have a picture: the pictures big on glass, two to a row (three on a wide screen) */
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 36rem) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tiles li { position: relative; }
+.tile {
+  display: flex; flex-direction: column; width: 100%; height: 100%; padding: 6px; text-align: start;
+  border-radius: 24px; background: var(--glass); border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 16px 34px -22px rgba(0, 0, 0, .6);
+}
+.tile .ph { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border-radius: 18px; background: linear-gradient(155deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .03)); }
+.tile .ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tile .ini {                                     /* no picture: its first letter, as on a seal */
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: "Ruqaa", "Vazirmatn", serif; font-size: 64px; font-weight: 700; color: rgba(232, 196, 127, .34);
+}
+.tile .ph .cube { position: absolute; inset: 0; margin: auto; width: 46px; height: 46px; color: rgba(232, 196, 127, .55); }
+.tile .tt { display: flex; flex: 1; flex-direction: column; gap: 2px; padding: 10px 8px 7px; }
+.tile .nm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15.5px; line-height: 1.4; }
+.tile .alt { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .pr { margin-top: auto; padding-top: 4px; font-size: 15px; }
+button.tile:active { border-color: rgba(240, 205, 140, .45); }
+.see3d { position: absolute; top: 14px; inset-inline-end: 14px; padding: 0; border: 0; background: none; }
+.see3d::before { content: ""; position: absolute; inset: -11px; }       /* a fingertip's worth around the chip */
+
+/* A list of names alone at one price (a hookah's flavours, say): the price once, then the names in two columns */
+.flavors { padding: 12px 18px 10px; }
+.each { display: flex; align-items: baseline; gap: 8px; padding: 2px 0 10px; border-bottom: 1px solid var(--hair); }
+.each .pr { font-size: 18px; }
+.tags { list-style: none; margin: 4px 0 0; padding: 0; columns: 2; column-gap: 18px; }
+.tags li { position: relative; break-inside: avoid; padding: 8px 0; padding-inline-start: 18px; font-size: 16px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.tags li::before {                               /* a small gold diamond */
+  content: ""; position: absolute; inset-inline-start: 2px; top: 19px; width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold-fill);
+}
+.tags .alt { font-size: 12.5px; line-height: 1.35; }
+
+/* The end of the menu: the café's name once more */
+.foot { max-width: 40rem; margin: 60px auto 0; padding: 0 18px max(40px, calc(env(safe-area-inset-bottom) + 28px)); text-align: center; }
+.foot::before {
+  content: ""; display: block; height: 1px; margin-bottom: 24px;
+  background: linear-gradient(90deg, rgba(232, 196, 127, 0), rgba(232, 196, 127, .42), rgba(232, 196, 127, 0));
+}
+.fname {
+  margin: 0; font-family: "Ruqaa", "Vazirmatn", serif; font-weight: 700; font-size: 24px; line-height: 1.5; opacity: .62;
+  background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ---------- One item, bigger: glass from the bottom ---------- */
+
+.sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(3, 5, 20, .6); }
 .card {
-  position: relative; width: 100%; max-width: 40rem; max-height: 94vh; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--dusk); border-radius: 24px 24px 0 0; padding-bottom: max(22px, env(safe-area-inset-bottom));
-  box-shadow: 0 -18px 50px rgba(0, 0, 0, .45); animation: rise .24s cubic-bezier(.2, .8, .2, 1);
+  position: relative; width: 100%; max-width: 40rem; max-height: 92vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 18px 10px max(24px, calc(env(safe-area-inset-bottom) + 14px)); border: 1px solid var(--edge); border-bottom: 0; border-radius: 30px 30px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02) 60%), linear-gradient(180deg, var(--room-top), var(--room-end) 70%);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, .5); animation: rise .3s cubic-bezier(.2, .8, .2, 1);
 }
-.card img { display: block; width: 100%; max-height: 64vh; object-fit: cover; border-radius: 24px 24px 0 0; background: var(--plum); }
-.card .body { padding: 18px 20px 0; }
-.card.bare .body { padding-top: 24px; }
-.card h2 { font-size: 23px; }
-.card.bare h2 { margin-inline-end: 52px; }
-.card .note { font-size: 15px; margin-top: 6px; }
-.card .pr { display: block; margin-top: 12px; font-size: 21px; }
-.card .pr .u { font-size: 14px; }
+.card:focus { outline: none; }
+.card.going { transition: transform .22s ease-in; }
+.grab { position: absolute; top: 7px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 3px; background: rgba(247, 240, 227, .35); }
+.card > img { display: block; width: 100%; aspect-ratio: 1; max-height: 56vh; object-fit: cover; border-radius: 22px; background: rgba(255, 255, 255, .05); }
+.card .body { padding: 16px 12px 0; }
+.card.bare .body { padding-top: 22px; }
+.card .path { margin: 0 0 4px; color: var(--mist); font-size: 13.5px; }
+.card h2 {
+  font-family: "Vazirmatn", sans-serif; font-size: 26px; font-weight: 800; line-height: 1.35;
+  background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--cream);
+}
+.card.bare h2, .card.bare .path { margin-inline-end: 52px; }
+.card .body > .alt { margin-top: 2px; font-size: 16.5px; }
+.card .note { margin-top: 10px; font-size: 15.5px; line-height: 1.7; }
+.card .act { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; min-height: 50px; }
+.card .act .pr { font-size: 24px; }
+.card .act .pr .u { font-size: 14px; }
 .close {
-  position: absolute; top: 12px; inset-inline-end: 12px; z-index: 1; width: 42px; height: 42px; border-radius: 50%;
-  border: 1px solid var(--line); background: rgba(8, 11, 38, .72); color: var(--cream); display: grid; place-items: center;
+  position: absolute; top: 28px; inset-inline-end: 22px; z-index: 2; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--edge); background: rgba(8, 11, 38, .7); color: var(--cream); display: grid; place-items: center;
 }
+.card.bare .close { top: 18px; }
 .close svg { width: 18px; height: 18px; }
 @keyframes rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* The gold button: see the item in 3D, or on the table */
+.go3d {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 22px 0 18px; border: 0; border-radius: 999px;
+  background: var(--gold-fill); color: var(--on-gold); font-size: 16px; font-weight: 800; letter-spacing: .02em; direction: ltr;
+  box-shadow: 0 10px 26px -10px rgba(232, 180, 90, .65), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+.go3d svg { width: 21px; height: 21px; }
+.go3d:active { filter: brightness(.94); }
+
+/* ---------- One item in 3D, in the room's light ---------- */
+
+.view3d { position: fixed; inset: 0; z-index: 20; color: var(--cream); }
+html.v3 .head, html.v3 .bar, html.v3 main, html.v3 .foot, html.v3 .sheet { visibility: hidden; }
+.v3top {
+  position: absolute; top: 0; inset-inline: 0; z-index: 3; display: flex; align-items: center; gap: 12px;
+  padding: max(14px, calc(env(safe-area-inset-top) + 8px)) 16px 10px;
+}
+.v3top::before { content: ""; flex: none; width: 42px; }     /* as wide as × on the other side: the name in the middle */
+.v3top .close { position: static; flex: none; }
+.v3name { flex: 1; min-width: 0; margin: 0; text-align: center; font-size: 17px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.v3stage, .v3stage model-viewer { position: absolute; inset: 0; width: 100%; height: 100%; }
+.v3stage model-viewer { background: transparent; --poster-color: transparent; outline: none; }
+.v3stage .go3d { position: absolute; left: 50%; bottom: max(30px, calc(env(safe-area-inset-bottom) + 20px)); transform: translateX(-50%); }
+.v3bar { position: absolute; z-index: 3; top: max(72px, calc(env(safe-area-inset-top) + 66px)); left: 28%; right: 28%; height: 2px; overflow: hidden; border-radius: 2px; background: rgba(255, 255, 255, .12); }
+.v3bar i { display: block; width: 100%; height: 100%; background: var(--gold-fill); transform: scaleX(0); transform-origin: left; transition: transform .25s; }
+.v3wait, .v3fail { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; align-content: center; gap: 18px; pointer-events: none; }
+.v3fail { color: var(--faint); pointer-events: auto; }
+.v3fail > svg { width: 44px; height: 44px; }
+
 .wait { display: grid; place-items: center; padding: 64px 0; }
-.ring { width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(255, 207, 138, .2); border-top-color: var(--sun); animation: spin .9s linear infinite; }
-.again { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); background: var(--plum); color: var(--sun); display: grid; place-items: center; }
+.ring { width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(232, 196, 127, .2); border-top-color: var(--gold); animation: spin .9s linear infinite; }
+.again { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--edge); background: rgba(255, 255, 255, .06); color: var(--gold); display: grid; place-items: center; }
 .again svg { width: 26px; height: 26px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .card { animation: none; } .ring { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; } .card.going { transition: none; } .ring { animation-duration: 2.4s; }
+  .room .b { transition-duration: .4s; }
+}

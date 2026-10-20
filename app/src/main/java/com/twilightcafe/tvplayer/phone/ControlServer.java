@@ -47,6 +47,7 @@ import static com.twilightcafe.tvplayer.phone.Http.text;
  *   GET  /api/menu?pin=1234         the café's menu, hidden things too; POST saves it (JSON body: the whole
  *                                   menu and the version it was changed from)
  *   POST /api/menu/picture?pin=1234 a picture for the menu (JSON body); back comes its id
+ *   GET  /api/menu/models?pin=1234  the 3D models in the project's models folder on GitHub, to choose one for an item
  *   GET  /phone/phone.css, /phone/phone.js  the control page's styles and script (assets/phone)
  *   GET  /manifest.webmanifest, /icon-192.png, /icon-512.png, /apple-touch-icon.png
  *                                   so the phone page can go on a phone's home screen with its icon (assets/home-screen)
@@ -58,6 +59,7 @@ import static com.twilightcafe.tvplayer.phone.Http.text;
  *   GET  /menu/data                 the menu, without what's hidden (JSON)
  *   GET  /menu/pics/<id>.jpg        its pictures (<id>.small.jpg: the small copies)
  *   GET  /menu/fonts/<name>.woff2   its letters (assets/fonts)
+ *   GET  /menu/now                  the song's colour on the TV now, for the menu's glow
  *   GET  /menu/menu.css, menu.js    its styles and script (assets/menu)
  *
  * And for the TV box itself only (the app shows the TV page from here, at http://localhost):
@@ -180,6 +182,16 @@ public final class ControlServer {
 
         /** Keeps a picture for the menu (JSON body with base64 JPEGs). JSON: {"ok":true,"id":...} or {"ok":false,"message":...}. */
         default String addMenuPicture(String body) {
+            return null;
+        }
+
+        /** What the TV shows now, for the menu's colours: {"tint":[hue, strength]} for the song playing, else {}. */
+        default String menuNow() {
+            return "{}";
+        }
+
+        /** The 3D models in the project's models folder on GitHub, for the phone (JSON), or null when it can't tell. */
+        default String menuModels() {
             return null;
         }
     }
@@ -486,6 +498,9 @@ public final class ControlServer {
             String r = tv.addMenuPicture(body);
             if (r == null) json(out, 503, "{\"ok\":false,\"message\":\"The TV can't take pictures right now.\"}");
             else json(out, r.contains("\"ok\":true") ? 200 : 400, r);
+        } else if (path.equals("/api/menu/models")) {
+            String m = tv.menuModels();
+            json(out, m == null ? 503 : 200, m == null ? "{\"error\":\"GitHub can't be reached\"}" : m);
         } else {
             json(out, 404, "{\"error\":\"not found\"}");
         }
@@ -507,6 +522,9 @@ public final class ControlServer {
             String m = tv.menuForCustomers();
             if (m == null) json(out, 503, "{\"error\":\"not ready\"}");
             else send(out, 200, "application/json; charset=utf-8", m.getBytes(UTF8), "no-referrer", "no-cache");
+        } else if (path.equals("/menu/now")) {                 // the song's colour on the TV, for the menu's glow
+            String n = tv.menuNow();
+            send(out, 200, "application/json; charset=utf-8", (n == null ? "{}" : n).getBytes(UTF8), "no-referrer", "no-store");
         } else if (path.matches("/menu/pics/[a-z0-9]{4,24}(\\.small)?\\.jpg")) {
             String name = path.substring("/menu/pics/".length(), path.length() - 4);
             boolean small = name.endsWith(".small");

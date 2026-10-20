@@ -142,6 +142,7 @@ button:active:not(:disabled) { transform: scale(.98); }
 .back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: 0 0 0 -8px; padding: 0 10px 0 4px; color: var(--sun); font-weight: 600; }
 .back svg { width: 24px; height: 24px; }
 .pagetitle { margin: 2px 4px 6px; font-size: 1.6rem; line-height: 1.25; font-weight: 700; }
+.pagetitle:focus { outline: none; }   /* given focus when its page opens, for screen readers; not a control */
 .page > .group:first-child, .page > div > .group:first-child { margin-top: 12px; }
 
 /* Songs */
@@ -190,7 +191,7 @@ li a { color: var(--sun); font-size: .85rem; }
 .fhead label { font-weight: 600; flex: 1 1 auto; min-width: 0; }
 .src { font-size: .7rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--mist); white-space: nowrap; }
 .src.mine { background: rgba(240, 152, 92, .18); border-color: rgba(240, 152, 92, .6); color: var(--sun); }
-.reset { display: block; color: var(--sun); font-size: .85rem; text-decoration: underline; padding: 8px 0 0; }
+.reset { display: block; min-height: 36px; color: var(--sun); font-size: .85rem; text-decoration: underline; padding: 8px 0 4px; }
 input[type=text], input[type=time], input[type=tel], input[type=search], input[type=url], select, textarea {
   width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--deep); color: var(--cream); font: inherit; }
@@ -268,7 +269,7 @@ label.upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
         padding: 4px max(6px, calc(50% - 17rem)) env(safe-area-inset-bottom); background: rgba(8, 11, 38, .96);
         border-top: 1px solid var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .tabs button { position: relative; height: calc(var(--tabs) - 4px); display: flex; flex-direction: column; align-items: center; justify-content: center;
-               gap: 3px; color: var(--faint); font-size: .74rem; font-weight: 600; }
+               gap: 3px; color: rgba(255, 241, 224, .6); font-size: .74rem; font-weight: 600; }
 .tabs svg { width: 25px; height: 25px; }
 .tabs button[aria-selected="true"] { color: var(--sun); }
 .tabs button.unsaved::after { content: ""; position: absolute; top: 8px; left: calc(50% + 7px); width: 9px; height: 9px; border-radius: 50%;

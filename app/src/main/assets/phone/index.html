@@ -38,15 +38,15 @@
 
   <!-- Now: what's playing, and the controls used every day -->
   <div id="controlView" role="tabpanel" aria-labelledby="tabControl">
-    <section class="hero" aria-live="polite">
+    <section class="hero">
       <img class="hero-glow" id="nowGlow" alt="" referrerpolicy="no-referrer" hidden>
-      <div class="hero-head">
+      <div class="hero-head" aria-live="polite">
         <span class="pill" id="statePill">Connecting</span>
         <span class="hero-note" id="heroNote"></span>
       </div>
       <div class="hero-song">
         <img class="thumb" id="nowThumb" alt="" referrerpolicy="no-referrer" hidden>
-        <p class="title" id="song" dir="auto">–</p>
+        <p class="title" id="song" dir="auto" aria-live="polite">–</p>
       </div>
       <div class="bar"><i id="progress"></i></div>
       <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
@@ -202,7 +202,7 @@
       <button type="button" class="back" id="setBack">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Settings</span></button>
-      <h1 class="pagetitle" id="setTitle"></h1>
+      <h1 class="pagetitle" id="setTitle" tabindex="-1"></h1>
 
       <div id="form">
         <section class="page" data-page="music" data-form="music" hidden></section>

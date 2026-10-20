@@ -493,6 +493,7 @@
     $("setTitle").textContent = PAGES[name];
     document.querySelectorAll("#form > .page").forEach(function (s) { s.hidden = s.getAttribute("data-page") !== name; });
     window.scrollTo(0, 0);
+    try { $("setTitle").focus({ preventScroll: true }); } catch (e) {}   // (the button that opened it is gone)
     if (restored) return;
     try {
       if (was) history.replaceState({ page: name }, "");
@@ -501,9 +502,12 @@
   }
 
   function hidePage() {
+    var left = page;
     page = "";
     $("setIndex").hidden = false;
     $("setPage").hidden = true;
+    var row = document.querySelector('.navrow[data-page="' + left + '"]');
+    if (row && view === "settings") try { row.focus({ preventScroll: true }); } catch (e) {}
   }
 
   function closePage() {
@@ -522,7 +526,7 @@
   window.addEventListener("popstate", function () {
     var st = history.state || {};
     if (ed && !st.editor) closeEditor(true);
-    if (page && !st.page) hidePage();
+    if (page && !st.page) { hidePage(); window.scrollTo(0, 0); }
   });
 
   /* ---------- Settings (and the Screen tab, which is settings too) ---------- */

@@ -157,7 +157,7 @@ They need Node, Java, Chrome or Chromium (`CHROME_PATH` says where, if it isn't 
 | `phone`, `phone-settings`, `phone-screens` | The phone page at phone size, against a stand-in TV: the PIN, the tabs, the controls, choosing songs, the Settings tab's pages and the Save bar, Status and diary, the Screen tab, pictures |
 | `phone-menu`, `menu-io`, `menu-pictures` | The Menu tab against the app's real server and menu store: making a menu, Excel and CSV in and out, backups, descriptions, pictures |
 | `pin-guessing` | What a phone sees while someone is guessing the PIN |
-| `customer-menu` | The customers' menu on a phone: the room in the colours of the song on the TV (held against the TV's own formula), names in two languages, categories, the lists' three layouts, an item up close (Back and pulling it down), 3D and AR (model-viewer stood in for; and the real one's fetching, blocked) |
+| `customer-menu` | The customers' menu on a phone: the room in the colours of the song on the TV (held against the TV's own formula), one language at a time, categories, the lists' three layouts, an item up close (Back and pulling it down), 3D and AR (model-viewer stood in for; and the real one's fetching, blocked) |
 
 The suites that need the app's server use `tests/pages/server/PageTestServer.java`: the app's real web servers and menu store, compiled from `app/src/main/java`, with a stand-in for the rest of the app.
 

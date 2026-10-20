@@ -1,6 +1,7 @@
 /* Letters: Vazirmatn for reading (the TV's letters too), by the Vazirmatn Project Authors; Aref Ruqaa Bold for the
-   café's name and the categories' names (its Kurdish and Arabic letters are Ruqaa calligraphy, its Latin ones come
-   from Hermann Zapf's Euler), by the Aref Ruqaa Project Authors. Both SIL Open Font License 1.1. */
+   café's name, the categories' names and the word for the menu in English (its Kurdish and Arabic letters are Ruqaa
+   calligraphy, its Latin ones come from Hermann Zapf's Euler), by the Aref Ruqaa Project Authors. Both SIL Open
+   Font License 1.1. */
 @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap; unicode-range: U+0600-06FF, U+200C-200F, U+2010-2011;
              src: url("fonts/vazirmatn-arabic.woff2") format("woff2"); }
 @font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
@@ -15,15 +16,11 @@
 @font-face { font-family: "Ruqaa"; font-weight: 700; font-display: fallback;
              unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201E, U+2022, U+2026, U+20AC;
              src: url("fonts/aref-ruqaa-latin-700.woff2") format("woff2"); }
-/* The same Latin letters alone: a name in English under a Kurdish one; Kurdish and Arabic under English stay in Vazirmatn */
-@font-face { font-family: "Ruqaa Latin"; font-weight: 700; font-display: fallback;
-             unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201E, U+2022, U+2026, U+20AC;
-             src: url("fonts/aref-ruqaa-latin-700.woff2") format("woff2"); }
 
 :root {
   --night: #0b0f2d;                                       /* the TV's own blue */
   --cream: #f7f0e3; --mist: rgba(247, 240, 227, .7); --faint: rgba(247, 240, 227, .46);
-  --gold: #e8c47f; --gold-soft: rgba(232, 196, 127, .78); --gold-line: rgba(232, 196, 127, .3);
+  --gold: #e8c47f;
   --gold-text: linear-gradient(180deg, #fff4d2 0%, #f2d18d 36%, #c9944a 64%, #f4d898 100%);
   --gold-fill: linear-gradient(180deg, #fadf9f 0%, #e5b86a 52%, #c58f45 100%);
   --on-gold: #1c1733;
@@ -76,7 +73,7 @@ html.room-b .room .b { opacity: 1; }
 .word { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: 19rem; margin: 6px auto 0; direction: ltr; color: var(--gold); font-size: 15px; font-weight: 600; }
 .word::before, .word::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(232, 196, 127, 0), rgba(232, 196, 127, .62)); }
 .word::after { transform: scaleX(-1); }
-:lang(en) .word { font-family: "Ruqaa Latin", "Vazirmatn", serif; font-size: 18px; }
+:lang(en) .word { font-family: "Ruqaa", "Vazirmatn", serif; font-size: 18px; }
 
 /* The room lighting up, the one moment that moves by itself (none for those who'd rather not) */
 @media (prefers-reduced-motion: no-preference) {
@@ -107,22 +104,19 @@ html.room-b .room .b { opacity: 1; }
 
 main { max-width: 40rem; margin: 0 auto; padding: 0 16px; }
 section { padding-top: 42px; }
-/* A category's name in gold, and in another language under it */
+/* A category's name in gold */
 h2 {
   margin: 0; font-family: "Ruqaa", "Vazirmatn", serif; font-size: 37px; line-height: 1.38; font-weight: 700;
   background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 :lang(en) h2 { font-size: 34px; line-height: 1.3; }
-.alt { display: block; color: var(--gold-soft); font-family: "Ruqaa Latin", "Vazirmatn", sans-serif; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
-.alt:lang(ckb), .alt:lang(ar) { font-weight: 500; }
-/* Words in another language (a name under a name, a description not written in this one) on the same side as
-   the rest, whichever way their own words go */
-[dir="rtl"] .alt, [dir="rtl"] .note, [dir="rtl"] .ds { text-align: right; }
-[dir="ltr"] .alt, [dir="ltr"] .note, [dir="ltr"] .ds { text-align: left; }
-.title > .alt { margin-top: -2px; font-size: 16px; }
-.title { margin-bottom: 14px; }
+/* A description not written in this language (one in English on the Kurdish menu, say) on the same side as the
+   rest, whichever way its own words go */
+[dir="rtl"] .note, [dir="rtl"] .ds { text-align: right; }
+[dir="ltr"] .note, [dir="ltr"] .ds { text-align: left; }
 .note { margin: 4px 0 0; color: var(--mist); font-size: 15px; white-space: pre-line; }
-.title + .note { margin: -8px 0 14px; }
+section > h2 { margin-bottom: 14px; }
+section > h2 + .note { margin: -8px 0 14px; }
 /* A subcategory's name after its category's: "Beverages › Energy Drinks" (‹ right to left) */
 h3 { display: flex; align-items: center; gap: 0 10px; flex-wrap: wrap; margin: 30px 0 12px; color: var(--gold); font-size: 17.5px; line-height: 1.45; font-weight: 700; }
 h3::after { content: ""; flex: 1; min-width: 24px; height: 1px; background: linear-gradient(90deg, rgba(232, 196, 127, .45), rgba(232, 196, 127, 0)); }
@@ -144,7 +138,6 @@ h3 + .note { margin: -6px 0 12px; font-size: 14.5px; }
   position: relative; align-self: end; padding: 56px 18px 15px;
   background: linear-gradient(0deg, rgba(7, 8, 16, .94) 0%, rgba(7, 8, 16, .7) 46%, rgba(7, 8, 16, 0) 100%);
 }
-.cap .title { margin: 0; }
 .cap h2 { font-size: 40px; }
 :lang(en) .cap h2 { font-size: 35px; }
 .cap .note { margin-top: 2px; color: rgba(247, 240, 227, .86); font-size: 14.5px; line-height: 1.5; text-shadow: 0 1px 2px rgba(4, 5, 10, .6); }
@@ -166,8 +159,8 @@ h3 + .note { margin: -6px 0 12px; font-size: 14.5px; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 18px 40px -24px rgba(0, 0, 0, .6);
 }
 
-/* A list as lines: its picture small (if any), the name and under it in another language, a dotted line to the
-   price, and the start of its description. A whole line opens the item when there's more to see. */
+/* A list as lines: its picture small (if any), the name, a dotted line to the price, and the start of its
+   description. A whole line opens the item when there's more to see. */
 .items { list-style: none; margin: 0; padding: 3px 0; }
 .items li { position: relative; display: flex; align-items: center; }
 .items li + li::before { content: ""; position: absolute; top: 0; inset-inline: 18px; height: 1px; background: var(--hair); }
@@ -177,7 +170,6 @@ h3 + .note { margin: -6px 0 12px; font-size: 14.5px; }
 .top { display: flex; align-items: baseline; gap: 8px; }
 .nm { min-width: 0; font-size: 16.5px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
 .dots { flex: 1; min-width: 16px; position: relative; top: -4px; border-bottom: 2px dotted rgba(232, 196, 127, .26); }
-.row .alt { margin-top: 1px; font-size: 13.5px; }
 .ds {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   margin-top: 3px; color: var(--mist); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere;
@@ -221,7 +213,6 @@ button.row:active .nm { color: #fbe5b5; }
 .tile .ph .cube { position: absolute; inset: 0; margin: auto; width: 46px; height: 46px; color: rgba(232, 196, 127, .55); }
 .tile .tt { display: flex; flex: 1; flex-direction: column; gap: 2px; padding: 10px 8px 7px; }
 .tile .nm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15.5px; line-height: 1.4; }
-.tile .alt { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .pr { margin-top: auto; padding-top: 4px; font-size: 15px; }
 button.tile:active { border-color: rgba(240, 205, 140, .45); }
 .see3d { position: absolute; top: 14px; inset-inline-end: 14px; padding: 0; border: 0; background: none; }
@@ -236,7 +227,6 @@ button.tile:active { border-color: rgba(240, 205, 140, .45); }
 .tags li::before {                               /* a small gold diamond */
   content: ""; position: absolute; inset-inline-start: 2px; top: 19px; width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold-fill);
 }
-.tags .alt { font-size: 12.5px; line-height: 1.35; }
 
 /* The end of the menu: the café's name once more */
 .foot { max-width: 40rem; margin: 60px auto 0; padding: 0 18px max(40px, calc(env(safe-area-inset-bottom) + 28px)); text-align: center; }
@@ -270,7 +260,6 @@ button.tile:active { border-color: rgba(240, 205, 140, .45); }
   background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--cream);
 }
 .card.bare h2, .card.bare .path { margin-inline-end: 52px; }
-.card .body > .alt { margin-top: 2px; font-size: 16.5px; }
 .card .note { margin-top: 10px; font-size: 15.5px; line-height: 1.7; }
 .card .act { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; min-height: 50px; }
 .card .act .pr { font-size: 24px; }

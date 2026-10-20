@@ -121,8 +121,7 @@ const item = (name, price) => Object.assign({ id: 'i' + Math.random().toString(3
     const o = c.getBoundingClientRect(), cr = cap.getBoundingClientRect(), i = c.querySelector('img').getBoundingClientRect();
     const r = { left: o.left, right: o.right, width: c.clientWidth, top: o.top + c.clientTop, bottom: o.top + c.clientTop + c.clientHeight, height: c.clientHeight };   // inside its fine edge
     return { first: c.className, name: h.textContent, h2s: s.querySelectorAll('h2').length, shape: Math.round(r.width / r.height * 100) / 100,
-      atBottom: Math.abs(cr.bottom - r.bottom) < 1, nameFirst: cap.firstElementChild.className === 'title' && cap.firstElementChild.firstElementChild === h
-        && cap.firstElementChild.nextElementSibling === n, fills: Math.abs(i.height - r.height) < 1,
+      atBottom: Math.abs(cr.bottom - r.bottom) < 1, nameFirst: cap.firstElementChild === h && h.nextElementSibling === n, fills: Math.abs(i.height - r.height) < 1,
       fade: getComputedStyle(cap).backgroundImage.startsWith('linear-gradient'), note: n && n.textContent, after: c.nextElementSibling.tagName,
       inset: Math.abs(r.left - c.nextElementSibling.getBoundingClientRect().left) < 1 && Math.abs(r.right - c.nextElementSibling.getBoundingClientRect().right) < 1 && r.left >= 15,
       round: getComputedStyle(c).borderTopLeftRadius, edge: getComputedStyle(c).borderTopWidth };
@@ -143,8 +142,8 @@ const item = (name, price) => Object.assign({ id: 'i' + Math.random().toString(3
   });
   check('...its picture a shorter strip (2:1), rounded, inside the margins like the items', Math.abs(strip.shape - 2) < 0.03 && strip.inset && strip.round === '22px', strip);
   check('...English: "Hookah › Hot", left to right (the › not read out)', strip.order && strip.sep === '›' && strip.hidden === 'true', strip);
-  check('a category without a picture: its name in gold, then its description', await p.$eval('#c-p2', s => s.firstElementChild.className + '|' + s.querySelector('h2').textContent
-    + '|' + s.firstElementChild.nextElementSibling.textContent + '|' + getComputedStyle(s.querySelector('h2')).backgroundClip) === 'title|Nuts|Crunchy|text');
+  check('a category without a picture: its name in gold, then its description', await p.$eval('#c-p2', s => s.firstElementChild.tagName + '|' + s.firstElementChild.textContent
+    + '|' + s.firstElementChild.nextElementSibling.textContent + '|' + getComputedStyle(s.firstElementChild).backgroundClip) === 'H2|Nuts|Crunchy|text');
   const list = await p.$$eval('#c-p1 > .items .row', l => l.map(r => [r.tagName, r.className, r.textContent]));
   const ds = await p.$$eval('#c-p1 > .items .row', l => l.map(r => { const d = r.querySelector('.ds'); return d ? [d.textContent, getComputedStyle(d).webkitLineClamp] : null; }));
   check('the list: each name, a dotted line to its price, and the start of its description under them (two lines at most)',
@@ -256,27 +255,26 @@ const item = (name, price) => Object.assign({ id: 'i' + Math.random().toString(3
   await watch.close();
   now = {};
 
-  console.log('\nNames in two languages');
+  console.log('\nOne language at a time');
   data = { v: 5, name: 'Twilight', word: 'مینیو', numerals: 'latin', categories: [
-    { id: 'b1', name: { ku: 'خواردنەوە', en: 'Drinks' }, items: [item({ ku: 'چای', en: 'Tea' }, 1000), item({ ku: 'پیپسی', en: 'پیپسی' }, 750), item({ en: 'Cola' }, 750),
-      item({ ku: 'شیر', ar: 'حليب' }, 1500)], subs: [] }] };
+    { id: 'b1', name: { ku: 'خواردنەوە', en: 'Drinks' }, items: [item({ ku: 'چای', en: 'Tea' }, 1000), item({ en: 'Cola' }, 750), item({ ku: 'شیر', ar: 'حليب' }, 1500)], subs: [] }] };
   await p.evaluate(() => { try { localStorage.setItem('twilight-menu-lang', 'ku'); } catch (e) {} });
   await p.reload({ waitUntil: 'networkidle0' });
-  const alts = () => p.$$eval('main .row', l => l.map(r => { const a = r.querySelector('.alt'); return a ? a.textContent + '|' + a.lang : ''; }));
-  check('Kurdish: each name with its English under it; the Arabic when there\'s no English; none when it\'s the same words, or there\'s no other',
-    JSON.stringify(await alts()) === JSON.stringify(['Tea|en', '', '', 'حليب|ar']), await alts());
-  const side = await p.$eval('main .row .alt', a => { const r = document.createRange(); r.selectNodeContents(a);
-    return [getComputedStyle(a).textAlign, Math.abs(r.getBoundingClientRect().right - a.closest('.txt').querySelector('.nm').getBoundingClientRect().right) < 1]; });
-  check('...the English on the right too, under the Kurdish name, though it reads left to right', side[0] === 'right' && side[1], side);
-  check('...and the category\'s name: "Drinks" under it, in gold', await p.$eval('#c-b1 .title .alt', a => a.textContent + '|' + a.lang) === 'Drinks|en');
+  const words = () => p.evaluate(() => ({ head: document.querySelector('#c-b1').firstElementChild.textContent,
+    names: [...document.querySelectorAll('main .row .txt')].map(t => t.textContent), langs: [...document.querySelectorAll('main [lang]')].length }));
+  const ku1 = await words();
+  check('Kurdish: each name in Kurdish only, nothing in another language under it (one only in English: in English)',
+    ku1.head === 'خواردنەوە' && JSON.stringify(ku1.names) === JSON.stringify(['چای1,000د.ع', 'Cola750د.ع', 'شیر1,500د.ع']) && ku1.langs === 0, ku1);
   check('...the word for the menu between two gold lines', await p.$eval('#word', w => w.textContent + '|' + getComputedStyle(w, '::before').height + '|' + getComputedStyle(w, '::after').height) === 'مینیو|1px|1px');
   await p.evaluate(() => [...document.querySelectorAll('#langs button')].find(b => b.textContent === 'English').click());
   await sleep(200);
-  check('English: the Kurdish under the English (the Arabic when the name is only in Kurdish)', JSON.stringify(await alts()) === JSON.stringify(['چای|ckb', '', '', 'حليب|ar'])
-    && await p.$eval('#word', w => w.textContent) === 'Menu', await alts());
+  const en1 = await words();
+  check('English: English only (Kurdish for one with no English name)', en1.head === 'Drinks' && JSON.stringify(en1.names) === JSON.stringify(['Tea1,000IQD', 'Cola750IQD', 'شیر1,500IQD'])
+    && await p.$eval('#word', w => w.textContent) === 'Menu', en1);
   await p.evaluate(() => [...document.querySelectorAll('#langs button')].find(b => b.textContent === 'العربية').click());
   await sleep(200);
-  check('Arabic: the English under it (the Kurdish when there\'s no English)', JSON.stringify(await alts()) === JSON.stringify(['Tea|en', '', '', 'شیر|ckb']), await alts());
+  const ar1 = await words();
+  check('Arabic: Arabic where it\'s written, else Kurdish', JSON.stringify(ar1.names) === JSON.stringify(['چای1,000د.ع', 'Cola750د.ع', 'حليب1,500د.ع']), ar1);
   await p.click('#c-b1 .items li:nth-child(1) .row').catch(() => {});
   check('(a line with nothing more to see doesn\'t open)', await p.$eval('#sheet', e => e.hidden));
   await p.evaluate(() => { try { localStorage.setItem('twilight-menu-lang', 'en'); } catch (e) {} });
@@ -294,10 +292,8 @@ const item = (name, price) => Object.assign({ id: 'i' + Math.random().toString(3
   const kinds = await p.$$eval('main section', l => l.map(s => [...s.children].filter(c => /^(items|tiles|flavors)$/.test(c.className)).map(c => c.className).join('+')));
   check('names alone at one price (flavours): the price once, the names together; with no price, the names alone; one with a description: a line each',
     JSON.stringify(kinds) === JSON.stringify(['flavors+tiles', 'flavors', 'items']), kinds);
-  const flav = await p.$eval('#c-m1 .flavors', f => [f.querySelectorAll('.pr').length, f.querySelector('.pr').textContent, [...f.querySelectorAll('.tags li')].map(t => t.firstChild.textContent).join(),
-    [...f.querySelectorAll('.tags li .alt')].map(t => t.textContent).join()]);
-  check('...the flavours: "10,000IQD" once, then Apple, Mint, Grape, Lemon, each with its Kurdish name under it',
-    JSON.stringify(flav) === JSON.stringify([1, '10,000IQD', 'Apple,Mint,Grape,Lemon', 'سێو,نەعنا,ترێ,لیمۆ']), flav);
+  const flav = await p.$eval('#c-m1 .flavors', f => [f.querySelectorAll('.pr').length, f.querySelector('.pr').textContent, [...f.querySelectorAll('.tags li')].map(t => t.textContent).join()]);
+  check('...the flavours: "10,000IQD" once, then Apple, Mint, Grape, Lemon', JSON.stringify(flav) === JSON.stringify([1, '10,000IQD', 'Apple,Mint,Grape,Lemon']), flav);
   check('...the extras: no price at all', await p.$eval('#c-m3 .flavors', f => !f.querySelector('.pr') && f.querySelectorAll('.tags li').length === 3));
   const tl = await p.$$eval('#c-m1 .tiles .tile', l => l.map(t => [t.tagName, !!t.querySelector('img'), (t.querySelector('.ini') || {}).textContent || '', t.querySelector('.nm').textContent, (t.querySelector('.pr') || {}).textContent]));
   check('two of three with a picture: their pictures big, two to a row; the one without, its first letter; each opens if there\'s more to see',
@@ -384,8 +380,8 @@ const item = (name, price) => Object.assign({ id: 'i' + Math.random().toString(3
   await q.click('#c-d1 .items li:nth-child(1) .row');
   await sleep(400);
   const card3 = await q.evaluate(() => { const c = document.querySelector('#sheet .card'), g = c.querySelector('.go3d');
-    return [c.querySelector('h2').textContent, c.querySelector('.body > .alt').textContent, c.querySelector('.act .pr').textContent, g && g.textContent]; });
-  check('the item opened: its name and the same in Kurdish, its price, and the gold AR button', JSON.stringify(card3) === JSON.stringify(['Kunafa', 'کونافە', '5,000IQD', 'AR']), card3);
+    return [c.querySelector('h2').textContent, c.querySelectorAll('.body > *').length, c.querySelector('.act .pr').textContent, g && g.textContent]; });
+  check('the item opened: where it is, its name (in English only), its description, its price and the gold AR button', JSON.stringify(card3) === JSON.stringify(['Kunafa', 4, '5,000IQD', 'AR']), card3);
   await shot(q, 'customer-sheet-3d.png');
   await q.click('#sheet .go3d');
   await sleep(300);

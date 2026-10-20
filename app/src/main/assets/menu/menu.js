@@ -21,27 +21,6 @@
     return o[lang] || o.ku || o.en || o.ar || "";
   }
 
-  // The same name in another language, to go under it: English under Kurdish and Arabic, Kurdish under English
-  // (else whichever other there is). Nothing when it's the same words. [key, words] or null.
-  function also(o) {
-    if (!o) return null;
-    var shown = String(pick(o)).trim(), order = lang === "en" ? ["ku", "ar"] : lang === "ar" ? ["en", "ku"] : ["en", "ar"];
-    for (var i = 0; i < order.length; i++) {
-      var t = String(o[order[i]] || "").trim();
-      if (t && t !== shown) return [order[i], t];
-    }
-    return null;
-  }
-
-  function alsoEl(o) {
-    var a = also(o);
-    if (!a) return null;
-    var e = el("span", "alt", a[1]);
-    e.lang = a[0] === "ku" ? "ckb" : a[0];
-    e.dir = "auto";
-    return e;
-  }
-
   // The café's numbers: "auto" = ١٢٣ with Kurdish and Arabic, 123 with English
   function easternDigits() {
     var n = String(data && data.numerals || "auto").toLowerCase();
@@ -252,13 +231,11 @@
     watchSections();
   }
 
-  // A category's name in gold, and the same in another language under it
+  // A category's name, in gold
   function title(node) {
-    var t = el("div", "title"), h = el("h2", null, pick(node.name)), a = alsoEl(node.name);
+    var h = el("h2", null, pick(node.name));
     h.dir = "auto";
-    t.appendChild(h);
-    if (a) t.appendChild(a);
-    return t;
+    return h;
   }
 
   // A subcategory's name after its category's (from): each in its own direction, the › between them in the
@@ -323,8 +300,8 @@
     return how === "tiles" ? tiles(items, path) : how === "tags" ? tags(items) : rows(items, path);
   }
 
-  // A line each: the picture small beside it (if any), the name and the same in another language, a dotted
-  // leader to the price, the start of the description under them
+  // A line each: the picture small beside it (if any), the name, a dotted leader to the price, the start of the
+  // description under them
   function rows(items, path) {
     var ul = el("ul", "items");
     items.forEach(function (it) {
@@ -348,8 +325,6 @@
         top.appendChild(price(it.price));
       }
       txt.appendChild(top);
-      var a = alsoEl(it.name);
-      if (a) txt.appendChild(a);
       var d = pick(it.note);
       if (d) {
         var ds = el("span", "ds", d);
@@ -546,10 +521,9 @@
         ph.appendChild(ini);
       }
       t.appendChild(ph);
-      var tt = el("span", "tt"), nm = el("span", "nm", pick(it.name)), a = alsoEl(it.name);
+      var tt = el("span", "tt"), nm = el("span", "nm", pick(it.name));
       nm.dir = "auto";
       tt.appendChild(nm);
-      if (a) tt.appendChild(a);
       if (it.price != null) tt.appendChild(price(it.price));
       t.appendChild(tt);
       li.appendChild(t);
@@ -577,10 +551,8 @@
     }
     var ul = el("ul", "tags");
     items.forEach(function (it) {
-      var li = el("li"), nm = el("span", null, pick(it.name)), a = alsoEl(it.name);
-      nm.dir = "auto";
-      li.appendChild(nm);
-      if (a) li.appendChild(a);
+      var li = el("li", null, pick(it.name));
+      li.dir = "auto";
       ul.appendChild(li);
     });
     box.appendChild(ul);
@@ -650,8 +622,8 @@
 
   /* ---------- one item, bigger ---------- */
 
-  // Glass from the bottom: its picture, where it is on the menu, its name and the same in another language, its
-  // description, its price and, for one in 3D, the gold button. It closes with ×, a tap outside it, Escape, the
+  // Glass from the bottom: its picture, where it is on the menu, its name, its description, its price and, for
+  // one in 3D, the gold button. It closes with ×, a tap outside it, Escape, the
   // phone's Back button, or pulled down.
   function open(it, from, path) {
     lastFocus = from;
@@ -689,11 +661,10 @@
       });
       body.appendChild(p);
     }
-    var h = el("h2", null, pick(it.name)), a = alsoEl(it.name);
+    var h = el("h2", null, pick(it.name));
     h.dir = "auto";
     h.id = "sheetName";
     body.appendChild(h);
-    if (a) body.appendChild(a);
     note(body, it.note);
     if (it.price != null || has3d(it)) {
       var act = el("div", "act");

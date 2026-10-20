@@ -52,10 +52,16 @@ async function shot(target, name, options = {}) {
   await target.screenshot(Object.assign({ path: path.join(SHOTS, name) }, options));
 }
 
-// The phone page's own files, as the app's server hands them out
+// The phone page's own files, as the app's server hands them out (and the menu's fonts, which it uses too)
 const PHONE_FILES = { '/': 'phone/index.html', '/index.html': 'phone/index.html', '/phone/phone.css': 'phone/phone.css', '/phone/phone.js': 'phone/phone.js' };
 
 function servePhonePage(pathname, res) {
+  const font = /^\/menu\/fonts\/([a-z0-9-]{1,40}\.woff2)$/.exec(pathname);      // its letters, from the menu's fonts
+  if (font && fs.existsSync(path.join(ASSETS, 'fonts', font[1]))) {
+    res.writeHead(200, { 'Content-Type': 'font/woff2' });
+    res.end(fs.readFileSync(path.join(ASSETS, 'fonts', font[1])));
+    return true;
+  }
   const f = PHONE_FILES[pathname];
   if (!f) return false;
   const type = f.endsWith('.css') ? 'text/css' : f.endsWith('.js') ? 'text/javascript' : 'text/html';

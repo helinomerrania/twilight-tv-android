@@ -1,4 +1,4 @@
-// The phone page's new parts in Chromium (phone-sized), against a stand-in TV:
+// The phone page's parts in Chromium (phone-sized), against a stand-in TV:
 // choosing songs, a link, quiet, the last songs, the call to prayer, the Screen tab, pictures, one TV box
 const { FIXTURES, launch, shot, servePhonePage } = require('./lib/common');
 const http = require('http'), fs = require('fs');
@@ -11,7 +11,7 @@ const words = { locale: 'en-GB', weekdays: '', months: '', hijriMonths: '', nowP
   barat: 'Blessed Barat Night', newYear: 'Happy New Year', clear: 'Clear', fair: 'Fair', partlycloudy: 'Partly cloudy', cloudy: 'Cloudy', fog: 'Fog', lightrain: 'Light rain',
   rain: 'Rain', heavyrain: 'Heavy rain', sleet: 'Sleet', snow: 'Snow', thunder: 'Thunderstorm' };
 const tv = {
-  defaults: { playlist: 'PL_6oD4', priceItems: ['us', 'eu', 'gb', 'tr', 'ir', 'gold21', 'gold18'], numerals: 'auto', prayerCity: 'Ranya', messages: [], wifiName: '', wifiPassword: '', menuUrl: '', infoPanel: true, clock24: false,
+  defaults: { playlist: 'PL_6oD4', priceItems: ['us', 'eu', 'gb', 'tr', 'ir', 'gold21', 'gold18'], numerals: 'auto', prayerCity: 'Ranya', messages: [], wifiName: '', wifiPassword: '', menuUrl: '', kurdishNewYear: '21march', infoPanel: true, clock24: false,
     specialDays: true, hijriAdjust: 0, labels: {}, prayerPause: 5, prayerAdjust: {}, lat: 36.2549, lon: 44.8838, place: 'Ranya', labelWords: words },
   file: {}, local: {},
 };
@@ -92,6 +92,8 @@ let passes = 0, failures = 0;
 const check = (n, c, x) => { if (c) { passes++; console.log('  ok   ' + n); } else { failures++; console.log('  FAIL ' + n + (x !== undefined ? '  -> ' + JSON.stringify(x) : '')); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const text = (page, sel) => page.$eval(sel, e => e.textContent);
+// A fact on the Status page, by its name
+const fact = (page, name) => page.evaluate(n => { const dt = [...document.querySelectorAll('#facts dt')].find(d => d.textContent === n); return dt ? dt.nextElementSibling.textContent : null; }, name);
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const url = 'http://127.0.0.1:' + server.address().port + '/';
@@ -107,28 +109,38 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
     !!document.querySelector('link[rel=manifest][href="/manifest.webmanifest"]') && !!document.querySelector('link[rel=apple-touch-icon][href="/apple-touch-icon.png"]')));
   check('one TV box: no list of TVs, no "show this TV\'s name"', await page.evaluate(() => document.getElementById('tvs').hidden && document.getElementById('identify').hidden));
   check('up next, under now playing', (await text(page, '#upNext')) === 'Up next: Zakaria - Gyan');
-  check('the call to prayer times today, with the facts', (await text(page, '#facts')).includes('Call to prayer today: Fajr 04:38, Dhuhr 11:47, Asr 15:01, Maghrib 17:30, Isha 18:51, amozhgary.tv\'s times (the music pauses 5 min, in opening hours).'), await text(page, '#facts'));
-  check('...and where the prayer times come from', (await text(page, '#facts')).includes('Prayer times: from amozhgary.tv (Ranya), checked 12 Oct 00:40.'));
-  check('TV volume: says it goes back at the next song', (await text(page, '#tvvolNote')) === "The box's own, until the next song");
-  check('...and where the gold and currency prices come from', (await text(page, '#facts')).includes('Gold and currency prices: from tirezh.com, 12 Oct 08:30.'), await text(page, '#facts'));
+  check('the call to prayer times today, on the Status page', (await fact(page, 'Call to prayer')) ===
+    'Fajr 04:38, Dhuhr 11:47, Asr 15:01, Maghrib 17:30, Isha 18:51, amozhgary.tv\'s times. The music pauses 5 min, in opening hours.', await fact(page, 'Call to prayer'));
+  check('...and where the prayer times come from', (await fact(page, 'Prayer times')) === 'From amozhgary.tv (Ranya), checked 12 Oct 00:40', await fact(page, 'Prayer times'));
   {
-    const f = await text(page, '#facts');
-    check('the box in the facts: video format, model and chip, graphics, what the chip decodes, the screen',
-      f.includes('Video from YouTube: H.264 only, up to 1080p.') && f.includes('TV box: X96Max_Plus (Amlogic S905X3), Android 9.') &&
-      f.includes('Graphics: Mali-G31, OpenGL ES 3.2.') && f.includes("The box's chip decodes H.264 up to 2160p, VP9 up to 2160p; not AV1.") &&
-      f.includes('Screen: drawn at 1920x1080, sent to the TV as 3840x2160, 60 Hz (it also has 50, 30 and 24 Hz).') && !f.includes('Too old'), f);
+    const coming = prayers.find(x => x.at > Date.now()), names = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+    const want = coming ? names[coming.name] + ' at ' + new Date(coming.at).toTimeString().slice(0, 5) : 'No more today';
+    const got = await page.evaluate(() => { const dt = [...document.querySelectorAll('#today dt')].find(d => d.textContent === 'Call to prayer'); return dt ? dt.nextElementSibling.textContent : null; });
+    check('the Now tab says when the next call to prayer is', got === want, [got, want]);
+  }
+  check('TV volume: says it goes back at the next song', (await text(page, '#tvvolNote')) === "The box's own, until the next song");
+  check('...and where the gold and currency prices come from', (await fact(page, 'Gold and currency prices')) === 'From tirezh.com, 12 Oct 08:30', await fact(page, 'Gold and currency prices'));
+  {
+    const f = { video: await fact(page, 'Video from YouTube'), box: await fact(page, 'TV box'), graphics: await fact(page, 'Graphics'),
+                chip: await fact(page, 'The chip decodes'), screen: await fact(page, 'Screen') };
+    check('the box on the Status page: video format, model and chip, graphics, what the chip decodes, the screen',
+      f.video === 'H.264 only, up to 1080p' && f.box === 'X96Max_Plus (Amlogic S905X3), Android 9' && f.graphics === 'Mali-G31, OpenGL ES 3.2' &&
+      f.chip === 'H.264 up to 2160p, VP9 up to 2160p; not AV1' && f.screen === 'Drawn at 1920x1080, sent to the TV as 3840x2160, 60 Hz (it also has 50, 30 and 24 Hz)', f);
     state.soft = true; state.nextFormat = 'H.264 or VP9, no AV1';
     await sleep(2600);
-    const g = await text(page, '#facts');
+    const g = { graphics: await fact(page, 'Graphics'), video: await fact(page, 'Video from YouTube') };
     check('...old graphics: says Firefox\'s engine draws on the processor, at 720p; a format waiting for the restart',
-      g.includes("Graphics: Mali-450 MP. Too old for Firefox's engine: it draws everything on the processor, so videos play at 720p.") &&
-      g.includes('Video from YouTube: H.264 only, up to 1080p (H.264 or VP9, no AV1 once the app restarts).'), g);
+      g.graphics === "Mali-450 MP. Too old for Firefox's engine: it draws everything on the processor, so videos play at 720p" &&
+      g.video === 'H.264 only, up to 1080p (H.264 or VP9, no AV1 once the app restarts)', g);
     state.soft = false; state.nextFormat = '';
   }
   await page.tap('#quiet'); await sleep(900);
   check('"Quiet for a minute": sends quiet:60, then offers "Back to normal volume"', cmds.at(-1) === 'quiet:60' && (await text(page, '#quietText')).startsWith('Back to normal volume (quiet until'), await text(page, '#quietText'));
   await page.tap('#quiet'); await sleep(900);
   check('...which sends quiet:0', cmds.at(-1) === 'quiet:0' && (await text(page, '#quietText')) === 'Quiet for a minute');
+  console.log('\nPhone page: the Songs tab');
+  await page.tap('#tabSongs'); await sleep(700);
+  check('the song list is fetched as the tab opens', (await text(page, '#songsInfo')) === '4 songs: names known for 3 of 4 songs.', await text(page, '#songsInfo'));
   await page.tap('#search'); await page.type('#search', 'hama'); await sleep(700);
   const rows = await page.$$eval('#results li', l => l.map(li => li.textContent));
   check('search the playlist by name or singer', rows.length === 1 && rows[0].startsWith('Hama Jaza - Shaw (Official Video)'), rows);
@@ -154,8 +166,11 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
   check('the last songs, with the time each played', hist.length === 2 && hist[0].startsWith('Hama Jaza - Shaw @ ') && /^\d\d:\d\d$/.test(hist[0].split(' @ ')[1]), hist);
   await page.tap('#historyList li button'); await sleep(600);
   check('..."Again" plays one next', cmds.at(-1) === 'playnext:aaaaaaaaaa1');
+  await shot(page, 'phone-songs.png', { fullPage: true });
+  await page.tap('#tabControl'); await sleep(300);
   await shot(page, 'phone-new-control.png', { fullPage: true });
   state.prayer = true; await sleep(2600);
+  check('...over the song, in a word: Call to prayer', (await text(page, '#statePill')) === 'Call to prayer');
   check('call to prayer: says so and when the music is back; Resume, no Next', (await text(page, '#state')).startsWith('Paused for the call to prayer (Asr). The music comes back at') &&
     (await text(page, '#pauseText')) === 'Resume music' && await page.$eval('#next', e => e.disabled), await text(page, '#state'));
   await page.tap('#pause'); await sleep(900);
@@ -163,16 +178,17 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
 
   console.log('\nPhone page: the Screen tab');
   await page.tap('#tabScreen'); await sleep(1200);
-  check('prices, messages, pictures, QR codes, the panel and special days, the words', await page.evaluate(() =>
-    [...document.querySelectorAll('#screenView .group')].map(g => g.textContent).join('|') === 'Gold and currency prices|Café screen pictures|Between songs|Pictures between songs|QR codes|Info panel and special days' &&
-    ['priceItems', 'messages', 'wifiName', 'wifiPassword', 'menuUrl', 'infoPanel', 'clock24', 'videoColors', 'numerals', 'specialDays', 'hijriAdjust', 'kurdishNewYear', 'labels'].every(k => document.querySelector('#screenForm .field[data-key="' + k + '"]'))),
-    await page.evaluate(() => [...document.querySelectorAll('#screenView .group')].map(g => g.textContent).join('|')));
+  check('messages and pictures, the panel, prices, Wi-Fi, the café screen, special days, the words', await page.evaluate(() =>
+    [...document.querySelectorAll('#screenView .group')].map(g => g.textContent).join('|') ===
+      'Between songs|Pictures between songs|Beside the video|Gold and currency prices|Wi-Fi for customers|Café screen pictures|Special days|Words on the TV' &&
+    [...document.querySelectorAll('#screenForm .field[data-key]')].map(f => f.dataset.key).join(' ') ===
+      'messages menuSlides infoPanel clock24 videoColors numerals priceItems wifiName wifiPassword specialDays hijriAdjust brandName labels'),
+    await page.evaluate(() => [[...document.querySelectorAll('#screenView .group')].map(g => g.textContent).join('|'), [...document.querySelectorAll('#screenForm .field[data-key]')].map(f => f.dataset.key).join(' ')]));
   const ms = await page.evaluate(() => { const f = document.querySelector('#screenForm .field[data-key="menuSlides"]'), m = document.querySelector('#screenForm .field[data-key="messages"]');
     return f ? [f.querySelector('input[type=checkbox]').checked, f.textContent.includes('Items from the menu between songs'), f.closest('section') === m.closest('section')] : null; });
   check('"Items from the menu between songs": on to start with, with the messages (Between songs)', ms && ms[0] && ms[1] && ms[2], ms);
-  check('the save button is here too', await page.$eval('#savebar', e => !e.hidden));
-  const kny = await page.$eval('#f-kurdishNewYear', s => [s.value, [...s.options].map(o => o.value).join(',')]);
-  check('the Kurdish date\'s new year: 21 March (built in) or the equinox\'s day', kny[0] === '21march' && kny[1] === '21march,equinox', kny);
+  check('no Save bar until something changes', await page.$eval('#savebar', e => e.hidden));
+  check('the menu link and the Kurdish new year are no longer here', await page.evaluate(() => !document.getElementById('f-menuUrl') && !document.getElementById('f-kurdishNewYear')));
   const picks = await page.$$eval('#f-priceItems select', l => l.map(s => s.value));
   check('the prices: seven places, filled with the TV\'s own choice', JSON.stringify(picks) === '["us","eu","gb","tr","ir","gold21","gold18"]', picks);
   const addMsg = async t => {           // (scrolled to the middle first: at the bottom the save bar covers it)
@@ -180,17 +196,16 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
     await page.tap('.field[data-key="messages"] .add'); await sleep(250); await page.keyboard.type(t);
   };
   await addMsg('Fresh mint tea is back');
+  check('a message typed: the Save bar, and a dot on the Screen tab', await page.$eval('#savebar', e => !e.hidden) &&
+    (await text(page, '#changes')) === '1 unsaved change' && await page.$eval('#tabScreen', e => e.classList.contains('unsaved')) &&
+    !(await page.$eval('#tabSettings', e => e.classList.contains('unsaved'))));
   await addMsg('Happy hour 6-8');
   await page.select('#f-priceItems .pick:nth-child(2) select', 'ounce');
   await page.select('#f-priceItems .pick:nth-child(3) select', '');
   await page.select('#f-priceItems .pick:nth-child(7) select', 'gold24');
   await page.select('#f-numerals', 'kurdish');
-  await page.select('#f-kurdishNewYear', 'equinox');
-  check('the price address right under the prices, empty (tirezh.com)', await page.$eval('#f-pricesUrl', i => i.value === '' && i.placeholder === 'https://tirezh.com/api/economy' &&
-    i.closest('.field').previousElementSibling.getAttribute('data-key') === 'priceItems'));
-  await page.$eval('#f-pricesUrl', e => e.scrollIntoView({ block: 'center' })); await sleep(200);
-  await page.type('#f-pricesUrl', 'https://tirezh.name.workers.dev');
-  await page.type('#f-wifiName', 'Twilight Cafe'); await page.type('#f-wifiPassword', 'twilight2026'); await page.type('#f-menuUrl', 'https://twilight.example/menu');
+  await page.$eval('#f-wifiName', e => e.scrollIntoView({ block: 'center' })); await sleep(200);
+  await page.type('#f-wifiName', 'Twilight Cafe'); await page.type('#f-wifiPassword', 'twilight2026');
   await page.tap('#f-labels summary'); await sleep(300);
   const ph = await page.$$eval('#f-labels input', l => l.map(i => i.placeholder));
   check('the words: the TV\'s English ones shown in grey', ph.includes('Now playing') && ph.includes('Eid Mubarak') && ph.length === Object.keys(words).length, ph.length);
@@ -198,12 +213,12 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
   await inputs[Object.keys(words).indexOf('nowPlaying')].type('ئێستا');
   await page.tap('#save'); await sleep(900);
   const saved = posts.at(-1);
-  check('Save: the prices in their order, Kurdish digits, messages, Wi-Fi, menu link, a Kurdish word',
+  check('Save: the prices in their order, Kurdish digits, messages, Wi-Fi, a Kurdish word',
     JSON.stringify(saved.priceItems) === '["us","ounce","tr","ir","gold21","gold24"]' && saved.numerals === 'kurdish' && JSON.stringify(saved.messages) === '["Fresh mint tea is back","Happy hour 6-8"]' &&
-    saved.wifiName === 'Twilight Cafe' && saved.wifiPassword === 'twilight2026' && saved.menuUrl === 'https://twilight.example/menu' && saved.labels.nowPlaying === 'ئێستا' &&
-    Object.keys(saved.labels).length === 1, saved);
-  check('...the worker\'s address for the prices, and the Kurdish date from the equinox', saved.pricesUrl === 'https://tirezh.name.workers.dev' && saved.kurdishNewYear === 'equinox',
-    [saved.pricesUrl, saved.kurdishNewYear]);
+    saved.wifiName === 'Twilight Cafe' && saved.wifiPassword === 'twilight2026' && saved.labels.nowPlaying === 'ئێستا' &&
+    Object.keys(saved.labels).length === 1 && !('menuUrl' in saved) && !('kurdishNewYear' in saved), saved);
+  check('...said, and the Save bar goes', (await text(page, '#say')) === 'Saved on TV 23.' && await page.$eval('#savebar', e => e.hidden) &&
+    !(await page.$eval('#tabScreen', e => e.classList.contains('unsaved'))));
   await sleep(600);
   await page.select('#f-priceItems .pick:nth-child(3) select', 'us');
   await page.tap('#save'); await sleep(900);
@@ -217,8 +232,6 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
     JSON.stringify(uploads[0].small) === '[384,216]', uploads);
   check('...and it\'s in the list', (await page.$$('#picGrid figure')).length === 2 && (await text(page, '#picMsg')).startsWith('1 picture added.'), await text(page, '#picMsg'));
   await shot(page, 'phone-new-screen.png', { fullPage: true });
-  await page.evaluate(() => document.querySelector('#screenForm .field[data-key="kurdishNewYear"]').scrollIntoView({ block: 'center' })); await sleep(400);
-  await shot(page, 'phone-kurdish-field.png');
   await page.tap('#picGrid figure .del'); await sleep(900);
   check('× deletes one (after asking)', deleted[0] === 'mg0000aaa01' && (await page.$$('#picGrid figure')).length === 1);
 
@@ -256,26 +269,41 @@ const text = (page, sel) => page.$eval(sel, e => e.textContent);
   await page.tap('#backHome'); await sleep(2600);
   check('"Back to Twilight TV"', cmds.at(-1) === 'backhome' && await page.$eval('#notOn', e => e.hidden), cmds.at(-1));
 
-  console.log('\nPhone page: new settings');
-  await page.tap('#tabSettings'); await sleep(900);
+  console.log('\nPhone page: settings');
+  const openPage = async name => {
+    if (await page.$eval('#settingsView', e => e.hidden)) { await page.tap('#tabSettings'); await sleep(500); }
+    if (await page.$eval('#setPage', e => !e.hidden)) { await page.tap('#setBack'); await sleep(300); }
+    await page.tap('.navrow[data-page="' + name + '"]'); await sleep(400);
+  };
+  await openPage('prayer');
   check('one TV box: no "Name of this TV", no "Also on the other TVs"', await page.evaluate(() => !document.querySelector('.field[data-key="tvName"]') && document.getElementById('allBox').hidden));
   const asr = () => page.$eval('.ptime[data-prayer="asr"]', e => e.textContent);
   check('call to prayer: today\'s times beside each prayer', (await asr()) === '15:01', await asr());
   await page.tap('.field[data-key="prayerAdjust"] .arow:nth-child(3) .step[aria-label="More"]');
   await page.tap('.field[data-key="prayerAdjust"] .arow:nth-child(3) .step[aria-label="More"]'); await sleep(300);
   check('moving Asr by +2 min shows 15:03 straight away', (await asr()) === '15:03' && (await page.$eval('.field[data-key="prayerAdjust"] .arow:nth-child(3) output', e => e.textContent)) === '+2 min');
+  await openPage('music');
   await page.tap('.field[data-key="playlistSchedule"] .add'); await sleep(200);
   await page.type('.field[data-key="playlistSchedule"] input[type=text]', 'https://www.youtube.com/playlist?list=PLevening');
+  await openPage('services');
+  check('the price address with the weather\'s, empty (tirezh.com)', await page.$eval('#f-pricesUrl', i => i.value === '' && i.placeholder === 'https://tirezh.com/api/economy' &&
+    i.closest('.field').previousElementSibling === null));
+  await page.$eval('#f-pricesUrl', e => e.scrollIntoView({ block: 'center' })); await sleep(200);
+  await page.type('#f-pricesUrl', 'https://tirezh.name.workers.dev');
   await page.$eval('#f-lat', e => { e.value = ''; e.dispatchEvent(new Event('input')); }); await page.type('#f-lat', '200');
+  await openPage('box');
   await page.tap('#save'); await sleep(500);
-  check('a latitude that can\'t be: caught before saving', (await text(page, '#saveMsg')).startsWith('Fix the marked settings first') && !(await page.$eval('.field[data-key="lat"] .err', e => e.hidden)));
+  check('a latitude that can\'t be: caught before saving, and the phone goes to it', (await text(page, '#saveMsg')) === 'Fix the marked setting first.' &&
+    !(await page.$eval('.field[data-key="lat"] .err', e => e.hidden)) && (await text(page, '#setTitle')) === 'Weather and prices', [await text(page, '#saveMsg'), await text(page, '#setTitle')]);
   await page.$eval('#f-lat', e => { e.value = ''; e.dispatchEvent(new Event('input')); }); await page.type('#f-lat', '36.2549');
   await page.tap('#save'); await sleep(900);
-  check('Save: Asr +2, the morning playlist from 10:00', JSON.stringify(posts.at(-1).prayerAdjust) === '{"asr":2}' &&
-    posts.at(-1).playlistSchedule['10:00'] === 'https://www.youtube.com/playlist?list=PLevening', posts.at(-1));
+  check('Save: Asr +2, the morning playlist from 10:00, the worker\'s address for the prices', JSON.stringify(posts.at(-1).prayerAdjust) === '{"asr":2}' &&
+    posts.at(-1).playlistSchedule['10:00'] === 'https://www.youtube.com/playlist?list=PLevening' && posts.at(-1).pricesUrl === 'https://tirezh.name.workers.dev', posts.at(-1));
   await shot(page, 'phone-new-settings.png', { fullPage: true });
+  await openPage('box');
   check('This TV box: keep the box in Twilight TV (on), and the one other app allowed', await page.evaluate(() =>
     document.querySelector('.field[data-key="lockApps"] input').checked && document.getElementById('f-otherApp').placeholder === 'My TV Plus'));
+  await openPage('tools');
   check('Tools: the lock\'s state, and Unlock for 15 minutes', !(await page.$eval('#unlockBox', b => b.hidden)) && await page.$eval('#lockBox', b => b.hidden) &&
     (await text(page, '#lockMsg')).startsWith('Locked: only Twilight TV and MyTV Plus.') && (await text(page, '#lockMsg')).includes('Usage access'), await text(page, '#lockMsg'));
   await page.$eval('#unlockBox', e => e.scrollIntoView({ block: 'center' })); await sleep(200);

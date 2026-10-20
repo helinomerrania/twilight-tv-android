@@ -51,7 +51,7 @@ function post(port, p, body) {
   console.log('\nThe Menu tab');
   await page.click('#tabMenu');
   await sleep(500);
-  check('a fourth tab, Menu, between Screen and Settings', (await page.$$eval('.tabs button', l => l.map(b => b.textContent))).join() === 'Control,Screen,Menu,Settings'
+  check('the Menu tab, between Screen and Settings', (await page.$$eval('.tabs button', l => l.map(b => b.textContent.trim()))).join() === 'Now,Songs,Screen,Menu,Settings'
     && await page.$eval('#tabMenu', b => b.getAttribute('aria-selected')) === 'true' && await page.$eval('#savebar', e => e.hidden));
   check('to start with: the café\'s categories, nothing in them; no menu code yet', (await cats()).join() === 'Hookah Flavors,Drink,Ice Cream,Nuts,Others'
     && (await text('#menuInfo')).includes('Nothing on the menu yet') && (await text('#menuInfo')).includes('The menu code appears on the TV with the first one'),
@@ -206,6 +206,20 @@ function post(port, p, body) {
   await page.keyboard.press('Escape');
   await sleep(100);
   check('Escape closes the editor, nothing changed', await page.$eval('#editor', e => e.hidden));
+  const depth = await page.evaluate(() => history.length);
+  await page.evaluate(() => document.querySelectorAll('#menuList .mcat')[1].querySelectorAll('.mitem')[0].click());
+  await sleep(200);
+  await page.evaluate(() => history.back());
+  await sleep(300);
+  check('the phone\'s Back button closes the editor, and the phone page stays', await page.$eval('#editor', e => e.hidden) &&
+    await page.$eval('#menuView', e => !e.hidden) && await page.evaluate(() => !history.state || !history.state.editor), await page.evaluate(() => history.state));
+  await page.evaluate(() => document.querySelectorAll('#menuList .mcat')[1].querySelectorAll('.mitem')[0].click());
+  await sleep(200);
+  await page.evaluate(() => [...document.querySelectorAll('#editor button')].find(b => b.textContent === 'Cancel').click());
+  await sleep(300);
+  check('...and Cancel leaves nothing behind for Back to close', await page.$eval('#editor', e => e.hidden) &&
+    await page.evaluate(() => !history.state || !history.state.editor) && await page.evaluate(() => history.length) <= depth + 1,
+    [await page.evaluate(() => history.length), depth]);
 
   console.log('\nThe customers\' menu, from it');
   const c = await b.newPage();

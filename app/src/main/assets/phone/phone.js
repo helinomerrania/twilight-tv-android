@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  var KEY = "twilight-tv-pin", pin = "", timer = null, busy = false, view = "control", last = null, drawnLists = {};
+  var KEY = "twilight-tv-pin", pin = "", timer = null, busy = false, view = "control", page = "", last = null, drawnLists = {};
   try { pin = localStorage.getItem(KEY) || ""; } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
   var PRAYER_NAMES = { fajr: "Fajr", dhuhr: "Dhuhr", asr: "Asr", maghrib: "Maghrib", isha: "Isha" };
@@ -27,7 +27,7 @@
     $("say").textContent = text;
     $("say").hidden = false;
     clearTimeout(sayTimer);
-    sayTimer = setTimeout(function () { $("say").hidden = true; }, 3000);
+    sayTimer = setTimeout(function () { $("say").hidden = true; }, Math.min(8000, 2500 + String(text).length * 40));
   }
 
   function askPin(msg) {
@@ -46,6 +46,7 @@
     poll();
     if (view === "screen" || view === "settings") loadSettings();
     if (view === "menu") loadMenu();
+    if (view === "songs") loadSongs();
   });
 
   function api(path, method, body) {
@@ -91,12 +92,80 @@
   // A song's name for the lists (songs from a link may not have one yet)
   function songName(x) { return x && x.title ? x.title : "YouTube video " + (x ? x.id : ""); }
 
+  // What the music is doing, in a word or two, for the label over the song
+  function stateWord(s, p) {
+    if (!s.onScreen) return ["Not on screen", "off"];
+    if (!p) return ["Starting", ""];
+    var st = p.state;
+    if (st === "closed") return ["Closed", "off"];
+    if (st === "prayer") return ["Call to prayer", ""];
+    if (p.holdUntil || st === "paused") return ["Paused", ""];
+    if (st === "playing") return [p.quietUntil ? "Playing quietly" : "Playing", "live"];
+    if (st === "ended" || st === "loading" || st === "starting" || st === "ready") return ["Loading", ""];
+    return [st.charAt(0).toUpperCase() + st.slice(1), ""];
+  }
+
+  // The song's own picture from YouTube: beside its name, and glowing behind it. None (no internet): just the name.
+  var thumbFor = null;
+  function drawThumb(id) {
+    id = /^[\w-]{11}$/.test(id || "") ? id : "";
+    if (id === thumbFor) return;
+    thumbFor = id;
+    ["nowThumb", "nowGlow"].forEach(function (k) {
+      var img = $(k);
+      img.hidden = true;
+      img.onload = function () { if (thumbFor === id) img.hidden = false; };
+      img.onerror = function () { img.hidden = true; };
+      if (id) img.src = "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+      else img.removeAttribute("src");
+    });
+  }
+
+  // Rows of [what, value] as a list of facts; rows with no value are left out. Says how many it shows.
+  function factList(id, rows) {
+    rows = rows.filter(function (r) { return r[1] != null && String(r[1]) !== ""; });
+    list(id, rows, function (r) {
+      var d = el("div");
+      d.appendChild(el("dt", {}, r[0]));
+      d.appendChild(el("dd", { dir: "auto" }, upper(r[1])));
+      return d;
+    });
+    return rows.length;
+  }
+
+  // A value on its own starts with a capital ("from MET Norway" -> "From MET Norway"), except a file's name (settings.json)
+  function upper(v) {
+    v = String(v);
+    return /^[a-z]/.test(v) && !/^\S+\.[a-z]/.test(v) ? v.charAt(0).toUpperCase() + v.slice(1) : v;
+  }
+
+  // In the diary, what went wrong: the box or the app starting again by itself, a crash, the page stuck
+  var TROUBLE = /by itself|without warning|crashed|to free memory|stopped answering/i;
+
+  // The Status page: what each part of the TV says, in groups
+  var FACT_GROUPS = [["music", "Music"], ["day", "Today"], ["net", "From the internet"], ["box", "This TV box"]];
+  function drawFacts(groups) {
+    var box = $("facts");
+    if (!box.firstChild) {
+      FACT_GROUPS.forEach(function (g) {
+        var wrap = el("div", { id: "factsBox-" + g[0] });
+        wrap.appendChild(el("h2", { class: "group" }, g[1]));
+        wrap.appendChild(el("section", { class: "card" })).appendChild(el("dl", { class: "facts", id: "facts-" + g[0] }));
+        box.appendChild(wrap);
+      });
+    }
+    FACT_GROUPS.forEach(function (g) { $("factsBox-" + g[0]).hidden = !factList("facts-" + g[0], groups[g[0]] || []); });
+  }
+
+  var diaryAll = false;
+  $("diaryMore").addEventListener("click", function () { diaryAll = !diaryAll; if (last) render(last); });
+
   function render(s) {
     var p = s.page || null;
     $("notOn").hidden = !!s.onScreen;
     drawLock(s);
     if (p && p.name) $("cafe").textContent = p.name;
-    document.title = (s.tv || "TV") + " · Twilight";
+    document.title = "Twilight TV (" + (s.tv || "TV") + ")";
 
     // With one TV box, the parts about other TVs stay hidden
     others = (s.others || []).map(function (o) { return o.name; });
@@ -109,24 +178,29 @@
     $("identify").hidden = !others.length;
     updateAllBox();
 
+    // Now playing
     var song = p && p.song;
     $("song").textContent = song ? (song.title || "Song " + song.id) : (s.onScreen ? "Starting…" : "–");
+    drawThumb(song && s.onScreen ? song.id : "");
     var pos = song ? song.position : 0, dur = song ? song.duration : 0;
     $("progress").style.width = dur > 0 ? Math.min(100, pos / dur * 100) + "%" : "0";
     $("pos").textContent = mmss(pos);
     $("dur").textContent = mmss(dur);
+    var word = stateWord(s, p);
+    $("statePill").textContent = word[0];
+    $("statePill").className = "pill" + (word[1] ? " " + word[1] : "");
+    $("heroNote").textContent = p && p.quality && s.onScreen ? p.quality : "";
 
-    var st = p ? p.state : "", text = "", off = false, resumeIt = false, closed = false;
+    // In a sentence: only what's out of the ordinary
+    var st = p ? p.state : "", text = "", off = false, resumeIt = false, closed = false, more = [];
     if (!p) text = "";
-    else if (st === "closed") { closed = off = true; text = "Music off: outside opening hours (" + p.openHours + ")"; }
+    else if (st === "closed") { closed = off = true; text = "Music off: outside opening hours (" + p.openHours + ")."; }
     else if (st === "prayer") { resumeIt = off = true; text = "Paused for the call to prayer (" + (PRAYER_NAMES[p.prayerName] || "prayer") + "). The music comes back at " + clock(p.prayerUntil) + "."; }
     else if (p.holdUntil) { resumeIt = off = true; text = "Paused from a phone. It starts again by itself at " + clock(p.holdUntil) + "."; }
-    else if (st === "playing") text = "Playing" + (p.scheduleVolume < 100 ? ", volume schedule " + p.scheduleVolume + "%" : "");
-    else if (st === "loading" || st === "starting" || st === "ready") text = "Loading the next song…";
-    else text = st.charAt(0).toUpperCase() + st.slice(1);
-    if (p && p.closingIn && !off) text += ". Fading out: closing in " + p.closingIn + " min";
-    if (p && p.quietUntil && !off) text += ". Quiet until " + clock(p.quietUntil);
-    $("state").textContent = text;
+    else if (st === "playing" && p.scheduleVolume < 100) text = "Volume schedule: " + p.scheduleVolume + "% of the normal volume now.";
+    if (p && p.closingIn && !off) more.push("Fading out: closing in " + p.closingIn + " min.");
+    if (p && p.quietUntil && !off) more.push("Quiet until " + clock(p.quietUntil) + ".");
+    $("state").textContent = [text].concat(more).filter(Boolean).join(" ");
     $("state").className = "state" + (off ? " off" : "");
 
     var nx = p && !off ? p.upNext : null;
@@ -155,8 +229,19 @@
     if (!fixed) $("tvvol").textContent = s.tvVolume + "/" + s.tvVolumeMax;
     $("tvvolNote").textContent = s.tvVolumeSet > 0 ? "The box's own, until the next song" : "The box's own volume";
 
-    $("qualityNow").textContent = s.qualitySetup ? "Quality setup is on the TV" :
-      p && p.quality ? "Now playing in " + p.quality : "Not reported by YouTube yet";
+    // Today, at a glance: the next call to prayer, the opening hours, this round of the playlist
+    var today = [];
+    if (p) {
+      var coming = (p.prayers || []).filter(function (x) { return x.at > Date.now(); })[0];
+      if (p.prayerPause > 0 && (p.prayers || []).length) {
+        today.push(["Call to prayer", coming ? (PRAYER_NAMES[coming.name] || coming.name) + " at " + clock(coming.at) : "No more today"]);
+      }
+      today.push(["Opening hours", p.openHours || "Always on"]);
+      if (p.round && p.round.total) today.push(["This round", p.round.done + " of " + p.round.total + " songs"]);
+    }
+    $("todayBox").hidden = !factList("today", today);
+
+    $("qualityNow").textContent = s.qualitySetup ? "Quality setup is on the TV" : p && p.quality ? p.quality : "Not reported by YouTube yet";
     $("qualityIdle").hidden = !!s.qualitySetup;
     $("qualityOn").hidden = !s.qualitySetup;
 
@@ -175,53 +260,65 @@
     });
     $("historyCard").hidden = !(p && p.history && p.history.length);
 
+    var probs = (p && p.problems) || [];
+    $("problems").hidden = !probs.length;
+    $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
+    list("problemList", probs.slice(0, 30), function (x) {
+      var li = el("li");
+      li.appendChild(el("b", { dir: "auto" }, x.title || x.id));
+      li.appendChild(el("span", {}, x.what + (x.count > 1 ? ", " + x.count + " times" : "") + ". "));
+      li.appendChild(el("a", { href: "https://www.youtube.com/watch?v=" + encodeURIComponent(x.id), target: "_blank", rel: "noopener" }, "Open on YouTube"));
+      return li;
+    });
+
     // What happened to the TV box: restarts and the like, newest first (the app keeps the diary)
     var diary = (s.diary || []).filter(function (x) { return x && x.what; });
-    list("diaryList", diary, function (x) {
-      var li = el("li");
+    list("diaryList", diaryAll ? diary : diary.slice(0, 5), function (x) {
+      var li = el("li", TROUBLE.test(x.what) ? { class: "trouble" } : {});
       li.appendChild(el("span", {}, dayClock(x.t)));
       li.appendChild(el("div", {}, x.what));
       return li;
     });
     $("diaryCard").hidden = !diary.length;
+    $("diaryMore").hidden = diary.length <= 5;
+    $("diaryMore").textContent = diaryAll ? "Show fewer" : "Show all " + diary.length;
+    var trouble = diary.filter(function (x) { return TROUBLE.test(x.what) && Date.now() - x.t < 7 * 864e5; })[0];
+    $("statusSummary").textContent = "Version " + (s.build || "?") + (trouble ? ". Last problem: " + dayClock(trouble.t) : "");
+    $("statusSummary").className = trouble ? "warn" : "";
 
-    var probs = (p && p.problems) || [];
-    $("problems").hidden = !probs.length;
-    $("problemsTitle").textContent = probs.length === 1 ? "1 song won't play" : probs.length + " songs won't play";
-    var ul = $("problemList"); ul.innerHTML = "";
-    probs.slice(0, 30).forEach(function (x) {
-      var li = el("li"), a = el("a", { href: "https://www.youtube.com/watch?v=" + encodeURIComponent(x.id), target: "_blank", rel: "noopener" }, "Open on YouTube");
-      li.appendChild(el("b", {}, x.title || x.id));
-      li.appendChild(el("span", {}, x.what + (x.count > 1 ? ", " + x.count + " times" : "") + ". "));
-      li.appendChild(a);
-      ul.appendChild(li);
+    var bx = s.box || {};
+    drawFacts({
+      music: [
+        ["Playlist", p ? p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round" : ""],
+        ["Song names", s.names],
+        ["Ads skipped", p ? p.adsSkipped : ""],
+        ["Sound", p && p.soundFixes ? "YouTube's player changed the volume by itself " + (p.soundFixes === 1 ? "once" : p.soundFixes + " times") +
+          ", last at " + clock(p.soundFixAt) + ". The TV set it back at once each time." : ""],
+        ["Sound levelling", s.levelling]
+      ],
+      day: [
+        ["Opening hours", p ? p.openHours || "Always on" : ""],
+        ["Call to prayer", p && p.prayers && p.prayers.length ? p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
+          (p.prayersFrom ? ", " + p.prayersFrom + "'s times" : ", worked out on the TV") + ". The music pauses " + p.prayerPause + " min, in opening hours." : ""],
+        ["Hijri date", p ? (p.hijriFrom ? p.hijriFrom + "'s, from the same page" : "worked out on the TV (Umm al-Qura calendar)") : ""]
+      ],
+      net: [
+        ["Settings", s.settings],
+        ["Weather", s.weather],
+        ["Gold and currency prices", s.prices],
+        ["Prayer times", s.prayerTimes],
+        ["Updates", s.updateStatus]
+      ],
+      box: [
+        ["TV box", bx.box],
+        ["Graphics", bx.graphics ? bx.graphics + (bx.softDraw ? ". Too old for Firefox's engine: it draws everything on the processor, so videos play at 720p" : "") : ""],
+        ["The chip decodes", bx.decoders],
+        ["Screen", s.screen],
+        ["Video from YouTube", s.videoFormat ? s.videoFormat + (s.videoFormatNext ? " (" + s.videoFormatNext + " once the app restarts)" : "") : ""],
+        ["Web engine", s.engine],
+        ["App version", s.build || "?"]
+      ]
     });
-
-    var facts = [];
-    if (p) facts.push("Playlist: " + p.songs + " songs, " + p.round.done + " of " + p.round.total + " played this round. " + p.adsSkipped + " ads skipped.");
-    if (p && p.soundFixes) facts.push("Sound: YouTube's player changed the volume by itself " + (p.soundFixes === 1 ? "once" : p.soundFixes + " times") +
-      ", last at " + clock(p.soundFixAt) + ". The TV set it back at once each time.");
-    if (p && p.openHours) facts.push("Opening hours: " + p.openHours + ".");
-    if (p && p.prayers && p.prayers.length) facts.push("Call to prayer today: " + p.prayers.map(function (x) { return PRAYER_NAMES[x.name] + " " + clock(x.at); }).join(", ") +
-      (p.prayersFrom ? ", " + p.prayersFrom + "'s times" : ", worked out on the TV") + " (the music pauses " + p.prayerPause + " min, in opening hours).");
-    if (s.prayerTimes) facts.push("Prayer times: " + s.prayerTimes + ".");
-    if (p) facts.push("Hijri date: " + (p.hijriFrom ? p.hijriFrom + "'s, from the same page" : "worked out on the TV (Umm al-Qura calendar)") + ".");
-    if (s.names) facts.push("Song names: " + s.names + ".");
-    if (s.weather) facts.push("Weather: " + s.weather + ".");
-    if (s.prices) facts.push("Gold and currency prices: " + s.prices + ".");
-    if (s.levelling) facts.push("Sound levelling: " + s.levelling + ".");
-    if (s.settings) facts.push("Settings: " + s.settings + ".");
-    if (s.updateStatus) facts.push("Updates: " + s.updateStatus + ".");
-    if (s.engine) facts.push("Web engine: " + s.engine + ".");
-    if (s.videoFormat) facts.push("Video from YouTube: " + s.videoFormat + (s.videoFormatNext ? " (" + s.videoFormatNext + " once the app restarts)" : "") + ".");
-    if (s.box && s.box.box) facts.push("TV box: " + s.box.box + ".");
-    if (s.box && s.box.graphics) facts.push("Graphics: " + s.box.graphics +
-      (s.box.softDraw ? ". Too old for Firefox's engine: it draws everything on the processor, so videos play at 720p" : "") + ".");
-    if (s.box && s.box.decoders) facts.push("The box's chip decodes " + s.box.decoders + ".");
-    if (s.screen) facts.push("Screen: " + s.screen + ".");
-    facts.push("App version " + (s.build || "?") + ".");
-    $("facts").innerHTML = "";
-    facts.forEach(function (f) { $("facts").appendChild(el("p", {}, f)); });
 
     refreshPrayerTimes();
   }
@@ -357,144 +454,223 @@
   $("linkNow").addEventListener("click", function () { playLink("playnow", $("linkNow")); });
   $("link").addEventListener("input", function () { $("linkErr").hidden = true; });
 
-  /* ---------- Tabs ---------- */
+  /* ---------- Tabs, and the pages of the Settings tab ---------- */
+
+  var TABS = ["control", "songs", "screen", "menu", "settings"];
+  var PAGES = { music: "Music", hours: "Hours and volume", prayer: "Call to prayer", picture: "Picture", services: "Weather and prices",
+                box: "This TV box", status: "Status and diary", tools: "Tools" };
+  function tabOf(t) { return $("tab" + t.charAt(0).toUpperCase() + t.slice(1)); }
 
   function show(which) {
+    if (view === "settings" && which !== "settings") closePage();
     view = which;
-    $("controlView").hidden = which !== "control";
-    $("screenView").hidden = which !== "screen";
-    $("menuView").hidden = which !== "menu";
-    $("settingsView").hidden = which !== "settings";
-    $("savebar").hidden = which === "control" || which === "menu";
-    ["Control", "Screen", "Menu", "Settings"].forEach(function (n) { $("tab" + n).setAttribute("aria-selected", String(which === n.toLowerCase())); });
+    TABS.forEach(function (t) {
+      $(t + "View").hidden = t !== which;
+      tabOf(t).setAttribute("aria-selected", String(t === which));
+    });
+    window.scrollTo(0, 0);
     if ((which === "screen" || which === "settings") && !data) loadSettings();
     if (which === "screen") { loadPictures(); loadLooks(); }
     if (which === "menu") loadMenu();
+    if (which === "songs") loadSongs();
+    updateSavebar();
   }
-  $("tabControl").addEventListener("click", function () { show("control"); });
-  $("tabScreen").addEventListener("click", function () { show("screen"); });
-  $("tabMenu").addEventListener("click", function () { show("menu"); });
-  $("tabSettings").addEventListener("click", function () { show("settings"); });
+  TABS.forEach(function (t) {
+    tabOf(t).addEventListener("click", function () {
+      if (t === "settings" && view === "settings" && page) closePage();     // Settings again, on a page: back to the list
+      else show(t);
+    });
+  });
+
+  // A page of settings, in place of the list. The arrow at its top, or the phone's own Back, goes back to the list.
+  // restored: coming back to this phone page from another (the history has its place already)
+  function openPage(name, restored) {
+    if (!PAGES[name]) return;
+    var was = page;
+    page = name;
+    $("setIndex").hidden = true;
+    $("setPage").hidden = false;
+    $("setTitle").textContent = PAGES[name];
+    document.querySelectorAll("#form > .page").forEach(function (s) { s.hidden = s.getAttribute("data-page") !== name; });
+    window.scrollTo(0, 0);
+    if (restored) return;
+    try {
+      if (was) history.replaceState({ page: name }, "");
+      else history.pushState({ page: name }, "");
+    } catch (e) {}
+  }
+
+  function hidePage() {
+    page = "";
+    $("setIndex").hidden = false;
+    $("setPage").hidden = true;
+  }
+
+  function closePage() {
+    if (!page) return;
+    hidePage();
+    window.scrollTo(0, 0);
+    try { if (history.state && history.state.page) history.back(); } catch (e) {}
+  }
+
+  document.querySelectorAll(".navrow").forEach(function (b) {
+    b.addEventListener("click", function () { openPage(b.getAttribute("data-page")); });
+  });
+  $("setBack").addEventListener("click", closePage);
+
+  // The phone's Back button: closes the menu editor, or the settings page, before it leaves this page
+  window.addEventListener("popstate", function () {
+    var st = history.state || {};
+    if (ed && !st.editor) closeEditor(true);
+    if (page && !st.page) hidePage();
+  });
 
   /* ---------- Settings (and the Screen tab, which is settings too) ---------- */
 
   // Built-in values, used when the TV hasn't reported its own yet
   var FALLBACK = {
-    playlist: "", volume: 100, volumeSchedule: {}, openHours: "", noRepeat: 20,
-    fadeIn: 2, fadeOut: 3, titleSeconds: 4, brandEnding: 10, cutEnding: 0,
-    quality: "auto", autoZoom: true, blockAds: true, noSubtitles: true, brandName: "",
-    tvName: "", tvVolume: 0, levelSound: true, restartAt: "05:00", updates: true, controlPin: "", weatherKey: "", lockApps: true, otherApp: "My TV Plus",
-    videoFormat: "h264", screenSize: "1080", screenRate: "box", engineNumbers: false, pricesUrl: "",
-    refreshHours: 12, apiKey: "", playlistSchedule: {}, differentSinger: true, quietLevel: 15, closingFade: 10,
-    prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {}, place: "Ranya", lat: 36.2549, lon: 44.8838, infoPanel: true, clock24: false, videoColors: true,
-    priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], numerals: "auto", messages: [], menuSlides: true, wifiName: "", wifiPassword: "", menuUrl: "",
-    specialDays: true, hijriAdjust: 0, kurdishNewYear: "21march", labels: {}
+    playlist: "", playlistSchedule: {}, apiKey: "", differentSinger: true, fadeIn: 2, fadeOut: 3,
+    openHours: "", closingFade: 10, volume: 100, volumeSchedule: {}, quietLevel: 15, levelSound: true, tvVolume: 0,
+    prayerPause: 5, prayerCity: "Ranya", prayerAdjust: {},
+    quality: "auto", videoFormat: "h264", autoZoom: true, blockAds: true, noSubtitles: true, titleSeconds: 4, brandEnding: 10, screenSize: "1080", screenRate: "box",
+    weatherKey: "", place: "Ranya", lat: 36.2549, lon: 44.8838, pricesUrl: "",
+    tvName: "", controlPin: "", lockApps: true, otherApp: "My TV Plus", restartAt: "05:00", updates: true,
+    messages: [], menuSlides: true, infoPanel: true, clock24: false, videoColors: true, numerals: "auto",
+    priceItems: ["us", "eu", "gb", "tr", "ir", "gold21", "gold18"], wifiName: "", wifiPassword: "", specialDays: true, hijriAdjust: 0, brandName: "", labels: {}
   };
+
+  // Settings no longer on the phone: they keep their built-in values, and settings.json can still set them for every TV.
+  // A value this TV kept for one of them goes with its next save.
+  var RETIRED = ["refreshHours", "engineNumbers", "cutEnding", "kurdishNewYear", "menuUrl", "noRepeat"];
+
+  // Every setting on the phone, page by page ("screen" is the Screen tab), in groups: { group, page } starts a card
+  // under that heading ("" for a card with none)
   var FIELDS = [
-    { group: "Gold and currency prices", tab: "screen" },
-    { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", tab: "screen",
-      hint: "Up to seven, in one row, centred. From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. None = no prices." },
-    { key: "pricesUrl", label: "Where the prices come from", type: "text", tab: "screen", placeholder: "https://tirezh.com/api/economy",
-      hint: "The tirezh worker at another address: its workers.dev address from Cloudflare, or a new domain (the TV adds /api/economy to a bare address). Empty = tirezh.com." },
-    { cafeScreen: true, tab: "screen" },
-    { group: "Between songs", tab: "screen" },
-    { key: "messages", label: "Messages on the café screen", type: "list", tab: "screen", add: "Add a message",
+    // The Screen tab
+    { group: "Between songs", page: "screen" },
+    { key: "messages", label: "Messages on the café screen", type: "list", page: "screen", add: "Add a message",
       hint: "One at a time between two songs, taking turns with your pictures. Short ones read best." },
-    { key: "menuSlides", label: "Items from the menu between songs", type: "toggle", tab: "screen",
+    { key: "menuSlides", label: "Items from the menu between songs", type: "toggle", page: "screen",
       hint: "Each with its picture, name, description and price, after each of your messages and pictures. The weather picks which: no hot drinks on a hot day (28° and up), no ice cream or fresh juice on a cold one (15° and below). An item with “On the TV” off on the Menu tab never comes." },
-    { pictures: true, tab: "screen" },
-    { group: "QR codes", tab: "screen" },
-    { key: "wifiName", label: "Wi-Fi name", type: "text", tab: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
-    { key: "wifiPassword", label: "Wi-Fi password", type: "text", tab: "screen", hint: "Empty for a network with no password." },
-    { key: "menuUrl", label: "Link to another menu", type: "text", tab: "screen", placeholder: "https://…",
-      hint: "Only for a menu somewhere else: a QR code for it appears beside the video. Empty = the café's own menu from the Menu tab, once something is on it." },
-    { group: "Info panel and special days", tab: "screen" },
-    { key: "infoPanel", label: "Info panel beside the video", type: "toggle", tab: "screen",
+    { pictures: true, page: "screen" },
+    { group: "Beside the video", page: "screen" },
+    { key: "infoPanel", label: "Info panel beside the video", type: "toggle", page: "screen",
       hint: "A frame around the video: the time, the weather, prices, what's playing and the QR codes. In Kurdish the whole screen is mirrored. Off = the video full screen." },
-    { key: "clock24", label: "24-hour clock", type: "toggle", tab: "screen" },
-    { key: "videoColors", label: "Frame in each song's colour", type: "toggle", tab: "screen",
+    { key: "clock24", label: "24-hour clock", type: "toggle", page: "screen" },
+    { key: "videoColors", label: "Frame in each song's colour", type: "toggle", page: "screen",
       hint: "A soft glow around the video, and the room and the progress line, in the song's main colour, taken from YouTube's pictures of it. It changes with a slow fade at each new song. Off = the same dark frame always." },
-    { key: "numerals", label: "Numbers on the TV", type: "select", tab: "screen",
+    { key: "numerals", label: "Numbers on the TV", type: "select", page: "screen",
       options: [["auto", "In the language's own digits"], ["kurdish", "Always Kurdish digits: ١٢٣"], ["latin", "Always 123"]],
       hint: "With Kurdish words, “own digits” are ١٢٣. Song names, the Wi-Fi password and your messages always stay as typed." },
-    { key: "specialDays", label: "Special days' looks", type: "toggle", tab: "screen",
+    { group: "Gold and currency prices", page: "screen" },
+    { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", page: "screen",
+      hint: "Up to seven, in one row, centred. From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. None = no prices." },
+    { group: "Wi-Fi for customers", page: "screen" },
+    { key: "wifiName", label: "Wi-Fi name", type: "text", page: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
+    { key: "wifiPassword", label: "Wi-Fi password", type: "text", page: "screen", hint: "Empty for a network with no password." },
+    { cafeScreen: true, page: "screen" },
+    { group: "Special days", page: "screen" },
+    { key: "specialDays", label: "Special days' looks", type: "toggle", page: "screen",
       hint: "Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year get their own picture on the café screen, and a greeting under the date." },
-    { looks: true, tab: "screen" },
-    { key: "hijriAdjust", label: "Move the Hijri date, Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, tab: "screen",
+    { looks: true, page: "screen" },
+    { key: "hijriAdjust", label: "Move the Hijri date, Eid and Barat Night by", type: "number", min: -2, max: 2, step: 1, unit: " days", signed: true, page: "screen",
       hint: "The Hijri date comes from amozhgary.tv by itself (from the Umm al-Qura calendar when it can't be reached). Only if it's still a day early or late compared with Kurdistan's announcement." },
-    { key: "kurdishNewYear", label: "Kurdish date: the year begins on", type: "select", tab: "screen",
-      options: [["21march", "21 March, every year"], ["equinox", "The equinox (Iran's calendar)"]],
-      hint: "Both give the same dates until 19 March 2028. In years when the equinox comes on 20 March (2028, 2029, 2032…), they are a day apart all that year." },
-    { key: "labels", label: "Words on the TV", type: "labels", tab: "screen",
+    { group: "Words on the TV", page: "screen" },
+    { key: "brandName", label: "Café name under the video when no music plays", type: "text", rtl: true, page: "screen",
+      hint: "The café screen itself is your pictures, with the name in them." },
+    { key: "labels", label: "Every word the TV shows", type: "labels", page: "screen",
       hint: "Type this TV's own word for any of these, for example in Kurdish. Empty = the word in grey: settings.json's, or the English one." },
 
-    { group: "Music" },
-    { key: "playlist", label: "YouTube playlist", type: "text", hint: "The playlist link, or just its ID. It must be Public or Unlisted. A new playlist starts with the next song." },
-    { key: "playlistSchedule", label: "Playlists by time of day", type: "plsched",
+    // Music
+    { group: "Playlist", page: "music" },
+    { key: "playlist", label: "YouTube playlist", type: "text", page: "music",
+      hint: "The playlist link, or just its ID. It must be Public or Unlisted. A new playlist starts with the next song." },
+    { key: "playlistSchedule", label: "Playlists by time of day", type: "plsched", page: "music",
       hint: "From each time on, this playlist instead of the one above. Before the first time, the last one still holds." },
-    { key: "volume", label: "Normal volume", type: "range", min: 0, max: 100, step: 5, unit: "%" },
-    { key: "volumeSchedule", label: "Volume by time of day", type: "schedule", hint: "From each time on, this percent of the normal volume. Before the first time, the last one still holds." },
-    { key: "openHours", label: "Opening hours", type: "text", placeholder: "10:00-02:00", check: "hours",
-      hint: "Music only during these hours, the café screen otherwise. Empty means always on. Two periods: 10:00-14:00, 17:00-01:00" },
-    { key: "closingFade", label: "Fade out before closing time", type: "number", min: 0, max: 30, step: 1, unit: " min",
-      hint: "The music slowly fades over these last minutes of the opening hours. 0 = off." },
-    { key: "differentSinger", label: "Never two songs by the same singer in a row", type: "toggle",
+    { key: "apiKey", label: "YouTube Data API key", type: "text", page: "music", when: bigPlaylist,
+      hint: "YouTube's player reads only the first 200 songs of a playlist; with a key from Google, the TV reads them all. Better here than in settings.json, which anyone can read." },
+    { group: "From song to song", page: "music" },
+    { key: "differentSinger", label: "Never two songs by the same singer in a row", type: "toggle", page: "music",
       hint: "The singer is read from the song's name (\"Singer - Song\") or its YouTube channel." },
-    { key: "noRepeat", label: "Songs before one can come back", type: "number", min: 0, max: 300, step: 5, hint: "When a new round starts, the songs that just played are kept out of this many spots." },
-    { key: "quietLevel", label: "Volume of “Quiet for a minute”", type: "range", min: 0, max: 50, step: 5, unit: "%" },
-    { group: "Call to prayer" },
-    { key: "prayerPause", label: "Pause the music for the call to prayer", type: "number", min: 0, max: 15, step: 1, unit: " min",
+    { key: "fadeIn", label: "Fade in", type: "number", min: 0, max: 10, step: 0.5, unit: "s", page: "music" },
+    { key: "fadeOut", label: "Fade out", type: "number", min: 0, max: 10, step: 0.5, unit: "s", page: "music" },
+
+    // Hours and volume
+    { group: "", page: "hours" },
+    { key: "openHours", label: "Opening hours", type: "text", placeholder: "10:00-02:00", check: "hours", page: "hours",
+      hint: "Music only during these hours, the café screen otherwise. Empty means always on. Two periods: 10:00-14:00, 17:00-01:00" },
+    { key: "closingFade", label: "Fade out before closing time", type: "number", min: 0, max: 30, step: 1, unit: " min", page: "hours",
+      hint: "The music slowly fades over these last minutes of the opening hours. 0 = off." },
+    { group: "Volume", page: "hours" },
+    { key: "volume", label: "Normal volume", type: "range", min: 0, max: 100, step: 5, unit: "%", page: "hours" },
+    { key: "volumeSchedule", label: "Volume by time of day", type: "schedule", page: "hours",
+      hint: "From each time on, this percent of the normal volume. Before the first time, the last one still holds." },
+    { key: "quietLevel", label: "Volume of “Quiet for a minute”", type: "range", min: 0, max: 50, step: 5, unit: "%", page: "hours" },
+    { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle", page: "hours" },
+    { key: "tvVolume", label: "Box volume", type: "range", min: 0, max: 100, step: 5, unit: "%", page: "hours",
+      hint: "The box's own volume, set again at every new song (whatever the remote did), at opening time and every night. 0 = leave it as it is." },
+
+    // Call to prayer
+    { group: "", page: "prayer" },
+    { key: "prayerPause", label: "Pause the music for the call to prayer", type: "number", min: 0, max: 15, step: 1, unit: " min", page: "prayer",
       hint: "At each of the five prayers, during opening hours only. 0 = never." },
-    { key: "prayerCity", label: "Prayer times from amozhgary.tv for", type: "text", placeholder: "Ranya",
+    { key: "prayerCity", label: "Prayer times from amozhgary.tv for", type: "text", placeholder: "Ranya", page: "prayer",
       hint: "The town as in its address on amozhgary.tv (Ranya for amozhgary.tv/bang/Ranya). The TV box takes the times from there every day. Empty = the TV works them out itself (Muslim World League)." },
-    { key: "prayerAdjust", label: "Move a prayer time", type: "adjust", hint: "To match your mosque: minutes later (+) or earlier (−). The times shown are today's." },
-    { group: "Between songs" },
-    { key: "fadeIn", label: "Fade in", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
-    { key: "fadeOut", label: "Fade out", type: "number", min: 0, max: 10, step: 0.5, unit: "s" },
-    { key: "titleSeconds", label: "Café screen at the start of each song", type: "number", min: 0, max: 15, step: 1, unit: "s", hint: "Covers YouTube's title. The sound already plays." },
-    { key: "brandEnding", label: "Café screen over the end of each song", type: "number", min: 0, max: 30, step: 1, unit: "s", hint: "Covers YouTube's end cards. 0 = off." },
-    { key: "cutEnding", label: "Cut off the end of each song", type: "number", min: 0, max: 60, step: 1, unit: "s", hint: "0 = every song plays to the end." },
-    { group: "Picture and YouTube" },
-    { key: "videoFormat", label: "Video format from YouTube", type: "select",
-      options: [["h264", "H.264: the smoothest, up to 1080p"], ["vp9", "H.264 or VP9: up to 4K"], ["any", "Any, AV1 too (Firefox decides)"]],
-      hint: "TV boxes' chips play H.264 and VP9 themselves. AV1 most boxes play on their processor, and it stutters. Changing this restarts the app on the TV." },
-    { key: "quality", label: "Highest picture quality", type: "select",
+    { key: "prayerAdjust", label: "Move a prayer time", type: "adjust", page: "prayer",
+      hint: "To match your mosque: minutes later (+) or earlier (−). The times shown are today's." },
+
+    // Picture
+    { group: "Video", page: "picture" },
+    { key: "quality", label: "Highest picture quality", type: "select", page: "picture",
       options: [["auto", "Automatic"], [2160, "4K"], [1440, "1440p"], [1080, "1080p"], [720, "720p"]],
       hint: "Automatic is 1080p, or 720p on a box with old graphics. Above 1080p needs the video format H.264 or VP9, a strong box and fast internet. Lower it if videos stop to load." },
-    { key: "autoZoom", label: "Zoom away black bars automatically", type: "toggle" },
-    { key: "blockAds", label: "Cover and skip YouTube ads", type: "toggle" },
-    { key: "noSubtitles", label: "Keep subtitles off", type: "toggle" },
-    { key: "brandName", label: "Café name under the video when no music plays", type: "text", rtl: true,
-      hint: "The café screen itself is your pictures, with the name in them." },
-    { group: "This TV box" },
-    { key: "tvName", label: "Name of this TV", type: "text", only: true, withOthers: true, hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
-    { key: "tvVolume", label: "Box volume", type: "range", min: 0, max: 100, step: 5, unit: "%",
-      hint: "The box's own volume, set again at every new song (whatever the remote did), at opening time and every night. 0 = leave it as it is." },
-    { key: "levelSound", label: "Even out loud and quiet songs", type: "toggle" },
-    { key: "screenSize", label: "Screen resolution", type: "select",
+    { key: "videoFormat", label: "Video format from YouTube", type: "select", page: "picture",
+      options: [["h264", "H.264: the smoothest, up to 1080p"], ["vp9", "H.264 or VP9: up to 4K"], ["any", "Any, AV1 too (Firefox decides)"]],
+      hint: "TV boxes' chips play H.264 and VP9 themselves. AV1 most boxes play on their processor, and it stutters. Changing this restarts the app on the TV." },
+    { key: "autoZoom", label: "Zoom away black bars automatically", type: "toggle", page: "picture" },
+    { group: "YouTube's ads and extras", page: "picture" },
+    { key: "blockAds", label: "Cover and skip YouTube ads", type: "toggle", page: "picture" },
+    { key: "noSubtitles", label: "Keep subtitles off", type: "toggle", page: "picture" },
+    { key: "titleSeconds", label: "Café screen at the start of each song", type: "number", min: 0, max: 15, step: 1, unit: "s", page: "picture",
+      hint: "Covers YouTube's title. The sound already plays." },
+    { key: "brandEnding", label: "Café screen over the end of each song", type: "number", min: 0, max: 30, step: 1, unit: "s", page: "picture",
+      hint: "Covers YouTube's end cards. 0 = off." },
+    { group: "The TV screen", page: "picture" },
+    { key: "screenSize", label: "Screen resolution", type: "select", page: "picture",
       options: [["1080", "Up to 1080p (recommended)"], ["720", "Up to 720p (for weak boxes)"], ["box", "The box's own setting"]],
       hint: "A box that draws at 4K works four times as hard for a picture you can't tell apart. The TV fills its screen either way." },
-    { key: "screenRate", label: "Screen refresh rate", type: "select", options: [["box", "The box's own setting"], ["50", "50 Hz"], ["60", "60 Hz"]],
+    { key: "screenRate", label: "Screen refresh rate", type: "select", page: "picture", options: [["box", "The box's own setting"], ["50", "50 Hz"], ["60", "60 Hz"]],
       hint: "Videos made at 25 frames a second (TV, and many music videos here) move evenly at 50 Hz, and 30 or 60 at 60 Hz. The wrong one makes movement jerk slightly." },
-    { key: "restartAt", label: "Fresh start every night at", type: "time" },
-    { key: "updates", label: "Download new versions by themselves", type: "toggle" },
-    { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle",
-      hint: "Whatever else is opened on the box is sent away in a few seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Tools, below) or hold Back for 10 seconds." },
-    { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus",
-      hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
-    { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
-    { group: "Weather" },
-    { key: "weatherKey", label: "WeatherAPI.com key", type: "text", placeholder: "none: MET Norway",
+
+    // Weather and prices
+    { group: "Weather", page: "services" },
+    { key: "weatherKey", label: "WeatherAPI.com key", type: "text", placeholder: "none: MET Norway", page: "services",
       hint: "From a free account at weatherapi.com (no card). With a key the weather comes from WeatherAPI.com, whose “now” is measured; without one, from MET Norway. Keep it here, not in settings.json (that file is public)." },
-    { key: "place", label: "Place, for the weather", type: "text", hint: "Its name on the TV. The weather and the worked-out prayer times are for the latitude and longitude below." },
-    { key: "lat", label: "Latitude", type: "decimal" },
-    { key: "lon", label: "Longitude", type: "decimal" },
-    { group: "Advanced" },
-    { key: "refreshHours", label: "Reload the page every", type: "number", min: 0, max: 48, step: 1, unit: " h", hint: "Keeps the TV fresh and picks up new songs. 0 = never." },
-    { key: "apiKey", label: "YouTube Data API key", type: "text", hint: "Only for playlists of more than 200 songs." },
-    { key: "engineNumbers", label: "Firefox engine's frame counter on the TV", type: "toggle",
-      hint: "For finding out why a video stutters: frames per second, how much of the screen is drawn again each frame, and whether the video is its own layer. Changing this restarts the app on the TV." }
+    { key: "place", label: "Place, for the weather", type: "text", page: "services",
+      hint: "Its name on the TV. The weather and the worked-out prayer times are for the latitude and longitude below." },
+    { key: "lat", label: "Latitude", type: "decimal", page: "services" },
+    { key: "lon", label: "Longitude", type: "decimal", page: "services" },
+    { group: "Gold and currency prices", page: "services" },
+    { key: "pricesUrl", label: "Where the prices come from", type: "text", placeholder: "https://tirezh.com/api/economy", page: "services",
+      hint: "The tirezh worker at another address: its workers.dev address from Cloudflare, or a new domain (the TV adds /api/economy to a bare address). Empty = tirezh.com. Which prices the TV shows is on the Screen tab." },
+
+    // This TV box
+    { group: "", page: "box" },
+    { key: "tvName", label: "Name of this TV", type: "text", only: true, withOthers: true, page: "box", hint: "Shown on the phone page, e.g. Garden. Empty means its number." },
+    { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", page: "box", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
+    { group: "Keeping the box in Twilight TV", page: "box" },
+    { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle", page: "box",
+      hint: "Whatever else is opened on the box is sent away in a few seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Settings, Tools) or hold Back for 10 seconds." },
+    { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus", page: "box",
+      hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
+    { group: "Restart and updates", page: "box" },
+    { key: "restartAt", label: "Fresh start every night at", type: "time", page: "box" },
+    { key: "updates", label: "Download new versions by themselves", type: "toggle", page: "box" }
   ];
+
+  // The YouTube key only matters for a playlist of 200 songs or more (YouTube's player reads 200 at most), or once there is one
+  function bigPlaylist() { return !!String(value("apiKey") || "").trim() || !!(last && last.page && last.page.songs >= 200); }
+
   // The TV's words, if the TV hasn't reported them yet
   var WORDS = {
     locale: "en-GB", weekdays: "", months: "", hijriMonths: "", kurdishMonths: "", nowPlaying: "Now playing", upNext: "Up next", menu: "Menu", menuHint: "Scan for the menu",
@@ -517,9 +693,19 @@
     weatherCredit: "Under the weather from MET Norway: their condition for the free data is a credit where it's shown"
   };
 
-  var data = null, local = {}, base = {}, others = [];
+  var data = null, local = {}, saved = {}, base = {}, others = [];
 
-  function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  // The same value, whatever order an object's keys are in
+  function canon(v) {
+    if (v instanceof Array) return v.map(canon);
+    if (v && typeof v === "object") {
+      var o = {};
+      Object.keys(v).sort().forEach(function (k) { o[k] = canon(v[k]); });
+      return o;
+    }
+    return v;
+  }
+  function same(a, b) { return JSON.stringify(canon(a)) === JSON.stringify(canon(b)); }
   function copy(v) { return v === undefined ? v : JSON.parse(JSON.stringify(v)); }
   function value(key) { return key in local ? local[key] : base[key]; }
   function sourceOf(key) {
@@ -527,6 +713,8 @@
     if (data && data.file && key in data.file) return "settings.json";
     return "built-in";
   }
+  function fieldOf(key) { return FIELDS.filter(function (f) { return f.key === key; })[0] || null; }
+  function forms() { return [].slice.call(document.querySelectorAll("[data-form]")); }
 
   function updateAllBox() {
     $("allBox").hidden = !others.length;
@@ -535,10 +723,12 @@
 
   function loadSettings() {
     if (!pin) return askPin("");
-    ["form", "screenForm"].forEach(function (id) {
-      $(id).innerHTML = "";
-      $(id).appendChild(el("p", { class: "intro" }, "Loading the settings…"));
-    });
+    if (!data) {
+      forms().forEach(function (f) {
+        f.innerHTML = "";
+        f.appendChild(el("p", { class: "intro" }, "Loading the settings…"));
+      });
+    }
     api("/api/settings").then(function (d) {
       data = d;
       var defaults = d.defaults || {};
@@ -550,14 +740,16 @@
         base[f.key] = copy(v);
       });
       local = copy(d.local || {});
+      RETIRED.forEach(function (k) { delete local[k]; });
+      saved = copy(local);
       others = d.others || [];
       updateAllBox();
       buildForm();
     }).catch(function (e) {
-      if (e.message === "pin" || e.message === "locked") return;
-      ["form", "screenForm"].forEach(function (id) {
-        $(id).innerHTML = "";
-        $(id).appendChild(el("p", { class: "intro" }, "Couldn't load the settings. Check the Wi-Fi and try again."));
+      if (e.message === "pin" || e.message === "locked" || data) return;
+      forms().forEach(function (f) {
+        f.innerHTML = "";
+        f.appendChild(el("p", { class: "intro" }, "Couldn't load the settings. Check the Wi-Fi and try again."));
       });
     });
   }
@@ -569,6 +761,7 @@
     var f = document.querySelector('.field[data-key="' + key + '"]');
     if (f) refreshSource(f, key);
     $("saveMsg").textContent = "";
+    updateSavebar();
   }
 
   function refreshSource(f, key) {
@@ -578,37 +771,54 @@
     reset.hidden = !(key in local);
   }
 
+  // The settings changed on the phone and not saved yet
+  function unsaved() {
+    var keys = {}, out = [];
+    Object.keys(local).concat(Object.keys(saved)).forEach(function (k) { keys[k] = true; });
+    Object.keys(keys).forEach(function (k) { if (!same(local[k], saved[k])) out.push(k); });
+    return out;
+  }
+
+  // The Save bar, while there are unsaved changes (on the Screen and Settings tabs); a dot on their tabs and pages
+  function updateSavebar() {
+    var keys = data ? unsaved() : [], where = {};
+    keys.forEach(function (k) { var f = fieldOf(k); if (f) where[f.page] = true; });
+    var on = keys.length > 0 && (view === "screen" || view === "settings");
+    $("savebar").hidden = !on;
+    document.body.classList.toggle("saving", on);
+    $("changes").textContent = keys.length === 1 ? "1 unsaved change" : keys.length + " unsaved changes";
+    tabOf("screen").classList.toggle("unsaved", !!where.screen);
+    tabOf("settings").classList.toggle("unsaved", Object.keys(where).some(function (p) { return p !== "screen"; }));
+    document.querySelectorAll(".navrow").forEach(function (b) { b.classList.toggle("unsaved", !!where[b.getAttribute("data-page")]); });
+  }
+
   function buildForm() {
-    var forms = { settings: $("form"), screen: $("screenForm") }, card = null;
-    forms.settings.innerHTML = "";
-    forms.screen.innerHTML = "";
+    var cards = {}, y = window.scrollY;
+    forms().forEach(function (f) { f.innerHTML = ""; });
     FIELDS.forEach(function (f) {
-      var form = forms[f.tab || "settings"];
-      if (f.group) {
-        form.appendChild(el("p", { class: "group" }, f.group));
-        card = el("section", { class: "card" });
-        form.appendChild(card);
+      var form = document.querySelector('[data-form="' + f.page + '"]');
+      if (!form) return;
+      if (f.group != null) {
+        if (f.group) form.appendChild(el("h2", { class: "group" }, f.group));
+        cards[f.page] = form.appendChild(el("section", { class: "card" }));
         return;
       }
-      if (f.pictures) {                          // the café's pictures: saved at once, not with the button
-        form.appendChild(el("p", { class: "group" }, "Pictures between songs"));
-        form.appendChild(picturesCard());
-        card = null;
+      if (f.pictures || f.cafeScreen) {          // pictures: saved at once, not with the button
+        form.appendChild(el("h2", { class: "group" }, f.pictures ? "Pictures between songs" : "Café screen pictures"));
+        form.appendChild(f.pictures ? picturesCard() : cafeScreenCard());
+        cards[f.page] = null;
         return;
       }
-      if (f.cafeScreen) {                        // the café screen's pictures: saved at once, on every TV
-        form.appendChild(el("p", { class: "group" }, "Café screen pictures"));
-        form.appendChild(cafeScreenCard());
-        card = null;
-        return;
-      }
-      if (f.looks) { card.appendChild(looksField()); return; }
+      if (f.looks) { cards[f.page].appendChild(looksField()); return; }
       if (f.withOthers && !others.length) return;   // only with more than one TV box
-      card.appendChild(buildField(f));
+      if (f.when && !f.when()) return;
+      cards[f.page].appendChild(buildField(f));
     });
     drawPictures();
     drawLooks();
     refreshPrayerTimes();
+    updateSavebar();
+    window.scrollTo(0, y);
   }
 
   function buildField(f) {
@@ -617,17 +827,18 @@
     var id = "f-" + f.key;
     head.appendChild(el("label", { for: id }, f.label));
     head.appendChild(el("span", { class: "src" }));
+    box.appendChild(head);
+    box.appendChild(control(f, id));
+    box.appendChild(el("p", { class: "err", hidden: "" }));
     var reset = el("button", { type: "button", class: "reset" }, f.only ? "Clear" : "Use the shared value");
     reset.addEventListener("click", function () {
       delete local[f.key];
       box.parentNode.replaceChild(buildField(f), box);
       refreshPrayerTimes();
+      updateSavebar();
     });
-    head.appendChild(reset);
-    box.appendChild(head);
-    box.appendChild(control(f, id));
+    box.appendChild(reset);
     if (f.hint) box.appendChild(el("p", { class: "hint" }, f.hint));
-    box.appendChild(el("p", { class: "err", hidden: "" }));
     refreshSource(box, f.key);
     return box;
   }
@@ -1155,7 +1366,7 @@
       all ? "Nothing customers can see yet" : "Nothing on the menu yet"));
     var p = el("p", { class: "label", style: "margin-top:6px" });
     if (menu.link) {
-      p.textContent = "The TV shows the code for your other menu (Screen tab, Link to another menu). Empty that link to show this menu instead.";
+      p.textContent = "The TV shows the code for another menu, from menuUrl in settings.json. Take menuUrl out of settings.json to show this menu instead.";
     } else if (menu.address) {
       p.appendChild(document.createTextNode("The menu code is on the TV. Phones on the café Wi-Fi open it. "));
       p.appendChild(el("a", { href: menu.address || "/menu/", target: "_blank", rel: "noopener" }, "See it as customers do"));
@@ -1291,6 +1502,7 @@
     ed.place = loc ? loc.at : listNow.length;
     ed.startHome = ed.home;
     drawEditor();
+    try { history.pushState({ editor: true }, ""); } catch (e) {}
   }
 
   function drawEditor() {
@@ -1441,11 +1653,13 @@
     sel.value = String(ed.place);
   }
 
-  function closeEditor() {
+  // fromHistory: the phone's Back button closed it (else the editor's own place in the history goes too)
+  function closeEditor(fromHistory) {
     ed = null;
     $("editor").hidden = true;
     $("editor").innerHTML = "";
     document.body.style.overflow = "";
+    try { if (fromHistory !== true && history.state && history.state.editor) history.back(); } catch (e) {}
   }
   $("editor").addEventListener("click", function (e) { if (e.target === $("editor") && !menuBusy) closeEditor(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && ed && !menuBusy) closeEditor(); });
@@ -2084,13 +2298,14 @@
 
   /* ---------- Saving ---------- */
 
+  // What would be wrong on the TV, each marked at its setting: [{ key, msg }]
   function problems() {
     var bad = [];
     document.querySelectorAll(".field .err").forEach(function (e) { e.hidden = true; });
     function flag(key, msg) {
       var e = document.querySelector('.field[data-key="' + key + '"] .err');
       if (e) { e.textContent = msg; e.hidden = false; }
-      bad.push(msg);
+      bad.push({ key: key, msg: msg });
     }
     var hours = String(value("openHours") || "").trim();
     if (hours && !/^\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2}(\s*,\s*\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2})*$/.test(hours)) {
@@ -2104,34 +2319,70 @@
     return bad;
   }
 
+  // A setting where it is: on the Screen tab, or on its page of the Settings tab, in the middle of the screen
+  function goTo(key) {
+    var f = fieldOf(key);
+    if (!f) return;
+    if (f.page === "screen") show("screen");
+    else {
+      if (view !== "settings") show("settings");
+      openPage(f.page);
+    }
+    var box = document.querySelector('.field[data-key="' + key + '"]');
+    if (box) box.scrollIntoView({ block: "center" });
+  }
+
+  $("discard").addEventListener("click", function () {
+    var n = unsaved().length;
+    if (!n || !window.confirm(n === 1 ? "Discard the change you haven't saved?" : "Discard the " + n + " changes you haven't saved?")) return;
+    local = copy(saved);
+    $("saveMsg").textContent = "";
+    buildForm();
+  });
+
   $("saveAll").addEventListener("change", function () {
     $("save").textContent = $("saveAll").checked ? "Save on every TV" : "Save on this TV";
   });
 
   $("save").addEventListener("click", function () {
     if (!data) return;
-    if (problems().length) {
-      $("saveMsg").textContent = "Fix the marked settings first" + (view === "screen" ? " (some are on the Settings tab)." : ".");
+    var bad = problems();
+    if (bad.length) {
+      $("saveMsg").textContent = bad.length === 1 ? "Fix the marked setting first." : "Fix the " + bad.length + " marked settings first.";
       $("saveMsg").className = "bad";
+      goTo(bad[0].key);
       return;
     }
-    var all = !$("allBox").hidden && $("saveAll").checked;
+    var all = !$("allBox").hidden && $("saveAll").checked, sent = copy(local);
     $("save").disabled = true;
     $("saveMsg").className = "";
     $("saveMsg").textContent = all ? "Saving on every TV…" : "Saving…";
-    api("/api/settings?all=" + (all ? 1 : 0), "POST", { local: local }).then(function (r) {
+    api("/api/settings?all=" + (all ? 1 : 0), "POST", { local: sent }).then(function (r) {
       if (r.pin && r.pin !== pin) {                 // this TV's PIN just changed: keep using it
         pin = r.pin;
         try { localStorage.setItem(KEY, pin); } catch (e) {}
       }
       var msg = "Saved on " + (r.tv || "this TV") + "." + (r.restarting ? " The app restarts on it to use the change." : "");
       (r.others || []).forEach(function (o) { msg += " " + o.name + ": " + o.result + "."; });
-      $("saveMsg").textContent = msg;
+      saved = sent;
+      $("saveMsg").textContent = "";
+      $("saveAll").checked = false;
+      $("save").textContent = "Save on this TV";
+      updateSavebar();
+      say(msg);
       loadSettings();
       setTimeout(poll, 400);
     }).catch(function (e) {
       if (e.message !== "pin" && e.message !== "locked") { $("saveMsg").textContent = "Couldn't save. Check the Wi-Fi and try again."; $("saveMsg").className = "bad"; }
+      else $("saveMsg").textContent = "";
     }).then(function () { $("save").disabled = false; });
+  });
+
+  // Leaving the page (another TV, or closing it) with unsaved changes: the browser asks first
+  window.addEventListener("beforeunload", function (e) {
+    if (!data || !unsaved().length) return;
+    e.preventDefault();
+    e.returnValue = "";
   });
 
   document.querySelectorAll("[data-tool]").forEach(function (b) {
@@ -2143,13 +2394,20 @@
         $("toolMsg").textContent = !r.ok ? "The TV couldn't do that right now." :
           what === "testmode" ? "Done: look at the TV." :
           what === "restart" ? "The app is restarting on the TV." :
-          what === "checkupdate" ? "Looking for a new version. If there is one, Install update appears on the Control tab within a minute." :
+          what === "checkupdate" ? "Looking for a new version. If there is one, Install update appears at the top within a minute." :
           what === "unlock" ? "Unlocked for 15 minutes: other apps and the box's settings can be opened. Then it locks again by itself." :
           what === "lock" ? "Locked again: only Twilight TV and the other app." :
           "This TV's memory is cleared. The music starts again.";
       }).catch(function () {}).then(function () { b.disabled = false; if (what === "unlock" || what === "lock") poll(); });
     });
   });
+
+  // Back on this phone page from another TV's: the settings page that was open opens again
+  try {
+    var left = history.state || {};
+    if (PAGES[left.page]) { show("settings"); openPage(left.page, true); }
+    else if (left.editor) history.replaceState(null, "");
+  } catch (e) {}
 
   poll();
 })();

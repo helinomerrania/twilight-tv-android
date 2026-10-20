@@ -3,6 +3,7 @@ package com.twilightcafe.tvplayer.phone;
 import com.twilightcafe.tvplayer.app.TvApp;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Iterator;
@@ -34,7 +35,6 @@ public final class PhoneSettings {
             defaults.put("videoFormat", "h264");
             defaults.put("screenSize", "1080");
             defaults.put("screenRate", "box");
-            defaults.put("engineNumbers", false);
             defaults.put("pricesUrl", "");
             defaults.put("lockApps", true);
             defaults.put("otherApp", "My TV Plus");
@@ -58,14 +58,12 @@ public final class PhoneSettings {
      * other TVs too (each keeps its own name). Null when the body is wrong.
      */
     public String save(String body, boolean all) {
-        JSONObject clean = new JSONObject();
+        JSONObject clean;
         try {
-            JSONObject mine = new JSONObject(body).optJSONObject("local");
+            JSONObject sent = new JSONObject(body);
+            JSONObject mine = sent.optJSONObject("local");
             if (mine == null) return null;
-            for (Iterator<String> it = mine.keys(); it.hasNext(); ) {
-                String k = it.next();
-                if (k.matches("[A-Za-z][A-Za-z0-9]{0,40}")) clean.put(k, mine.get(k));
-            }
+            clean = ownSettings(mine, app.core.settings.local(), sent.optBoolean("fromTv"));
         } catch (Exception e) {
             return null;
         }
@@ -80,8 +78,8 @@ public final class PhoneSettings {
             JSONArray done = new JSONArray();
             if (all) {
                 JSONObject forOthers = new JSONObject(clean.toString());
-                forOthers.remove("tvName");                // each TV keeps its own name
-                String payload = new JSONObject().put("local", forOthers).toString();
+                forOthers.remove("tvName");                // each TV keeps its own name (fromTv)
+                String payload = new JSONObject().put("local", forOthers).put("fromTv", true).toString();
                 done = app.network.sendToOthers("api/settings?all=0", oldPin, payload);
             }
             result.put("others", done);
@@ -95,5 +93,23 @@ public final class PhoneSettings {
         } catch (Exception e) {
             return "{\"ok\":true}";
         }
+    }
+
+    /**
+     * This TV's own settings, from what a phone sent: settings with proper names only. From another TV (saved
+     * there "on every TV"), this TV keeps its own name, which the other TV doesn't send.
+     */
+    static JSONObject ownSettings(JSONObject sent, JSONObject now, boolean fromTv) throws JSONException {
+        JSONObject clean = new JSONObject();
+        for (Iterator<String> it = sent.keys(); it.hasNext(); ) {
+            String k = it.next();
+            if (k.matches("[A-Za-z][A-Za-z0-9]{0,40}")) clean.put(k, sent.get(k));
+        }
+        if (fromTv) {
+            clean.remove("tvName");
+            String own = now.optString("tvName", "");
+            if (!own.isEmpty()) clean.put("tvName", own);
+        }
+        return clean;
     }
 }

@@ -102,10 +102,10 @@ Of the pages' own files, each server hands out only those on its lists in `Contr
 
 **Adding a file to a page:** put it in the page's folder, add it to that page's list in `ControlServer`, and refer to it from the page. `PageFilesTest` checks that every file on the lists is in the app, that each page asks only for files its server hands out, and that nothing unused sits in the folders.
 
-**Inside the scripts.** `tv.js` (about 2,500 lines) and `phone.js` (about 2,100) are each one script, in sections with a heading comment:
+**Inside the scripts.** `tv.js` (about 2,600 lines) and `phone.js` (about 2,400) are each one script, in sections with a heading comment:
 
 - `tv.js`: memory, shuffle, reading the playlist, player events, the watchdog (picture, ads, fades, stalls), picture, sound, zoom, opening hours and the volume schedule, songs from the phone, song names, the call to prayer, special days, between songs (the café screen, messages, pictures, the menu), the frame around the video, the weather, the link to the app, keys, test mode, and the start.
-- `phone.js`: Control, choosing a song, tabs, Settings (and the Screen tab), the café's pictures, the café screen's pictures, the menu (and changing one thing on it), the menu in and out (a spreadsheet or a backup), saving.
+- `phone.js`: the Now tab (what's playing, the status and the diary, drawn from one report every 2 seconds), choosing a song, the tabs and the Settings tab's pages (the phone's Back button closes a page, and the menu editor), the settings (every one in `FIELDS`, page by page; those no longer on the phone in `RETIRED`), the café's pictures, the café screen's pictures, the menu (and changing one thing on it), the menu in and out (a spreadsheet or a backup), saving (the Save bar shows only while a change isn't saved).
 
 ## Tests
 
@@ -121,6 +121,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 | `phone/PageFilesTest` | The pages' files are all there, and each page asks only for what its server hands out |
 | `phone/ControlServerRequestsTest` | The two web servers answering real requests: the PIN and its lockouts, every address, the pictures and the menu, the TV page for the box only, slow or crowding phones, the customers' server |
 | `phone/ControlServerTest`, `HttpTest`, `PinGuardTest` | Which requests come from the box itself, how long a phone may take to send, reading requests and writing replies, the PIN lockouts |
+| `phone/PhoneSettingsTest` | What a phone's save keeps, and each TV keeping its own name when settings are saved on every TV |
 | `store/MenuStoreTest`, `PictureStoreTest`, `LookStoreTest` | The menu (saving, two phones at once, what customers see, pictures, the TV's slides), the café's pictures, the café screen's pictures |
 | `feeds/FeedsTest`, `PrayerFeedTest`, `PriceFeedTest`, `TitleBookTest` | Song names, the weather, the call to prayer's times from the town's page, the prices from tirezh.com: reading them, keeping them, and what happens offline |
 | `schedule/ScheduleTest` | Reading times, once a day, every so often, the box's own time zone |
@@ -148,7 +149,7 @@ They need Node, Java, Chrome or Chromium (`CHROME_PATH` says where, if it isn't 
 |---|---|
 | `tv` | The TV page in jsdom, with a stand-in YouTube player and clock: starting, fades, volume and zoom, schedules and opening hours, the call to prayer, special days, the frame around the video, the café screen and menu slides, the link to the app, test mode |
 | `tv-files` | The TV page's files from the app's real server, in Chrome: each arrives with its type, and none of them reaches the café network |
-| `phone`, `phone-settings`, `phone-screens` | The phone page at phone size, against a stand-in TV: the PIN, the controls, choosing songs, Settings, the Screen tab, pictures |
+| `phone`, `phone-settings`, `phone-screens` | The phone page at phone size, against a stand-in TV: the PIN, the tabs, the controls, choosing songs, the Settings tab's pages and the Save bar, Status and diary, the Screen tab, pictures |
 | `phone-menu`, `menu-io`, `menu-pictures` | The Menu tab against the app's real server and menu store: making a menu, Excel and CSV in and out, backups, descriptions, pictures |
 | `pin-guessing` | What a phone sees while someone is guessing the PIN |
 | `customer-menu` | The customers' menu on a phone: languages, categories, an item up close |

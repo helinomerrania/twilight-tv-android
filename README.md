@@ -8,7 +8,7 @@ Your café TV page as an Android app for the TV boxes. It plays full screen, sta
 - **The café's menu:** customers scan the menu code on the TV and the menu opens on their phone: categories, items, prices and pictures, in Kurdish, Arabic or English. Staff change it on the phone page's Menu tab.
 - **The call to prayer:** the music pauses for 5 minutes at each prayer, during opening hours, at amozhgary.tv's times for Ranya.
 - **Special days:** Newroz, Eid al-Fitr, Eid al-Adha, Barat Night and New Year each get their own picture on the café screen and a greeting.
-- **Settings on the phone:** every setting, on one TV or all of them at once, used straight away.
+- **Settings on the phone:** in pages that belong together, on one TV or all of them at once, used as soon as they're saved. With the TV's status and a diary of its restarts.
 - **One settings file:** `settings.json` in this repository reaches every TV, with no reinstalling.
 - **Schedules:** opening hours, a playlist and a volume for each time of day, a fade-out before closing, and the box's own volume reset at opening time. Never two songs by the same singer in a row.
 - **Updates:** new versions download by themselves; staff install them from the phone page.
@@ -29,7 +29,7 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 - On Android 9 and older, the app opens by itself whenever the box turns on, with nothing to set up.
 - On Android 10 and newer, it asks once whether to **start with the TV**. Choose **Open settings**, pick **Twilight TV** and switch it on.
 
-**Firefox's engine comes inside the app,** so the box's own web engine doesn't matter. (On these boxes it's from 2018, too old for YouTube's controls, and they won't take a newer one.) That makes the app about 85 MB. The phone page lists the engine with the facts at the bottom.
+**Firefox's engine comes inside the app,** so the box's own web engine doesn't matter. (On these boxes it's from 2018, too old for YouTube's controls, and they won't take a newer one.) That makes the app about 85 MB. The phone page lists the engine under Settings, **Status and diary**.
 
 ## The remote
 
@@ -62,23 +62,21 @@ The phone's Settings tab shows the lock's state under **Tools**, with **Unlock t
 
 To put it on the phone's home screen with the café's icon: in the phone's browser menu, choose **Add to Home screen** (on an iPhone: Share, then **Add to Home Screen**).
 
-The **Control** tab has:
-- **Pause music** and **Next song**, and what's coming next.
-- **Quiet for a minute:** the music goes down to 15% for a minute (press again for longer), then back by itself. **Back to normal volume** ends it early.
-- **Picture stuck? Get it moving again:** when the picture freezes but the sound plays on, this plays the same song on from the same moment (a fifth of a second back), with the picture decoded afresh.
-- **Song volume:** this song only; the next song is back to the volume in Settings.
-- **Zoom:** for black bars.
-- **TV volume:** the box's own volume. With **Box volume** set in Settings, every new song goes back to it, whatever the remote did.
-- **Choose a song:** search the playlist by name or singer, then **Next** (after the song playing now) or **Now**. Or paste any YouTube link (from YouTube's Share button) and press **Play next** or **Play now**. Songs asked for are listed under **Waiting to play**, where × takes one off again.
-- **Last songs:** the last 20 songs, with the time each played. **Again** plays one next.
-- **Songs that won't play:** each one links to YouTube.
-- **What happened on this TV:** restarts, crashes and the box going to sleep and waking up, newest first, each with its time. When the box started again by itself, it says how long it was off, what Android gives as the reason (when it gives one), and how much free memory the box had and how hot its chip was a minute before. If a TV ever turns off by itself, look here.
-- **Install update:** appears when a new version is waiting.
-- With more than one TV box: **Show this TV's name on its screen**, and each TV's name at the top opens that TV's page.
+The page has five tabs along the bottom:
+- **Now:** the song playing, with its picture from YouTube and a word over it (Playing, Paused, Closed, Call to prayer), and the controls used every day:
+  - **Pause music** and **Next song**, and what's coming next.
+  - **Quiet for a minute:** the music goes down to 15% for a minute (press again for longer), then back by itself. **Back to normal volume** ends it early.
+  - **This song:** its volume, until it ends; the next song is back to the volume in Settings. **TV box:** the box's own volume (with **Box volume** set in Settings, every new song goes back to it, whatever the remote did). **Zoom:** for black bars.
+  - **Today:** the next call to prayer, the opening hours, and how far this round of the playlist has come.
+  - **Picture stuck? Get it moving again:** when the picture freezes but the sound plays on, this plays the same song on from the same moment (a fifth of a second back), with the picture decoded afresh.
+- **Songs:** **Choose a song:** search the playlist by name or singer, then **Next** (after the song playing now) or **Now**. Or paste any YouTube link (from YouTube's Share button) and press **Play next** or **Play now**. Songs asked for are listed under **Waiting to play**, where × takes one off again. **Last songs:** the last 20, with the time each played; **Again** plays one next. **Songs that won't play:** each one links to YouTube.
+- **Screen:** what the TV shows around the video and between songs: the messages and the menu's items between songs, the pictures between songs, the info panel beside the video, which gold and currency prices, the Wi-Fi for its QR code, the café screen's pictures, special days, and the words on the TV.
+- **Menu:** the café's menu for customers (below).
+- **Settings:** the settings in pages, the TV's status and diary, and the tools (below).
+
+What needs attention shows at the top of every tab: **Install update** when a new version is waiting, the TV out of reach, Twilight TV not on the TV's screen. With more than one TV box, each TV's name at the top opens that TV's page.
 
 A pause starts again by itself after 3 hours. Outside opening hours, the button says **Play anyway**, which plays for 3 hours. During the call to prayer it says **Resume music**, which brings the music back for that prayer.
-
-The **Screen** tab has what the TV shows around the video and between songs: which prices, the messages, the pictures, the menu's items between songs, the Wi-Fi for its QR code (and a link to another menu, if you have one), the info panel, numbers and special days, and the words on the TV. The **Menu** tab has the café's menu for customers (below). **Settings** has everything else.
 
 ## The café's menu
 
@@ -103,7 +101,7 @@ To change it, open the phone page's **Menu** tab. At first it has the café's ca
 - **Save a backup with the pictures** gives one file with everything. Importing it puts the whole menu, pictures too, on this TV or another one.
 - An imported file takes the place of the menu on the TV, after you say yes to what's in it. A file with an **ID** column and no Type column changes only what its other columns hold (descriptions written somewhere else, say, or prices), for the IDs in it; everything else stays, and IDs that aren't on the menu are skipped and said.
 
-Each change is saved on the TV at once. If two phones change the menu at the same moment, the second is told and sees the menu as it is now. The menu code appears on the TV once customers can see something on the menu. **Link to another menu** (Screen tab, `menuUrl`) is only for a menu somewhere else: while it's set, the TV shows its code instead.
+Each change is saved on the TV at once. If two phones change the menu at the same moment, the second is told and sees the menu as it is now. The menu code appears on the TV once customers can see something on the menu. `menuUrl` in `settings.json` is only for a menu somewhere else: while it's set, the TV shows its code instead.
 
 The menu and its pictures are kept on the TV box; they aren't in `settings.json`.
 
@@ -113,9 +111,9 @@ The video is a card in the top corner (1280x720 on a 1920x1080 screen), with car
 
 In Kurdish (the words in `settings.json`) the whole screen is mirrored: the video on the right, everything read from the right, and every number the TV writes in Kurdish digits (١٢٣). Song names, the Wi-Fi password and your messages stay exactly as typed.
 
-- **Prices:** from Tirezh Index (tirezh.com), which the app asks every 5 minutes by itself, with tirezh.com's own Kurdish names (the pound's and bitcoin's are words in `settings.json`): the dollar, the euro, the pound, the Turkish lira, the Iranian toman, gold 21 and 18 to begin with (green going up, red going down), with the time tirezh.com set them. Choose up to seven on the phone (Screen tab): 14 currencies, gold by karat (per mithqal), world gold or silver per ounce, bitcoin. They stand still in one row, centred. The dollar is in dinars; the toman, lira, riyal, dirham and Jordanian dinar are so many tomans, liras and so on (تمەن، لیرە، ڕیاڵ، درهەم، دینار) for 100 dollars, with a small grey **100$** label after their name; the other currencies, so many dollars. If the app can't reach tirezh.com for 3 hours, the prices go away rather than show old ones. **Where the prices come from** (Screen tab, or `pricesUrl` in `settings.json` for every TV) takes another address for the same price list: the tirezh worker's workers.dev address, or a new domain (the TV adds `/api/economy` to a bare address).
+- **Prices:** from Tirezh Index (tirezh.com), which the app asks every 5 minutes by itself, with tirezh.com's own Kurdish names (the pound's and bitcoin's are words in `settings.json`): the dollar, the euro, the pound, the Turkish lira, the Iranian toman, gold 21 and 18 to begin with (green going up, red going down), with the time tirezh.com set them. Choose up to seven on the phone (Screen tab): 14 currencies, gold by karat (per mithqal), world gold or silver per ounce, bitcoin. They stand still in one row, centred. The dollar is in dinars; the toman, lira, riyal, dirham and Jordanian dinar are so many tomans, liras and so on (تمەن، لیرە، ڕیاڵ، درهەم، دینار) for 100 dollars, with a small grey **100$** label after their name; the other currencies, so many dollars. If the app can't reach tirezh.com for 3 hours, the prices go away rather than show old ones. **Where the prices come from** (Settings, Weather and prices, or `pricesUrl` in `settings.json` for every TV) takes another address for the same price list: the tirezh worker's workers.dev address, or a new domain (the TV adds `/api/economy` to a bare address).
 - **Dates:** in Kurdish as written in Kurdistan: دووشەممە، ١٢ی تشرینی یەکەم، ٢٠٢٦, then the Hijri date (amozhgary.tv's, see Special days), then the Kurdish calendar's (its year starts at Newroz: 2026 is 2726). The Kurdish months are a word in `settings.json` (`kurdishMonths`); without them there's no Kurdish date. **Kurdish date: the year begins on** (Screen tab) is 21 March every year unless you choose the day of the spring equinox, as in Iran's calendar (see Special days).
-- **Weather:** from WeatherAPI.com when its key is on the phone (Settings, Weather; a free account at weatherapi.com, no card), checked every 15 minutes, with the temperature measured now. Without a key, from MET Norway (the Norwegian Meteorological Institute), about every 30 minutes; its data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/), on the condition that MET Norway is credited where it's shown, so "MET Norway" stands under the weather in small. WeatherAPI.com asks for no credit, so with its key there's none. The app keeps the next 48 hours, so a short internet cut changes nothing. The weather pictures are Meteocons by Bas Milius (MIT license). The key goes on the phone: a key in `settings.json`, which is public, is left out.
+- **Weather:** from WeatherAPI.com when its key is on the phone (Settings, Weather and prices; a free account at weatherapi.com, no card), checked every 15 minutes, with the temperature measured now. Without a key, from MET Norway (the Norwegian Meteorological Institute), about every 30 minutes; its data is free under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/), on the condition that MET Norway is credited where it's shown, so "MET Norway" stands under the weather in small. WeatherAPI.com asks for no credit, so with its key there's none. The app keeps the next 48 hours, so a short internet cut changes nothing. The weather pictures are Meteocons by Bas Milius (MIT license). The key goes on the phone: a key in `settings.json`, which is public, is left out.
 - **Song names** come from YouTube (once per song, then kept). "(Official Video)", "[4K]" and the like are left out on the TV.
 - **The words on the TV** are in English until you type your own (for example in Kurdish) under **Words on the TV** on the Screen tab. A right-to-left language mirrors the whole screen.
 - **Numbers on the TV** (Screen tab): in the language's own digits (Kurdish ١٢٣ with Kurdish words), always Kurdish digits, or always 123.
@@ -137,7 +135,7 @@ Whenever the café screen comes up between two songs, it shows the café's pictu
 
 At each of the five prayers, during opening hours only, the music fades out for 5 minutes and the café screen says why; then the same song carries on. The times come from amozhgary.tv's page for Ranya (amozhgary.tv/bang/Ranya, the month's table), which the app reads once a day and keeps; set another town under **Settings, Call to prayer**. If the page can't be read, the TV works the times out itself (Muslim World League: Fajr 18°, Isha 17°, Asr Shafi'i).
 
-- **Today's times** are at the bottom of the Control tab, and beside each prayer under **Settings, Call to prayer**.
+- **Today's times** are under Settings, **Status and diary** (the next one on the Now tab), and beside each prayer under **Settings, Call to prayer**.
 - **If they differ from your mosque,** move a prayer by minutes there (for example Asr +2) and Save.
 - **Resume music** on the phone during a pause brings the music back for that prayer.
 - **0 minutes** switches the pause off.
@@ -152,7 +150,7 @@ The Hijri date, and with it Eid and Barat Night, comes from amozhgary.tv's month
 
 YouTube picks the quality itself. To make it use the highest, choose it once in YouTube's own menu on each TV. YouTube remembers the choice on that TV for weeks.
 
-1. On the phone page, Control tab, press **Choose the highest quality on the TV**.
+1. On the phone page, Settings, **Picture**, press **Choose the highest quality on the TV**.
 2. On the TV, a pointer appears. Move it with the remote's arrow buttons and press **OK** to click. A USB mouse plugged into the box works too.
 3. Move it over the video, so YouTube shows its controls at the bottom. If they don't appear, click the video once.
 4. Click the gear ⚙ at the bottom right (or top right). Choose **Quality**, then the highest number (1080p, unless the video format below is VP9).
@@ -160,22 +158,22 @@ YouTube picks the quality itself. To make it use the highest, choose it once in 
 
 During setup the app asks YouTube for the version of its player it gives computers, as a browser's "Desktop site" option does: its controls appear when the pointer moves over the video. The quality choice is saved in the same place either way, so the music afterwards uses it. A line under the instructions on the TV shows which version is on, whether the video is paused, and the picture quality playing.
 
-The Control tab shows the quality YouTube is actually playing.
+The phone shows the quality YouTube is actually playing: over the song on the Now tab, and at the top of Settings, Picture.
 - **If videos start pausing to load:** the internet can't keep up with that quality. Do the setup again and pick a lower number, or **Auto**.
 - **If the quality drops back after some weeks:** YouTube has forgotten the choice. Do the setup again.
 
 ## If the video stutters
 
-The app asks YouTube for video the box's chip decodes by itself, at 1080p at most. If a TV still stutters, the bottom of the phone page's Control tab says why:
-- **Video from YouTube:** H.264 only, unless **Video format from YouTube** (Settings, Picture and YouTube) says otherwise. Left to itself, Firefox's engine also accepts AV1, and YouTube sends AV1 for most popular videos. Few TV boxes' chips decode AV1, so the box does it on its processor, which can't keep up. Changing the format restarts the app on that TV.
+The app asks YouTube for video the box's chip decodes by itself, at 1080p at most. If a TV still stutters, the phone page's Settings, **Status and diary**, says why under **This TV box**:
+- **Video from YouTube:** H.264 only, unless **Video format from YouTube** (Settings, Picture) says otherwise. Left to itself, Firefox's engine also accepts AV1, and YouTube sends AV1 for most popular videos. Few TV boxes' chips decode AV1, so the box does it on its processor, which can't keep up. Changing the format restarts the app on that TV.
 - **The box's chip decodes:** the formats and sizes the chip plays itself.
 - **Graphics:** "too old for Firefox's engine" (the Mali-450 in many cheap boxes) means the engine draws everything on the box's processor. The app then asks YouTube for 720p. The real fix there is a box with newer graphics.
-- **Screen:** "drawn at 3840x2160" means the box draws in 4K, four times the work. **Screen resolution** (Settings, This TV box) is up to 1080p unless you change it; the TV still fills its screen.
+- **Screen:** "drawn at 3840x2160" means the box draws in 4K, four times the work. **Screen resolution** (Settings, Picture) is up to 1080p unless you change it; the TV still fills its screen.
 - **Refresh rate:** if movement jerks slightly in a steady rhythm, the video's frame rate doesn't suit the screen's. Videos made at 25 frames a second move evenly at 50 Hz, and 30 or 60 at 60 Hz: try **Screen refresh rate**.
 - If you chose a quality in YouTube's own menu (above), YouTube keeps using it. On a weak box, do that setup again and choose 720p or **Auto**.
-- **Firefox engine's frame counter on the TV** (Settings, Advanced) shows the engine's own numbers in the top corner of the TV; the app restarts to show or hide them. **FPS** is pictures drawn per second (as many as the video's own, 25 to 60, when all is well). **Rendered picture tiles** should be 0 most of the time: more means parts of the page are drawn again for every frame. **Compositor surface overlays** 1 means the video goes to the screen as a layer of its own; **blits** 1 means it's drawn into the page, which costs far more.
+- **The engine's frame counter:** `"engineNumbers": true` in `settings.json` shows the engine's own numbers in the top corner of every TV, from each one's next fresh start (take it out again afterwards). **FPS** is pictures drawn per second (as many as the video's own, 25 to 60, when all is well). **Rendered picture tiles** should be 0 most of the time: more means parts of the page are drawn again for every frame. **Compositor surface overlays** 1 means the video goes to the screen as a layer of its own; **blits** 1 means it's drawn into the page, which costs far more.
 
-If the picture freezes while the sound plays on: Firefox's engine stops decoding a video it thinks no one sees (under the café screen, at every song's start and end) and after a few seconds' pause, and starting again could leave the picture stuck. The app tells the engine never to stop. If it still happens, **Picture stuck? Get it moving again** on the phone's Control tab gets it going without changing the song.
+If the picture freezes while the sound plays on: Firefox's engine stops decoding a video it thinks no one sees (under the café screen, at every song's start and end) and after a few seconds' pause, and starting again could leave the picture stuck. The app tells the engine never to stop. If it still happens, **Picture stuck? Get it moving again** on the phone's Now tab gets it going without changing the song.
 
 The info panel is drawn so the video can stay its own layer: the video card's rounded corners are painted over the video, not cut out of it, and nothing beside it moves all the time.
 
@@ -183,22 +181,22 @@ Between songs the café screen fades over the video, and the video itself never 
 
 ## Settings on the phone
 
-On the phone page, open the **Settings** tab. Every setting is there, grouped:
-- **Music:** playlist, playlists by time of day, volume, volume by time of day, opening hours, fading out before closing, never the same singer twice in a row, repeats, the "Quiet for a minute" volume.
-- **Call to prayer:** how long the music pauses, and moving each prayer by minutes.
-- **Between songs:** fades, café screen at the start and end, cut endings.
-- **Picture and YouTube:** video format, quality, automatic zoom, ads, subtitles, the café name under the video when no music plays.
-- **This TV box:** its own volume, sound levelling, screen resolution and refresh rate, nightly restart, updates, keeping the box in Twilight TV and the one other app allowed, the PIN (and its name, with more than one box).
-- **Advanced:** the place for the weather and prayer times, reload interval, YouTube API key.
+On the phone page, open the **Settings** tab. It's a list of pages:
+- **Music:** the playlist, playlists by time of day, never the same singer twice in a row, fading in and out. With a playlist of 200 songs or more, also a YouTube Data API key: YouTube's player reads only the first 200.
+- **Hours and volume:** opening hours, fading out before closing, the normal volume, volume by time of day, the "Quiet for a minute" volume, sound levelling, the box's own volume.
+- **Call to prayer:** how long the music pauses, where the times come from, and moving each prayer by minutes.
+- **Picture:** the quality playing now and **Choose the highest quality on the TV** (below), then the highest quality, the video format, automatic zoom, YouTube's ads and subtitles, the café screen over each song's start and end, and the screen's resolution and refresh rate.
+- **Weather and prices:** the WeatherAPI.com key, the place with its latitude and longitude, and where the prices come from.
+- **This TV box:** its name (with more than one box), the PIN, keeping the box in Twilight TV and the one other app allowed, the nightly fresh start, updates.
+- **Status and diary:** first, **What happened on this TV**: restarts, crashes and the box going to sleep and waking up, newest first, each with its time, what went wrong in red. When the box started again by itself, it says how long it was off, what Android gives as the reason (when it gives one), and how much free memory the box had and how hot its chip was a minute before. If a TV ever turns off by itself, look here. Then what each part says: the music, today, what comes from the internet (settings.json, weather, prices, prayer times, updates) and the box itself. When something went wrong in the last week, the list of pages says when.
+- **Tools:** test mode on the TV, **Show this TV's name on its screen** (with more than one box), look for a new version, restart the app, unlock the box for 15 minutes, and clear the TV's memory (shuffle history, song volumes, zooms, the list of songs that won't play).
 
-Change what you like and press **Save on this TV**. Tick **Also on the other TVs** first to save the same settings on every TV the phone page lists (each TV keeps its own name). Changes are used straight away; a new playlist starts with the next song.
+Change what you like: a bar appears at the bottom with the number of changes not saved yet, and a dot marks their page and tab. Press **Save on this TV**, or **Discard** to go back to what's saved. Tick **Also on the other TVs** first to save the same settings on every TV the phone page lists (each TV keeps its own name). A setting that can't be right (opening hours written wrong, say) is marked, and the phone takes you to it. Saved changes are used straight away; a new playlist starts with the next song.
 
 Each setting shows where its value comes from:
 - **built-in:** the app's own value.
 - **settings.json:** the shared file on GitHub (see below).
 - **this TV:** saved from the phone. **Use the shared value** removes it again.
-
-The **Tools** at the bottom show or hide test mode on the TV, restart the app, look for a new version, and clear the TV's memory (shuffle history, song volumes, zooms, the list of songs that won't play).
 
 Each TV has its own PIN, or the one you choose in Settings (**PIN for this page**: 6 to 8 digits are far harder to guess than 4). Ten wrong PINs lock that phone out for 10 minutes. And since a new address on the Wi-Fi is easy to get, once 20 wrong PINs have come in an hour from all phones together, only phones that already had the right PIN can come in until the guessing stops; the phone page says so at the top. So customers on the Wi-Fi can't guess their way in.
 
@@ -227,6 +225,8 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 
 Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `menuSlides`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are in `app/src/main/assets/tv/settings.js`.
 
+A few are only here, not on the phone, because they're rarely worth changing: `cutEnding`, `noRepeat`, `refreshHours`, `menuUrl`, `kurdishNewYear`, and `engineNumbers` (the engine's frame counter, above). A value a TV kept for one of them from the phone before goes with that TV's next save.
+
 Keep the quotes and commas as they are. If the file ever has a mistake in it, the TVs keep using the last good settings, and test mode says so.
 
 ## Updates
@@ -242,7 +242,7 @@ The first time only, Android asks you to allow Twilight TV to install apps. Swit
 
 - **Sound levelling.** Android's own sound compressor makes quiet and loud songs closer in volume. If the box doesn't allow it, test mode says so and nothing changes.
 - **Wi-Fi at full power** while the app is on screen, so streaming doesn't stutter.
-- **The volume stays as set.** If YouTube's player changes its own volume, the TV puts it back within a quarter of a second. The phone page's facts say how often that happened.
+- **The volume stays as set.** If YouTube's player changes its own volume, the TV puts it back within a quarter of a second. The phone page's Status and diary says how often that happened.
 - **A frozen page is reloaded** after 2 minutes. If that happens three times in half an hour, the app starts a whole new web engine.
 - **A fresh start every night** at `restartAt` (05:00 unless you change it): a new web engine, or the whole app when the video format changed.
 

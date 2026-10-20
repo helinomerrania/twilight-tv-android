@@ -1,5 +1,5 @@
 // The phone control page in Chromium (phone-sized), talking to a stand-in TV
-const { launch, shot, servePhonePage } = require('./lib/common');
+const { FIXTURES, launch, shot, servePhonePage } = require('./lib/common');
 const http = require('http'), fs = require('fs');
 const cmds = [];
 let state = { paused: false, closed: false, vol: 80, zoom: 100, tv: 7, update: 0, notice: '', setup: false };
@@ -49,6 +49,21 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const page = await b.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const thumbs = [];                    // the song's picture comes from YouTube: a stand-in here, and nothing else from the internet
+  await page.setRequestInterception(true);
+  page.on('request', r => {
+    const u = r.url();
+    if (u.startsWith('https://i.ytimg.com/')) { thumbs.push(u); return r.respond({ status: 200, contentType: 'image/jpeg', body: fs.readFileSync(FIXTURES + '/sample-photo.jpg') }); }
+    if (u.startsWith(url) || u.startsWith('data:') || u.startsWith('blob:')) return r.continue();
+    r.abort();
+  });
+  // A setting's page, from the Settings tab; and a fact on the Status page, by its name
+  const openPage = async name => {
+    if (!(await page.$eval('#settingsView', e => !e.hidden))) { await page.tap('#tabSettings'); await sleep(300); }
+    if (await page.$eval('#setPage', e => !e.hidden)) { await page.tap('#setBack'); await sleep(300); }
+    await page.tap('.navrow[data-page="' + name + '"]'); await sleep(300);
+  };
+  const fact = name => page.evaluate(n => { const dt = [...document.querySelectorAll('#facts dt')].find(d => d.textContent === n); return dt ? dt.nextElementSibling.textContent : null; }, name);
   console.log('\nPhone control page (phone-sized Chromium)');
   await page.goto(url, { waitUntil: 'load' }); await sleep(400);
   check('first visit: asks for the TV\'s PIN', await page.$eval('#pin', e => !e.hidden));
@@ -63,9 +78,23 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     document.querySelector('#tvs span').textContent === 'TV 23'));
   check('now playing: title, time; picture quality YouTube reports', await page.evaluate(() => document.getElementById('song').textContent.startsWith('Hama Jaza') &&
     document.getElementById('pos').textContent === '1:23' && document.getElementById('dur').textContent === '4:05' &&
-    document.getElementById('qualityNow').textContent === 'Now playing in 2160p (4K)'));
-  check('the web engine is listed with the facts', await page.evaluate(() =>
-    /Web engine: Firefox's engine \(GeckoView 143.0/.test(document.getElementById('facts').textContent)));
+    document.getElementById('qualityNow').textContent === '2160p (4K)' && document.getElementById('heroNote').textContent === '2160p (4K)'));
+  check('over the song, in a word: Playing', await page.$eval('#statePill', e => e.textContent === 'Playing' && e.classList.contains('live')));
+  check('the song\'s own picture from YouTube, beside it and glowing behind it', thumbs.includes('https://i.ytimg.com/vi/abc123xyz00/mqdefault.jpg') &&
+    await page.evaluate(() => !document.getElementById('nowThumb').hidden && !document.getElementById('nowGlow').hidden), thumbs);
+  check('today, at a glance: the opening hours and this round (no call to prayer on this TV)', await page.evaluate(() =>
+    [...document.querySelectorAll('#today div')].map(d => d.querySelector('dt').textContent + ': ' + d.querySelector('dd').textContent).join(' | ') ===
+      'Opening hours: 10:00-02:00 | This round: 41 of 136 songs' && !document.getElementById('todayBox').hidden),
+    await page.evaluate(() => document.getElementById('today').textContent));
+  check('five tabs, Now the one showing', (await page.$$eval('.tabs button', l => l.map(b => b.textContent.trim() + (b.getAttribute('aria-selected') === 'true' ? '*' : '')))).join() ===
+    'Now*,Songs,Screen,Menu,Settings');
+  check('the web engine is listed on the Status page', (await fact('Web engine')) === "Firefox's engine (GeckoView 143.0, built into this app)", await fact('Web engine'));
+  check('...in groups: Music, Today, From the internet, This TV box', (await page.$$eval('#facts > div:not([hidden]) .group', l => l.map(g => g.textContent))).join() ===
+    'Music,Today,From the internet,This TV box', await page.$$eval('#facts .group', l => l.map(g => g.textContent)));
+  await openPage('picture');
+  check('Settings, Picture: its own page, its name at the top', await page.evaluate(() => document.getElementById('setTitle').textContent === 'Picture' &&
+    document.getElementById('setIndex').hidden && !document.querySelector('.page[data-page="picture"]').hidden &&
+    document.querySelectorAll('#form > .page:not([hidden])').length === 1));
   await page.tap('[data-cmd="qualitysetup"]'); await sleep(800);
   check('"Choose the highest quality on the TV": starts the setup, shows the steps and Done', cmds.includes('qualitysetup') &&
     await page.evaluate(() => !document.getElementById('qualityOn').hidden && document.getElementById('qualityIdle').hidden &&
@@ -73,6 +102,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await shot(page, 'phone-quality.png');
   await page.tap('[data-cmd="qualitydone"]'); await sleep(800);
   check('Done: setup ends, back to normal', cmds.includes('qualitydone') && await page.evaluate(() => document.getElementById('qualityOn').hidden));
+  await page.evaluate(() => history.back()); await sleep(400);
+  check('the phone\'s Back button: back to the list of settings, still on this page', await page.evaluate(() => !document.getElementById('setIndex').hidden &&
+    document.getElementById('setPage').hidden && !document.getElementById('settingsView').hidden));
+  await page.tap('.navrow[data-page="status"]'); await sleep(300);
+  check('Status and diary: the diary first', await page.evaluate(() => document.getElementById('setTitle').textContent === 'Status and diary' &&
+    document.querySelector('.page[data-page="status"]').firstElementChild.id === 'diaryCard'));
+  await shot(page, 'phone-status.png', { fullPage: true });
+  await page.tap('#tabSettings'); await sleep(300);
+  check('Settings again: back to the list', await page.evaluate(() => !document.getElementById('setIndex').hidden && document.getElementById('setPage').hidden));
+  check('...where Status says when something last went wrong', await page.$eval('#statusSummary', e => e.textContent === 'Version 1.5. Last problem: Today, 21:14' &&
+    e.classList.contains('warn')), await page.$eval('#statusSummary', e => e.textContent));
+  await page.tap('#tabControl'); await sleep(300);
   check('song volume, zoom and TV volume shown', await page.evaluate(() => document.getElementById('vol').textContent === '80%' &&
     document.getElementById('zoom').textContent === '100%' && document.getElementById('tvvol').textContent === '7/15'));
   check('songs that won\'t play: listed with reason and a YouTube link', await page.evaluate(() => {
@@ -85,8 +126,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     return !document.getElementById('diaryCard').hidden && li.length === 3 && li[0].startsWith('Today, 21:14 | The TV box started again by itself') &&
       li[1] === 'Yesterday, 05:00 | A fresh start for the night.' && li[2] === '12 Oct, 14:02 | Twilight TV crashed: IllegalStateException in PageLink.checkIn.'; }),
     await page.evaluate(() => [...document.querySelectorAll('#diaryList li')].map(l => l.textContent)));
-  check('YouTube changing the volume by itself: how often, with the facts', await page.evaluate(() =>
-    document.getElementById('facts').textContent.includes("Sound: YouTube's player changed the volume by itself 2 times, last at 21:14. The TV set it back at once each time.")));
+  check('...what went wrong stands out (the box starting again by itself), the rest doesn\'t', (await page.$$eval('#diaryList li', l => l.map(li => li.className))).join() === 'trouble,,trouble');
+  check('YouTube changing the volume by itself: how often, on the Status page', (await fact('Sound')) ===
+    "YouTube's player changed the volume by itself 2 times, last at 21:14. The TV set it back at once each time.", await fact('Sound'));
   check('the PIN is remembered on this phone', await page.evaluate(() => localStorage.getItem('twilight-tv-pin') === '4821'));
   await shot(page, 'phone-main.png', { fullPage: true });
   await page.tap('#next'); await sleep(1700);
@@ -101,8 +143,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('song quieter: 70%', await page.$eval('#vol', e => e.textContent === '70%'));
   await page.tap('[data-cmd="tvvol+"]'); await sleep(700);
   check('TV louder: 8/15', await page.$eval('#tvvol', e => e.textContent === '8/15'));
+  await openPage('tools');
   await page.tap('[data-cmd="identify"]'); await sleep(500);
-  check('Show the name on the TV: sends "identify"', cmds.includes('identify'));
+  check('Tools, Show this TV\'s name on its screen: sends "identify"', cmds.includes('identify'));
+  await page.goto(url + 'elsewhere', { waitUntil: 'load' });           // another page (another TV's, say), then the phone's Back
+  await page.evaluate(() => history.back()); await sleep(1500);
+  check('back from another page: Tools open again, as it was left', await page.evaluate(() => !document.getElementById('settingsView').hidden &&
+    document.getElementById('setTitle').textContent === 'Tools' && !document.querySelector('.page[data-page="tools"]').hidden));
+  await page.tap('#tabControl'); await sleep(300);
   state.update = 6; await sleep(2300);
   check('a waiting update shows an Install button', await page.$eval('#update', e => !e.hidden && /1\.6/.test(e.textContent)));
   await shot(page, 'phone-update.png');

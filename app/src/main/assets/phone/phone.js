@@ -49,10 +49,18 @@
     if (view === "songs") loadSongs();
   });
 
-  function api(path, method, body) {
+  // A request to the TV. waitMs: how long to wait for its answer before giving up (a box that hangs, Wi-Fi that drops
+  // everything), else as long as it takes
+  function api(path, method, body, waitMs) {
     var sep = path.indexOf("?") < 0 ? "?" : "&";
-    var opts = { method: method || "GET", cache: "no-store" };
+    var opts = { method: method || "GET", cache: "no-store" }, stop = null, wait = null;
     if (body != null) { opts.body = JSON.stringify(body); opts.headers = { "Content-Type": "application/json" }; }
+    if (waitMs && window.AbortController) {
+      stop = new AbortController();
+      opts.signal = stop.signal;
+      wait = setTimeout(function () { stop.abort(); }, waitMs);
+    }
+    var done = function () { clearTimeout(wait); };
     return fetch(path + sep + "pin=" + encodeURIComponent(pin), opts)
       .then(function (r) {
         if (r.status === 401) { try { localStorage.removeItem(KEY); } catch (e) {} askPin(pin ? "That PIN didn't work. Try again." : ""); throw new Error("pin"); }
@@ -63,20 +71,22 @@
           });
         }
         return r.json();
-      });
+      })
+      .then(function (v) { done(); return v; }, function (e) { done(); throw e; });
   }
 
   /* ---------- Control ---------- */
 
+  // What the TV is doing, every 2 seconds. No answer in 8 seconds counts as out of reach.
   function poll() {
     clearTimeout(timer);
     if (!pin) return askPin("");
-    api("/api/status").then(function (s) {
+    api("/api/status", null, null, 8000).then(function (s) {
       $("offline").hidden = true;
       last = s;
-      render(s);
       schedule();
-    }).catch(function (e) {
+      render(s);                     // (a mistake in drawing it isn't the TV out of reach: it shows as a script error)
+    }, function (e) {
       if (e.message === "pin" || e.message === "locked") return;
       $("offline").hidden = false;
       schedule();

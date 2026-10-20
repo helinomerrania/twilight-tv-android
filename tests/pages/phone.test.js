@@ -3,6 +3,7 @@ const { FIXTURES, launch, shot, servePhonePage } = require('./lib/common');
 const http = require('http'), fs = require('fs');
 const cmds = [];
 let state = { paused: false, closed: false, vol: 80, zoom: 100, tv: 7, update: 0, notice: '', setup: false };
+let hang = false, closing = false, afterClose = 0;      // the TV not answering at all; the TV gone
 const DAY = 864e5, TODAY = new Date(); TODAY.setHours(21, 14, 0, 0);
 const DIARY = [{ t: TODAY.getTime(), what: 'The TV box started again by itself, or its power went off for a moment: Twilight TV was running at 19 Oct 21:13.' },
                { t: TODAY.getTime() - DAY + 5 * 36e5 - 21 * 36e5 - 14 * 6e4, what: 'A fresh start for the night.' },
@@ -28,7 +29,11 @@ const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   if (servePhonePage(u.pathname, res)) return;
   if (u.searchParams.get('pin') !== '4821') { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end('{"error":"pin"}'); }
-  if (u.pathname === '/api/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(status())); }
+  if (u.pathname === '/api/status') {
+    if (closing) afterClose++;
+    if (hang) return;                                    // no answer, ever (the connection stays open)
+    res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(status()));
+  }
   if (u.pathname === '/api/cmd' && req.method === 'POST') {
     const d = u.searchParams.get('do'); cmds.push(d);
     if (d === 'pause') state.paused = true; if (d === 'resume') { state.paused = false; state.closed = false; }
@@ -162,8 +167,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     document.getElementById('pauseText').textContent === 'Play anyway' && document.getElementById('next').disabled));
   const counts = cmds.length;
   check('each tap sends exactly one command', cmds.filter(c => c === 'next').length === 1 && cmds.filter(c => c === 'pause').length === 1, cmds);
-  server.close(); await sleep(2500);
-  check('TV unreachable: a clear message', await page.$eval('#offline', e => !e.hidden));
+  const until = async (test, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await test()) return Date.now() - t0; await sleep(250); } return -1; };
+  hang = true;
+  const silent = await until(() => page.$eval('#offline', e => !e.hidden), 15000);
+  check('a TV that stops answering: "Can\'t reach this TV" after about 8 seconds', silent >= 6000, silent);
+  hang = false;
+  check('...and gone again once it answers', (await until(() => page.$eval('#offline', e => e.hidden), 12000)) >= 0);
+  closing = true; server.close(); server.closeAllConnections();
+  const gone = await until(() => page.$eval('#offline', e => !e.hidden), 8000);
+  check('TV unreachable: a clear message', gone >= 0, { waited: gone, answeredAfterClose: afterClose });
   check('no script errors', errors.length === 0, errors);
   const wide = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   check('fits a phone screen (no sideways scrolling)', wide);

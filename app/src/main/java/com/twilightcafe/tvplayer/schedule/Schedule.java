@@ -23,6 +23,7 @@ public final class Schedule {
         try {
             int h = Integer.parseInt(p[0].trim()), m = Integer.parseInt(p[1].trim());
             if (h < 0 || h > 24 || m < 0 || m > 59) return null;
+            if (h == 24 && m > 0) return null;
             return String.format(Locale.US, "%02d:%02d", h % 24, m);
         } catch (RuntimeException e) {
             return null;

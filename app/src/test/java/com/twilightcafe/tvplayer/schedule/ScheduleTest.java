@@ -36,6 +36,7 @@ public class ScheduleTest {
         assertNull(Schedule.clock(""));
         assertNull(Schedule.clock("5"));
         assertNull(Schedule.clock("25:00"));
+        assertNull(Schedule.clock("24:01"));
         assertNull(Schedule.clock("10:60"));
         assertNull(Schedule.clock("-1:00"));
         assertNull(Schedule.clock("ten:30"));

@@ -41,13 +41,13 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 | Back | Nothing, so nobody stops the music by accident |
 | Hold Back for 2 seconds | My TV Plus (the one other app allowed, see below) |
 | Hold Back for 10 seconds | Unlocks the box for 15 minutes, for its own settings or another app |
-| Home | Twilight TV comes back in a few seconds (from My TV Plus too). With the box unlocked, or the lock off, it leaves the app: the music stops, and starts again when you open the app |
+| Home | Twilight TV comes back after 10 seconds; from My TV Plus, at once. With the box unlocked, or the lock off, it leaves the app: the music stops, and starts again when you open the app |
 
 During quality setup (below), the arrows move a pointer, OK clicks, and Back finishes the setup.
 
 ## Keeping the box in Twilight TV
 
-Whatever else is opened on the box (its home screen, its settings, another app) is sent away in a few seconds, and Twilight TV comes back. The one exception is **My TV Plus**: hold Back on the remote for 2 seconds (or press **Open My TV Plus** on the phone) to open it. What it opens itself, such as a player of its own, is fine too, but not the box's settings or app store. Press Home to come back to the music. The music stops while My TV Plus is open, and starts again after.
+Whatever else is opened on the box (its home screen, its settings, another app) is sent away after 10 seconds, and Twilight TV comes back. The one exception is **My TV Plus**: hold Back on the remote for 2 seconds (or press **Open My TV Plus** on the phone) to open it. What it opens itself, such as a player of its own, is fine too, but not the box's settings or app store. Press Home to come back to the music at once. The music stops while My TV Plus is open, and starts again after.
 
 It needs two of Android's permissions for Twilight TV, which only someone at the TV can switch on:
 - **Display over other apps**, the same one that starts the app with the TV (asked at the first start). Without it, the app can't come back by itself.

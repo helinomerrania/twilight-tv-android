@@ -160,7 +160,12 @@ public class AppLockTest extends Checks {
         check("Android won't say what's on screen: back, unless it's My TV Plus's turn",
             AppLock.bringBack(null, me, tv, false, false, now, 0, 0) && !AppLock.bringBack(null, me, tv, true, false, now, 0, 0));
         check("no other app on the box: everything else is sent away", AppLock.bringBack(tv, me, null, false, false, now, 0, 0));
-        check("the timings", AppLock.UNLOCK == 15 * 60000L && AppLock.SETTINGS == 3 * 60000L);
+        check("the timings", AppLock.UNLOCK == 15 * 60000L && AppLock.SETTINGS == 3 * 60000L && AppLock.BACK_AFTER == 10000L);
+        check("something else on screen: Twilight TV waits 10 seconds from when all was last as allowed, then comes back",
+            !AppLock.timeToComeBack(now, now + 1500, false) && !AppLock.timeToComeBack(now, now + 9999, false)
+            && AppLock.timeToComeBack(now, now + 10000, false) && AppLock.timeToComeBack(now, now + 11500, false));
+        check("...but at once when My TV Plus's turn has just ended (Home in it, or the home screen after it): the way back to the music",
+            AppLock.timeToComeBack(now, now, true) && AppLock.timeToComeBack(now, now + 1500, true));
 
         System.out.println("My TV Plus's turn: from when it's opened from Twilight TV until the home screen shows");
         check("what it opens itself (a player of its own) is fine", !AppLock.bringBack("com.mxtech.videoplayer.ad", me, tv, true, false, now, 0, 0));

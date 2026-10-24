@@ -5,10 +5,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Keeps the TV box in Twilight TV (lockApps): whatever else comes on screen is sent away in a few
+ * Keeps the TV box in Twilight TV (lockApps): whatever else comes on screen is sent away after 10
  * seconds, except the one other app allowed (otherApp, My TV Plus), Android's own questions that
  * come up over any app (an update's, a permission's), the box's settings the app opened itself,
- * and while the box is unlocked from the phone or the remote.
+ * and while the box is unlocked from the phone or the remote. Leaving the other app (Home, or its
+ * Back to the home screen) brings Twilight TV back at once: that's the way back to the music.
  *
  * The other app has its turn from when it's opened from Twilight TV until the box's home screen
  * shows (Home, or the other app closed): what it opens itself in that time (a player of its own,
@@ -19,8 +20,19 @@ public final class AppLock {
 
     public static final long UNLOCK = 15 * 60000L;   // unlocked from the phone, or by holding Back for 10 seconds
     public static final long SETTINGS = 3 * 60000L;  // after the app opened one of the box's settings itself
+    public static final long BACK_AFTER = 10000L;    // Twilight TV out of sight: back after 10 seconds
 
     private AppLock() {
+    }
+
+    /**
+     * Time for Twilight TV to come back (bringBack said it should): once what's on screen has been something
+     * it doesn't allow for 10 seconds, counted from the last moment all was as allowed (allRightAt: Twilight TV
+     * on screen, the other app, the box asleep or unlocked); or at once when the other app's turn has just
+     * ended (turnEnded: Home in it, or the home screen after it)
+     */
+    public static boolean timeToComeBack(long allRightAt, long now, boolean turnEnded) {
+        return turnEnded || now - allRightAt >= BACK_AFTER;
     }
 
     /**

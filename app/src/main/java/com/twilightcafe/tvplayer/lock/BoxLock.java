@@ -26,8 +26,9 @@ import java.util.Set;
 
 /**
  * Keeps the box in Twilight TV (lockApps; the rules are in AppLock): while Twilight TV is off the screen,
- * whatever else comes up is sent away within seconds, except the one other app allowed (otherApp, My TV Plus)
+ * whatever else comes up is sent away after 10 seconds, except the one other app allowed (otherApp, My TV Plus)
  * in its turn, Android's own questions, the box's settings the app opened itself, and while the box is unlocked.
+ * Leaving the other app brings Twilight TV back at once.
  */
 public final class BoxLock {
 
@@ -41,6 +42,8 @@ public final class BoxLock {
     private volatile long unlockedUntil = 0, settingsUntil = 0;
     private String lastFront = null;                     // the app on screen, from Android's usage events
     private long frontSince = 0;                         // usage events read from here on
+    private volatile long allRightAt = 0;                // the last moment what was on screen was allowed
+    private volatile boolean turnEnded = false;          // the other app's turn just ended: back at once
 
     public BoxLock(Core core) {
         this.core = core;
@@ -54,13 +57,16 @@ public final class BoxLock {
     /** Twilight TV came on screen: the other app's turn is over */
     public void onStart() {
         otherOpened = false;
+        turnEnded = false;
         core.main.removeCallbacks(check);
     }
 
-    /** Twilight TV left the screen: with the lock on, anything but the other app is sent away */
+    /** Twilight TV left the screen: with the lock on, anything but the other app is sent away after 10 seconds */
     public void onStop() {
         lastFront = null;
         frontSince = System.currentTimeMillis() - 2000;
+        allRightAt = System.currentTimeMillis();         // Twilight TV was on screen until now
+        turnEnded = false;
         core.main.removeCallbacks(check);
         core.main.postDelayed(check, 1500);
     }
@@ -71,38 +77,45 @@ public final class BoxLock {
     }
 
     // While Twilight TV is off the screen with the lock on, every 1.5 seconds: what's on screen? Anything but
-    // the other app (and, in its turn, what it opens), or Android's own questions, is sent away: Twilight TV
-    // comes back (see AppLock).
+    // the other app (and, in its turn, what it opens), or Android's own questions, is sent away once it has
+    // been there 10 seconds: Twilight TV comes back (see AppLock).
     private final Runnable check = new Runnable() {
         @Override
         public void run() {
             if (core.onScreen() || !on()) return;
+            long now = System.currentTimeMillis();
             if (!awake()) {                              // the box asleep (the TV off): nothing to send away
+                allRightAt = now;
                 core.main.postDelayed(this, 1500);
                 return;
             }
-            long now = System.currentTimeMillis();
             if (unlockedUntil != 0 && now >= unlockedUntil) {   // locked again: whatever was opened meanwhile goes too
                 unlockedUntil = 0;
                 otherOpened = false;
             }
             String[] other = otherApp();
             String otherPkg = other == null ? null : other[1], front = frontApp(now, otherPkg);
-            if (AppLock.bringBack(front, activity.getPackageName(), otherPkg, otherOpened, AppLock.homeScreen(front, homeApps), now, unlockedUntil, settingsUntil)) {
+            if (!AppLock.bringBack(front, activity.getPackageName(), otherPkg, otherOpened, AppLock.homeScreen(front, homeApps), now, unlockedUntil, settingsUntil)) {
+                allRightAt = now;
+            } else if (AppLock.timeToComeBack(allRightAt, now, turnEnded)) {
+                turnEnded = false;
                 comeBack();
             }
             core.main.postDelayed(this, 1500);
         }
     };
 
-    // Home pressed, wherever: the other app's turn is over, and Twilight TV comes back (unless the box is
-    // unlocked). Android tells every app, so this works without "Usage access" too.
+    // Home pressed, wherever: the other app's turn is over. Pressed in it, that's the way back to the music:
+    // Twilight TV comes back at once (unless the box is unlocked). Pressed in Twilight TV, it has left the
+    // screen, and comes back after 10 seconds (the checks above). Android tells every app, so this works
+    // without "Usage access" too.
     private final BroadcastReceiver homeKey = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (!AppLock.homeKey(intent.getStringExtra("reason"))) return;
+            boolean itsTurn = otherOpened;
             otherOpened = false;
-            if (!on() || System.currentTimeMillis() < unlockedUntil) return;   // unlocked: Home is just Home
+            if (!itsTurn || !on() || System.currentTimeMillis() < unlockedUntil) return;   // unlocked: Home is just Home
             core.main.removeCallbacks(homeBack);
             core.main.postDelayed(homeBack, 700);        // once the home screen is up
         }
@@ -163,8 +176,12 @@ public final class BoxLock {
                 events.getNextEvent(e);
                 if (e.getEventType() != UsageEvents.Event.MOVE_TO_FOREGROUND) continue;
                 lastFront = e.getPackageName();
-                // the home screen since the other app was opened (Home, or the other app closed): its turn is over
-                if (e.getTimeStamp() > turnSince && AppLock.turnOver(lastFront, otherPkg, homeApps)) otherOpened = false;
+                // the home screen since the other app was opened (Home, or the other app closed): its turn is
+                // over, and Twilight TV comes back at once
+                if (otherOpened && e.getTimeStamp() > turnSince && AppLock.turnOver(lastFront, otherPkg, homeApps)) {
+                    otherOpened = false;
+                    turnEnded = true;
+                }
             }
             frontSince = now - 1000;
         } catch (RuntimeException e) {

@@ -365,7 +365,7 @@
     $("backHome").hidden = !!s.onScreen;
     $("notOnText").textContent = k.otherOpen ? other + " is on the TV. Press Home on the remote, or the button below, to bring the music back." :
       unlocked ? "The box is unlocked until " + clock(k.unlockedUntil) + ". Twilight TV isn't on screen." :
-      k.on && k.canReturn ? "Twilight TV isn't on screen. It comes back by itself in a moment." :
+      k.on && k.canReturn ? "Twilight TV isn't on screen. It comes back by itself within 10 seconds." :
       "The Twilight TV app isn't on screen on this TV. Open it with the TV remote, or press the button below.";
     var m = $("lockMsg");
     if (!m) return;
@@ -674,7 +674,7 @@
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", page: "box", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
     { group: "Keeping the box in Twilight TV", page: "box" },
     { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle", page: "box",
-      hint: "Whatever else is opened on the box is sent away in a few seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back. For the box's own settings, unlock it (Settings, Tools) or hold Back for 10 seconds." },
+      hint: "Whatever else is opened on the box is sent away after 10 seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back at once. For the box's own settings, unlock it (Settings, Tools) or hold Back for 10 seconds." },
     { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus", page: "box",
       hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
     { group: "Restart and updates", page: "box" },

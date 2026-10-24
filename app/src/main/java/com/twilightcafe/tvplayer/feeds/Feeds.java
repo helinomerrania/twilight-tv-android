@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 
 /**
  * What comes from the internet for the info panel and between songs: song names (YouTube), the weather
- * (MET Norway, or WeatherAPI.com with a key), gold and currency prices (tirezh.com) and the call to prayer's
+ * (MET Norway, or WeatherAPI.com with a key), gold and currency prices (Tirezh) and the call to prayer's
  * times (amozhgary.tv). When each is asked for, on a worker of their own (so the weather never waits behind
  * an update download), and what the TV page gets from them.
  */
@@ -25,7 +25,7 @@ public final class Feeds {
 
     public final TitleBook titles;                       // song names, from YouTube
     public final WeatherFeed weather;                    // from MET Norway, or WeatherAPI.com
-    public final PriceFeed prices;                       // gold and currency prices, from tirezh.com
+    public final PriceFeed prices;                       // gold and currency prices, from Tirezh
     public final PrayerFeed prayers;                     // the call to prayer's times, from amozhgary.tv
 
     private final AppSettings settings;
@@ -72,7 +72,7 @@ public final class Feeds {
         return wanted ? settings.text("prayerCity", "Ranya").trim() : "";
     }
 
-    /** Where the prices come from: pricesUrl (the tirezh worker at another address), else tirezh.com */
+    /** Where the prices come from: pricesUrl (the tirezh worker at another address), else its own (PriceFeed.URL) */
     public String pricesUrl() {
         return PriceFeed.address(settings.text("pricesUrl", ""));
     }

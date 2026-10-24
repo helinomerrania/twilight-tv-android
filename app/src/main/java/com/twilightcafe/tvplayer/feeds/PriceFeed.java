@@ -18,9 +18,9 @@ import java.time.temporal.ChronoField;
 import java.util.Locale;
 
 /**
- * Gold and currency prices for the TV's info panel, from tirezh.com's own price service
- * (/api/economy, the café owner's site), or the same service at another address (pricesUrl: the
- * tirezh worker's own workers.dev address, say). Asked every 5 minutes while the app is on screen;
+ * Gold and currency prices for the TV's info panel, from the café owner's own price service, Tirezh
+ * (/api/economy of the tirezh worker on Cloudflare, at its workers.dev address: tirezh.com until that
+ * name's registration ran out in October 2026), or the same service at another address (pricesUrl). Asked every 5 minutes while the app is on screen;
  * the last good answer is kept in a file, so the panel keeps its prices through an
  * internet cut. Only what the panel can show is kept: the currencies (buy, sell, up or
  * down), the Kurdistan gold prices by karat, and the world prices of gold, silver and bitcoin.
@@ -33,7 +33,7 @@ public final class PriceFeed {
         Net.Reply get(String url) throws IOException;
     }
 
-    static final String URL = "https://tirezh.com/api/economy";
+    static final String URL = "https://tirezh.qawechi.workers.dev/api/economy";
     private static final long GAP = 5 * 60000L;            // a new price every 5 minutes is plenty for a TV
     private static final long RETRY = 2 * 60000L;          // after a failure
 
@@ -109,7 +109,7 @@ public final class PriceFeed {
     }
 
     /**
-     * tirezh.com's answer -> {at: when the prices were set (ms),
+     * Tirezh's answer -> {at: when the prices were set (ms),
      *   currencies: [[code, Kurdish name, buy, sell, trend], ...]  (trend: 1 up, -1 down, 0 same),
      *   gold: [[karat, price (IQD per mithqal), Kurdish name, buy-back price or 0, trend], ...],
      *   ounce: [world gold $ per ounce, trend], silver: [...], btc: [...]}, or null if there are none.
@@ -162,7 +162,7 @@ public final class PriceFeed {
     }
 
     /**
-     * tirezh.com says whether a currency went up or down, but not gold: that is worked out here, from
+     * Tirezh says whether a currency went up or down, but not gold: that is worked out here, from
      * the price before. An unchanged price keeps the last direction (as on a market board).
      */
     static void goldTrends(JSONObject now, JSONObject before) throws JSONException {
@@ -216,7 +216,7 @@ public final class PriceFeed {
 
     /**
      * The address to ask, from the pricesUrl setting: as typed, with /api/economy added to a bare
-     * address (the tirezh worker's own, say https://tirezh.name.workers.dev); tirezh.com when empty
+     * address (https://tirezh.name.workers.dev, say); the tirezh worker's own address (URL) when empty
      * or not a web address.
      */
     public static String address(String typed) {
@@ -227,7 +227,7 @@ public final class PriceFeed {
 
     private static final java.util.regex.Pattern HOST_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z]+://([^/:?#]+)");
 
-    /** The site's name in an address: "tirezh.com" from "https://tirezh.com/api/economy" */
+    /** The site's name in an address: "tirezh.qawechi.workers.dev" from "https://tirezh.qawechi.workers.dev/api/economy" */
     static String host(String url) {
         java.util.regex.Matcher m = HOST_PATTERN.matcher(url == null ? "" : url);
         return m.find() ? m.group(1) : String.valueOf(url);
@@ -239,7 +239,7 @@ public final class PriceFeed {
             JSONObject o = new JSONObject(Disk.readText(file));
             prices = o.optJSONObject("prices");
             fetchedAt = o.optLong("fetched", 0);
-            if (prices != null && fetchedAt > 0) status = "from tirezh.com, " + Times.stamp(fetchedAt);
+            if (prices != null && fetchedAt > 0) status = "from " + o.optString("from", "Tirezh") + ", " + Times.stamp(fetchedAt);
         } catch (IOException | JSONException e) {
             // start again
         }
@@ -248,7 +248,7 @@ public final class PriceFeed {
     private void save() {
         if (file == null || prices == null) return;
         try {
-            Disk.write(file, new JSONObject().put("prices", prices).put("fetched", fetchedAt).toString());
+            Disk.write(file, new JSONObject().put("prices", prices).put("fetched", fetchedAt).put("from", host(asked)).toString());
         } catch (IOException | JSONException e) {
             // kept in memory
         }

@@ -23,7 +23,7 @@ This file says where everything is and how the parts fit together. For installin
       /menu/...   the menu, nothing else ................. customers' phones (the menu code on the TV)
 
   From the internet: settings.json (GitHub), new versions (GitHub releases), song names (YouTube),
-  weather (MET Norway or WeatherAPI.com), prices (tirezh.com), prayer times (amozhgary.tv),
+  weather (MET Norway or WeatherAPI.com), prices (Tirezh, the tirezh worker on Cloudflare), prayer times (amozhgary.tv),
   the list of the menu's 3D models (GitHub, for the phone page)
  ────────────────────────────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 | `phone/ControlServerTest`, `HttpTest`, `PinGuardTest` | Which requests come from the box itself, how long a phone may take to send, reading requests and writing replies, the PIN lockouts |
 | `phone/PhoneSettingsTest` | What a phone's save keeps, and each TV keeping its own name when settings are saved on every TV |
 | `store/MenuStoreTest`, `PictureStoreTest`, `LookStoreTest` | The menu (saving, two phones at once, what customers see, pictures, the TV's slides), the café's pictures, the café screen's pictures |
-| `feeds/FeedsTest`, `PrayerFeedTest`, `PriceFeedTest`, `TitleBookTest` | Song names, the weather, the call to prayer's times from the town's page, the prices from tirezh.com: reading them, keeping them, and what happens offline |
+| `feeds/FeedsTest`, `PrayerFeedTest`, `PriceFeedTest`, `TitleBookTest` | Song names, the weather, the call to prayer's times from the town's page, the prices from Tirezh: reading them, keeping them, and what happens offline |
 | `schedule/ScheduleTest` | Reading times, once a day, every so often, the box's own time zone |
 | `settings/AppSettingsTest` | settings.json and this TV's own settings together; the PIN and the weather key never from settings.json |
 | `lock/AppLockTest` | What the lock sends away and what it lets through, in every case |

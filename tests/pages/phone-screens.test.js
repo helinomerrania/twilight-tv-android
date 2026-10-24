@@ -286,7 +286,7 @@ const fact = (page, name) => page.evaluate(n => { const dt = [...document.queryS
   await page.tap('.field[data-key="playlistSchedule"] .add'); await sleep(200);
   await page.type('.field[data-key="playlistSchedule"] input[type=text]', 'https://www.youtube.com/playlist?list=PLevening');
   await openPage('services');
-  check('the price address with the weather\'s, empty (tirezh.com)', await page.$eval('#f-pricesUrl', i => i.value === '' && i.placeholder === 'https://tirezh.com/api/economy' &&
+  check('the price address with the weather\'s, empty (the tirezh worker\'s own)', await page.$eval('#f-pricesUrl', i => i.value === '' && i.placeholder === 'https://tirezh.qawechi.workers.dev' &&
     i.closest('.field').previousElementSibling === null));
   await page.$eval('#f-pricesUrl', e => e.scrollIntoView({ block: 'center' })); await sleep(200);
   await page.type('#f-pricesUrl', 'https://tirezh.name.workers.dev');

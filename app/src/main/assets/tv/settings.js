@@ -125,7 +125,7 @@ var SETTINGS = {
   // with a slow fade at each new song. false = the same dark frame always.
   videoColors: true,
 
-  // Gold and currency prices from Tirezh Index (tirezh.com), along the bottom in this order, centred:
+  // Gold and currency prices from Tirezh Index, along the bottom in this order, centred:
   // seven at most. Currencies by their code: us (US dollar), eu, gb, tr, ir, sa, ae,
   // jo, ca, ch, se, no, dk, au. Gold by karat: gold24, gold22, gold21, gold18. World prices per ounce:
   // ounce (gold), silver; btc = bitcoin. [] = no prices.

@@ -60,11 +60,11 @@ public class PriceFeedTest extends Checks {
         long now = System.currentTimeMillis();
         check("nothing yet: due at once, nothing for the page", feed.due(now, PriceFeed.URL) && feed.forPage() == null, "");
         feed.refresh(PriceFeed.URL);
-        check("asks tirezh.com's own price service", asked.size() == 1 && asked.get(0).equals("https://tirezh.com/api/economy"), asked);
+        check("asks the café's own price service: the tirezh worker on Cloudflare (tirezh.com is gone)", asked.size() == 1 && asked.get(0).equals("https://tirezh.qawechi.workers.dev/api/economy"), asked);
         JSONObject fp = feed.forPage();
         check("the page gets the prices and when the app got them", fp != null && fp.getJSONArray("gold").length() == 2 && Math.abs(fp.getLong("fetched") - now) < 5000, fp);
         check("then not again for 5 minutes", !feed.due(now + 4 * 60000L, PriceFeed.URL) && feed.due(now + 5 * 60000L + 1000, PriceFeed.URL), "");
-        check("gold has no up/down at first (tirezh.com doesn't say)", fp.getJSONArray("gold").getJSONArray(1).getInt(4) == 0, fp.getJSONArray("gold"));
+        check("gold has no up/down at first (Tirezh doesn't say)", fp.getJSONArray("gold").getJSONArray(1).getInt(4) == 0, fp.getJSONArray("gold"));
         body[0] = ANSWER.replace("\"priceIQD\":906175", "\"priceIQD\":911000").replace("\"priceIQD\":1035629", "\"priceIQD\":1030000");
         feed.refresh(PriceFeed.URL);
         JSONArray g2 = feed.forPage().getJSONArray("gold");
@@ -73,26 +73,27 @@ public class PriceFeedTest extends Checks {
         JSONArray g3 = feed.forPage().getJSONArray("gold");
         check("...and the same price again keeps its direction, as on a market board", g3.getJSONArray(1).getInt(4) == 1 && g3.getJSONArray(0).getInt(4) == -1, g3);
         body[0] = ANSWER;
-        check("says where the prices are from", feed.status.startsWith("from tirezh.com"), feed.status);
+        check("says where the prices are from", feed.status.startsWith("from tirezh.qawechi.workers.dev, "), feed.status);
         int v = feed.version();
         code[0] = 503;
         feed.refresh(PriceFeed.URL);
-        check("tirezh.com has trouble: the last prices stay, and it says why", feed.forPage() != null && feed.version() == v && feed.status.contains("(503)"), feed.status);
+        check("Tirezh has trouble: the last prices stay, and it says why", feed.forPage() != null && feed.version() == v && feed.status.contains("(503)"), feed.status);
         code[0] = 429;
         feed.refresh(PriceFeed.URL);
-        check("tirezh.com says 'too many': waits 15 minutes", feed.status.contains("slow down") && !feed.due(System.currentTimeMillis() + 10 * 60000L, PriceFeed.URL), feed.status);
+        check("Tirezh says 'too many': waits 15 minutes", feed.status.contains("slow down") && !feed.due(System.currentTimeMillis() + 10 * 60000L, PriceFeed.URL), feed.status);
         offline[0] = true;
         PriceFeed again = new PriceFeed(file, f);
-        check("kept in a file: there after a restart", again.forPage() != null && again.forPage().getJSONArray("currencies").length() == 3, again.forPage());
+        check("kept in a file: there after a restart, with where they came from", again.forPage() != null && again.forPage().getJSONArray("currencies").length() == 3
+            && again.status.startsWith("from tirezh.qawechi.workers.dev, "), again.status);
         again.refresh(PriceFeed.URL);
-        check("no internet: the prices stay, and it says why", again.forPage() != null && again.status.contains("couldn't reach tirezh.com"), again.status);
+        check("no internet: the prices stay, and it says why", again.forPage() != null && again.status.contains("couldn't reach tirezh.qawechi.workers.dev"), again.status);
         String other = "https://tirezh.example.workers.dev/api/economy";
         check("another address (pricesUrl): asked at once, even right after a try", again.due(System.currentTimeMillis(), other), "");
         asked.clear(); offline[0] = false; code[0] = 200; body[0] = ANSWER;
         again.refresh(other);
         check("...that address is asked, and the status names it", asked.size() == 1 && asked.get(0).equals(other) && again.status.startsWith("from tirezh.example.workers.dev"), asked + " " + again.status);
         check("...then every 5 minutes as before", !again.due(System.currentTimeMillis() + 60000L, other), "");
-        check("the address from the setting: empty or not a web address -> tirezh.com",
+        check("the address from the setting: empty or not a web address -> the tirezh worker's own",
             PriceFeed.address("").equals(PriceFeed.URL) && PriceFeed.address(null).equals(PriceFeed.URL) && PriceFeed.address("tirezh.dev/api/economy").equals(PriceFeed.URL)
             && PriceFeed.address("https://a b.dev/api/economy").equals(PriceFeed.URL), PriceFeed.address("tirezh.dev/api/economy"));
         check("...the worker's bare address gets /api/economy", PriceFeed.address(" https://tirezh.name.workers.dev ").equals("https://tirezh.name.workers.dev/api/economy")

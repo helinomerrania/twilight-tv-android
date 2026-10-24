@@ -578,7 +578,7 @@
       hint: "With Kurdish words, “own digits” are ١٢٣. Song names, the Wi-Fi password and your messages always stay as typed." },
     { group: "Gold and currency prices", page: "screen" },
     { key: "priceItems", label: "Prices along the bottom, in this order", type: "prices", page: "screen",
-      hint: "Up to seven, in one row, centred. From Tirezh Index (tirezh.com); the TV box gets them every 5 minutes by itself. None = no prices." },
+      hint: "Up to seven, in one row, centred. From Tirezh Index; the TV box gets them every 5 minutes by itself. None = no prices." },
     { group: "Wi-Fi for customers", page: "screen" },
     { key: "wifiName", label: "Wi-Fi name", type: "text", page: "screen", hint: "Exactly as phones see it. A QR code that joins it appears beside the video, with the name and password." },
     { key: "wifiPassword", label: "Wi-Fi password", type: "text", page: "screen", hint: "Empty for a network with no password." },
@@ -665,8 +665,8 @@
     { key: "lat", label: "Latitude", type: "decimal", page: "services" },
     { key: "lon", label: "Longitude", type: "decimal", page: "services" },
     { group: "Gold and currency prices", page: "services" },
-    { key: "pricesUrl", label: "Where the prices come from", type: "text", placeholder: "https://tirezh.com/api/economy", page: "services",
-      hint: "The tirezh worker at another address: its workers.dev address from Cloudflare, or a new domain (the TV adds /api/economy to a bare address). Empty = tirezh.com. Which prices the TV shows is on the Screen tab." },
+    { key: "pricesUrl", label: "Where the prices come from", type: "text", placeholder: "https://tirezh.qawechi.workers.dev", page: "services",
+      hint: "The tirezh worker's address on Cloudflare, or a new domain for it (the TV adds /api/economy to a bare address). Empty = tirezh.qawechi.workers.dev. Which prices the TV shows is on the Screen tab." },
 
     // This TV box
     { group: "", page: "box" },
@@ -703,7 +703,7 @@
     kurdishMonths: "Kurdish calendar months, Xakelêwe (from Newroz) first, separated by commas. Empty = no Kurdish date",
     am: "Before noon (12-hour clock)", pm: "After noon (12-hour clock)", newYear: "New Year (the year is added after it)",
     goldOunce: "World gold price (per ounce)", silverOunce: "World silver price (per ounce)",
-    pound: "The pound's name in the prices (empty in Kurdish: tirezh.com's name)",
+    pound: "The pound's name in the prices (empty in Kurdish: Tirezh's name)",
     weatherCredit: "Under the weather from MET Norway: their condition for the free data is a credit where it's shown"
   };
 
@@ -938,7 +938,7 @@
     return el("span", {}, String(v));
   }
 
-  // What tirezh.com has, in the words of the phone page (the TV shows tirezh.com's Kurdish names)
+  // What Tirezh has, in the words of the phone page (the TV shows Tirezh's Kurdish names)
   var PRICE_ITEMS = [["", "None"], ["us", "US dollar (IQD)"], ["gold21", "Gold 21 karat (IQD per mithqal)"], ["gold18", "Gold 18 karat (IQD per mithqal)"],
     ["gold22", "Gold 22 karat (IQD per mithqal)"], ["gold24", "Gold 24 karat (IQD per mithqal)"], ["ounce", "Gold, world price ($ per ounce)"],
     ["silver", "Silver, world price ($ per ounce)"], ["eu", "Euro"], ["gb", "Pound sterling"], ["tr", "Turkish lira"], ["ir", "Iranian toman"],

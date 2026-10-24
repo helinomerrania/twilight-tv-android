@@ -2133,7 +2133,7 @@
     setText("ptime", d > 0 ? nums(mmss(t) + " / " + mmss(d)) : "");
   }
 
-  // "زێڕی ٢١" -> "زێڕی 21" (tirezh.com's names have Kurdish digits; nums() makes them the TV's digits)
+  // "زێڕی ٢١" -> "زێڕی 21" (Tirezh's names have Kurdish digits; nums() makes them the TV's digits)
   function latinDigits(s) {
     return String(s).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x660); });
   }
@@ -2155,8 +2155,8 @@
     return o != null && String(o).trim() !== "" ? String(o) : "";
   }
 
-  // The prices in priceItems that tirezh.com has, seven at most: [{name, per, value, unit, trend}], none if
-  // the app couldn't reach tirezh.com for 3 hours (old prices are worse than none)
+  // The prices in priceItems that Tirezh has, seven at most: [{name, per, value, unit, trend}], none if
+  // the app couldn't reach Tirezh for 3 hours (old prices are worse than none)
   function priceTiles() {
     var P = X.prices, out = [], ku = rtl(), units = ku ? UNITS.ku : UNITS.en;
     if (!P || typeof P !== "object" || !(Date.now() - (Number(P.fetched) || 0) < 3 * 3600e3)) return out;
@@ -2172,7 +2172,7 @@
                                       unit: k === "btc" ? "$" : "$ " + L("perOunce"), trend: r[1] };
       } else if (/^[a-z]{2,3}$/.test(k)) {
         r = row(P.currencies, k);
-        var word = NAME_LABELS[k];                 // its word on the TV, else tirezh.com's Kurdish name (or the English one)
+        var word = NAME_LABELS[k];                 // its word on the TV, else Tirezh's Kurdish name (or the English one)
         if (r) t = { name: ku ? (word && own(word)) || r[1] || k.toUpperCase() : (word ? L(word) : CURRENCIES[k]) || k.toUpperCase(),
                      per: PER_100[k] ? (ku ? "100$" : "$100") : "", value: r[3], unit: units[k] || "$", trend: r[4] };
       }

@@ -141,7 +141,7 @@ html[dir="rtl"] #barFill { transform-origin: right; }
 #nextTitle { font-size: calc(24 * var(--u)); line-height: 1.35; font-weight: 600; overflow: hidden; display: -webkit-box;
              -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
-/* Along the bottom: gold and currency prices from Tirezh Index (tirezh.com), and when they were set */
+/* Along the bottom: gold and currency prices from Tirezh Index, and when they were set */
 #market { top: calc(var(--oy) + 936 * var(--u)); left: calc(var(--ox) + 40 * var(--u)); width: calc(1840 * var(--u)); height: calc(104 * var(--u));
           flex-direction: column; justify-content: center; padding: 0 calc(28 * var(--u)); }
 #marketHead { display: flex; justify-content: space-between; align-items: baseline; gap: calc(20 * var(--u)); white-space: nowrap; }

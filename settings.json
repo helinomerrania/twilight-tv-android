@@ -10,8 +10,9 @@
   "levelSound": true,
   "restartAt": "05:00",
   "updates": true,
+  "pricesUrl": "https://tirezh.qawechi.workers.dev",
 
-  "_words": "The words on the TV in Kurdish (Sorani), and the town's name. A word left out shows in English. The currencies' names are tirezh.com's own, except the pound's.",
+  "_words": "The words on the TV in Kurdish (Sorani), and the town's name. A word left out shows in English. The currencies' names are Tirezh's own, except the pound's.",
   "place": "ڕانیە",
   "labels": {
     "locale": "ckb",

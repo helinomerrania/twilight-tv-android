@@ -19,7 +19,7 @@ import com.twilightcafe.tvplayer.page.PageEngine;
  *  - the box's own volume at opening time, sound levelling, updates from GitHub,
  *  - Wi-Fi kept at full power, a restart if the page ever freezes, a fresh start every night,
  *  - for the info panel beside the video: song names (YouTube), the weather (MET Norway),
- *    gold and currency prices (tirezh.com) and the café's own pictures (uploaded from the phone page).
+ *    gold and currency prices (Tirezh) and the café's own pictures (uploaded from the phone page).
  *
  * This class is only Android's screen for the app: it makes the app's parts (TvApp) and passes on
  * Android's events to them (start, stop, the remote's keys). How the parts fit together: see TvApp.

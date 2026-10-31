@@ -181,7 +181,7 @@ public final class BoxLock {
                 if (e.getEventType() != UsageEvents.Event.MOVE_TO_FOREGROUND) continue;
                 lastFront = e.getPackageName();
                 if (AppLock.allowed(lastFront, otherPkg)) {
-                    if (!turn) startTurn(lastFront, e.getTimeStamp());
+                    if (!turn || !lastFront.equals(turnOf)) startTurn(lastFront, e.getTimeStamp());   // from one to the other too
                 } else if (turn && e.getTimeStamp() > turnSince && AppLock.turnOver(lastFront, otherPkg, apps.homeApps())) {
                     // the home screen since the app allowed came up (Home, or the app closed): its turn is over, and
                     // Twilight TV comes back at once

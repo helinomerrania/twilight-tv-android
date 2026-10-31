@@ -138,7 +138,12 @@ public class AppLockTest extends Checks {
         assertFalse(AppLock.homeKey("HOMEKEY"));
     }
 
-    // The lock's rules in every case, one sentence each: the other app, Android's own questions, the home screen, Back held
+    private static Set<String> home() {
+        return new HashSet<>(Collections.singletonList("com.droidlogic.mboxhome"));
+    }
+
+    // The lock's rules in every case, one sentence each: the other apps, YouTube, Android's own questions, the home screen,
+    // Back held
 
     @Test
     public void theLockInEveryCase() throws Exception {
@@ -167,9 +172,27 @@ public class AppLockTest extends Checks {
         check("...but at once when My TV Plus's turn has just ended (Home in it, or the home screen after it): the way back to the music",
             AppLock.timeToComeBack(now, now, true) && AppLock.timeToComeBack(now, now + 1500, true));
 
-        System.out.println("My TV Plus's turn: from when it's opened from Twilight TV until the home screen shows");
+        System.out.println("Twilight Movies, the café's own app for films: allowed too, and the remote's YouTube button opens it");
+        String movies = AppLock.MOVIES, youTube = "com.google.android.youtube.tv";
+        check("Twilight Movies: left alone, like My TV Plus", !AppLock.bringBack(movies, me, tv, false, false, now, 0, 0) && !AppLock.bringBack(movies, me, null, false, false, now, 0, 0));
+        check("the apps allowed: My TV Plus and Twilight Movies, not Twilight TV itself or anything else",
+            AppLock.allowed(tv, tv) && AppLock.allowed(movies, tv) && AppLock.allowed(movies, null)
+            && !AppLock.allowed(me, tv) && !AppLock.allowed(youTube, tv) && !AppLock.allowed(null, tv));
+        check("what Twilight Movies opens itself in its turn (Android's install question for its update) is fine",
+            !AppLock.bringBack("com.mxtech.videoplayer.ad", me, tv, true, false, now, 0, 0) && !AppLock.bringBack("com.android.packageinstaller", me, tv, true, false, now, 0, 0));
+        check("YouTube while the box is locked: Twilight Movies in its place, at once", AppLock.moviesInstead(youTube, now, 0, 0)
+            && AppLock.moviesInstead("com.google.android.youtube", now, 0, 0) && AppLock.moviesInstead("com.liskovsoft.smarttubetv.beta", now, 0, 0)
+            && AppLock.moviesInstead("com.teamsmart.videomanager.tv", now, 0, 0));
+        check("...but not with the box unlocked (YouTube is YouTube then), nor in a setting the app opened",
+            !AppLock.moviesInstead(youTube, now, now + 1, 0) && !AppLock.moviesInstead(youTube, now, 0, now + 1) && AppLock.moviesInstead(youTube, now, now, now));
+        check("...and nothing else is taken for YouTube", !AppLock.moviesInstead(tv, now, 0, 0) && !AppLock.moviesInstead(movies, now, 0, 0)
+            && !AppLock.moviesInstead("com.android.tv.settings", now, 0, 0) && !AppLock.moviesInstead(null, now, 0, 0));
+        check("Twilight Movies' turn ends with the home screen too, not with Twilight Movies itself",
+            AppLock.turnOver("com.google.android.tvlauncher", tv, home()) && !AppLock.turnOver(movies, tv, home()) && !AppLock.turnOver(movies, null, home()));
+
+        System.out.println("My TV Plus's turn: from when it's on screen (opened from Twilight TV, or by its button on the remote) until the home screen shows");
         check("what it opens itself (a player of its own) is fine", !AppLock.bringBack("com.mxtech.videoplayer.ad", me, tv, true, false, now, 0, 0));
-        check("...but not outside its turn (opened some other way)", AppLock.bringBack("com.mxtech.videoplayer.ad", me, tv, false, false, now, 0, 0));
+        check("...but not outside its turn (opened some other way, with nothing allowed on screen before)", AppLock.bringBack("com.mxtech.videoplayer.ad", me, tv, false, false, now, 0, 0));
         check("the home screen ends it: back", AppLock.bringBack("com.google.android.tvlauncher", me, tv, true, true, now, 0, 0));
         check("the box's settings and app store, even from inside it: back (anything could be opened from there)",
             AppLock.bringBack("com.android.tv.settings", me, tv, true, false, now, 0, 0) && AppLock.bringBack("com.android.settings", me, tv, true, false, now, 0, 0)

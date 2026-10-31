@@ -19,7 +19,7 @@
     <!-- keeping the box in Twilight TV: which app is on screen ("Usage access", switched on at the TV) -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 
-    <!-- the box's apps, to find the one other app allowed (My TV Plus) and open it, and its home screen -->
+    <!-- the box's apps, to find the other apps allowed (My TV Plus, Twilight Movies) and open them, and its home screen -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />

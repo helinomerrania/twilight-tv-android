@@ -65,7 +65,7 @@ Each folder has one job. The classes say what they do in a comment at their top.
 | `schedule/` | What happens by the clock | `Schedule` (the rules: times in the settings, once a day at a minute, every so often), `Maintenance` (the jobs, every 30 seconds: settings.json, updates, a frozen page, the feeds, the night's fresh start, the volume at opening time) |
 | `box/` | The TV box itself | `TvVolume`, `Leveller` (sound levelling), `WifiKeeper`, `BoxInfo` and `BoxReport` (what the box is), `VideoSetup` (choices for smooth video), `Diary` and `BoxWatch` (what happened to the box: restarts, crashes, sleep, for the phone page) |
 | `screen/` | The TV's screen | `ScreenMode` (lines and refresh rate), `TestMode` (test mode's details on screen) |
-| `lock/` | Keeping the box in Twilight TV | `AppLock` (the rules), `BoxLock` (doing it), `Permissions` (the two questions at the start) |
+| `lock/` | Keeping the box in Twilight TV | `AppLock` (the rules: the apps allowed, YouTube's button for Twilight Movies), `BoxLock` (doing it), `AllowedApps` (My TV Plus and Twilight Movies on the box, and opening them), `Permissions` (the two questions at the start) |
 | `remote/` | The remote control | `RemoteKeys`, `QualitySetup` and `PointerView` (picking the picture quality with a pointer) |
 | `util/` | Small helpers for any part | `Net` (web requests, the box's address), `Disk` (files, written safely), `Times` (times as text) |
 
@@ -131,7 +131,7 @@ There are two sets, and GitHub runs both on every push: first the app's, then th
 | `feeds/FeedsTest`, `PrayerFeedTest`, `PriceFeedTest`, `TitleBookTest` | Song names, the weather, the call to prayer's times from the town's page, the prices from Tirezh: reading them, keeping them, and what happens offline |
 | `schedule/ScheduleTest` | Reading times, once a day, every so often, the box's own time zone |
 | `settings/AppSettingsTest` | settings.json and this TV's own settings together; the PIN and the weather key never from settings.json |
-| `lock/AppLockTest` | What the lock sends away and what it lets through, in every case |
+| `lock/AppLockTest` | What the lock sends away and what it lets through, in every case: My TV Plus, Twilight Movies, YouTube's button |
 | `box/VideoSetupTest` | Choices for smooth video: the formats offered to YouTube, graphics Firefox's engine can't use, the screen mode |
 | `box/DiaryTest` | The diary: what happened since the app last ran (the box started again by itself or was turned on, the app stopped or was updated), saved at once before the app restarts itself or crashes |
 | `update/UpdaterTest` | Build numbers from the release names; downloads cut short or too big are refused |

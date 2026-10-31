@@ -6,21 +6,25 @@ import java.util.Locale;
 
 /**
  * Keeps the TV box in Twilight TV (lockApps): whatever else comes on screen is sent away after 10
- * seconds, except the one other app allowed (otherApp, My TV Plus), Android's own questions that
- * come up over any app (an update's, a permission's), the box's settings the app opened itself,
- * and while the box is unlocked from the phone or the remote. Leaving the other app (Home, or its
- * Back to the home screen) brings Twilight TV back at once: that's the way back to the music.
+ * seconds, except the two other apps allowed: My TV Plus (otherApp) and Twilight Movies (the café's
+ * own app for films); Android's own questions that come up over any app (an update's, a permission's),
+ * the box's settings the app opened itself, and while the box is unlocked from the phone or the
+ * remote. Leaving an app allowed (Home, or its Back to the home screen) brings Twilight TV back at
+ * once: that's the way back to the music.
  *
- * The other app has its turn from when it's opened from Twilight TV until the box's home screen
- * shows (Home, or the other app closed): what it opens itself in that time (a player of its own,
- * say) is fine too, but not the box's settings or app store. Plain Java, so it can be tested on a
- * computer.
+ * An app allowed has its turn from when it comes on screen (opened from Twilight TV, or by its own
+ * button on the remote: the box opens My TV Plus by its button) until the box's home screen shows:
+ * what it opens itself in that time (a player of its own, say) is fine too, but not the box's
+ * settings or app store. The remote's YouTube button opens Twilight Movies: YouTube is sent away at
+ * once, with Twilight Movies in its place. Plain Java, so it can be tested on a computer.
  */
 public final class AppLock {
 
     public static final long UNLOCK = 15 * 60000L;   // unlocked from the phone, or by holding Back for 10 seconds
     public static final long SETTINGS = 3 * 60000L;  // after the app opened one of the box's settings itself
     public static final long BACK_AFTER = 10000L;    // Twilight TV out of sight: back after 10 seconds
+    /** Twilight Movies, the café's own app for films (github.com/helinomerrania/TwilightMovies): always allowed */
+    public static final String MOVIES = "com.twilightcafe.movies";
 
     private AppLock() {
     }
@@ -43,9 +47,29 @@ public final class AppLock {
      */
     public static boolean bringBack(String front, String me, String other, boolean turn, boolean home, long now, long unlockedUntil, long settingsUntil) {
         if (now < unlockedUntil || now < settingsUntil) return false;
-        if (front == null) return !turn;                    // can't see: back, unless it's the other app's turn
-        if (front.equals(me) || front.equals(other) || androidOwn(front)) return false;
-        return !turn || home || boxOwn(front);              // in its turn, what the other app opens is fine
+        if (front == null) return !turn;                    // can't see: back, unless it's an allowed app's turn
+        if (front.equals(me) || allowed(front, other) || androidOwn(front)) return false;
+        return !turn || home || boxOwn(front);              // in its turn, what an allowed app opens is fine
+    }
+
+    /** One of the apps allowed besides Twilight TV: the other app (My TV Plus), or Twilight Movies */
+    public static boolean allowed(String pkg, String other) {
+        return pkg != null && (pkg.equals(other) || pkg.equals(MOVIES));
+    }
+
+    /**
+     * YouTube on screen (from the remote's YouTube button, mostly) while the box is locked: Twilight Movies in its
+     * place, at once
+     */
+    public static boolean moviesInstead(String front, long now, long unlockedUntil, long settingsUntil) {
+        return youTube(front) && now >= unlockedUntil && now >= settingsUntil;
+    }
+
+    /** YouTube's own apps (for TVs, phones, children), or SmartTube, which some boxes have for YouTube */
+    static boolean youTube(String pkg) {
+        if (pkg == null) return false;
+        String p = pkg.toLowerCase(Locale.ROOT);
+        return p.contains("youtube") || p.contains("smarttube") || p.equals("com.teamsmart.videomanager.tv");
     }
 
     /** The box's own settings and app store: from there, anything else could be opened */
@@ -58,13 +82,13 @@ public final class AppLock {
         return pkg != null && ((homeApps != null && homeApps.contains(pkg)) || pkg.toLowerCase(Locale.ROOT).contains("launcher"));
     }
 
-    /** The other app's turn is over: the home screen came up (and not because the other app is a home app itself) */
+    /** An allowed app's turn is over: the home screen came up (and not because the other app is a home app itself) */
     public static boolean turnOver(String pkg, String other, Collection<String> homeApps) {
-        return pkg != null && !pkg.equals(other) && homeScreen(pkg, homeApps);
+        return pkg != null && !allowed(pkg, other) && homeScreen(pkg, homeApps);
     }
 
     /**
-     * Android closing its system dialogs because Home was pressed, wherever (it tells every app): the other
+     * Android closing its system dialogs because Home was pressed, wherever (it tells every app): an allowed
      * app's turn is over, and Twilight TV comes back, unless the box is unlocked
      */
     public static boolean homeKey(String reason) {

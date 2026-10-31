@@ -39,21 +39,29 @@ You can also copy `twilight-tv.apk` to a USB stick and open it with the box's fi
 | Left / right | Zoom this song in or out, for black bars (remembered on that TV) |
 | Hold OK for 3 seconds | Test mode on or off. The page's details appear at the top; the phone address, the PIN and the app's details at the bottom right |
 | Back | Nothing, so nobody stops the music by accident |
-| Hold Back for 2 seconds | My TV Plus (the one other app allowed, see below) |
+| Hold Back for 2 seconds | My TV Plus (one of the two other apps allowed, see below) |
+| The remote's My TV Plus button | My TV Plus: the box opens it, and Twilight TV lets it |
+| The remote's YouTube button | Twilight Movies, in YouTube's place |
 | Hold Back for 10 seconds | Unlocks the box for 15 minutes, for its own settings or another app |
-| Home | Twilight TV comes back after 10 seconds; from My TV Plus, at once. With the box unlocked, or the lock off, it leaves the app: the music stops, and starts again when you open the app |
+| Home | Twilight TV comes back after 10 seconds; from My TV Plus or Twilight Movies, at once. With the box unlocked, or the lock off, it leaves the app: the music stops, and starts again when you open the app |
 
 During quality setup (below), the arrows move a pointer, OK clicks, and Back finishes the setup.
 
 ## Keeping the box in Twilight TV
 
-Whatever else is opened on the box (its home screen, its settings, another app) is sent away after 10 seconds, and Twilight TV comes back. The one exception is **My TV Plus**: hold Back on the remote for 2 seconds (or press **Open My TV Plus** on the phone) to open it. What it opens itself, such as a player of its own, is fine too, but not the box's settings or app store. Press Home to come back to the music at once. The music stops while My TV Plus is open, and starts again after.
+Whatever else is opened on the box (its home screen, its settings, another app) is sent away after 10 seconds, and Twilight TV comes back. The two exceptions are **My TV Plus** and **Twilight Movies** (the café's app for films, [TwilightMovies](https://github.com/helinomerrania/TwilightMovies)):
+- **My TV Plus** opens with its own button on the remote (the box opens it), or hold Back for 2 seconds, or press **Open My TV Plus** on the phone.
+- **Twilight Movies** opens with the remote's **YouTube** button: YouTube is sent away at once, and Twilight Movies comes in its place. (With the box unlocked, YouTube is YouTube.)
+
+What they open themselves, such as a player of their own, is fine too, but not the box's settings or app store. Press Home to come back to the music at once (or leave the app with Back). The music stops while one of them is open, and starts again after.
+
+If a button on the remote does nothing in Twilight TV, the diary on the phone (Settings, **Status and diary**) says which key came, by its name: that's what's needed to give it a job.
 
 It needs two of Android's permissions for Twilight TV, which only someone at the TV can switch on:
 - **Display over other apps**, the same one that starts the app with the TV (asked at the first start). Without it, the app can't come back by itself.
-- **Usage access** (asked once, after that). It tells the app which app is on screen, so Twilight TV also comes back when My TV Plus is closed with Back instead of Home, and nothing can be opened from the box's home screen on the way. If the box has no such setting, it can be switched on from a computer: `adb shell appops set com.twilightcafe.tvplayer GET_USAGE_STATS allow`.
+- **Usage access** (asked once, after that). It tells the app which app is on screen, so Twilight TV also comes back when My TV Plus or Twilight Movies is closed with Back instead of Home, nothing can be opened from the box's home screen on the way, and the YouTube button gets Twilight Movies. If the box has no such setting, it can be switched on from a computer: `adb shell appops set com.twilightcafe.tvplayer GET_USAGE_STATS allow`.
 
-The phone's Settings tab shows the lock's state under **Tools**, with **Unlock the box for 15 minutes** for the box's own settings (or hold Back for 10 seconds). It locks again by itself. **Keep the box in Twilight TV** and **The one other app allowed** (its name as on the box) are under **This TV box**; `lockApps` and `otherApp` in `settings.json` do the same for every box.
+The phone's Settings tab shows the lock's state under **Tools**, with **Unlock the box for 15 minutes** for the box's own settings (or hold Back for 10 seconds). It locks again by itself. **Keep the box in Twilight TV** and **The other app allowed** (My TV Plus: its name as on the box) are under **This TV box**; `lockApps` and `otherApp` in `settings.json` do the same for every box. Twilight Movies is always allowed.
 
 ## Phone control
 
@@ -197,7 +205,7 @@ On the phone page, open the **Settings** tab. It's a list of pages:
 - **Call to prayer:** how long the music pauses, where the times come from, and moving each prayer by minutes.
 - **Picture:** the quality playing now and **Choose the highest quality on the TV** (below), then the highest quality, the video format, automatic zoom, YouTube's ads and subtitles, the café screen over each song's start and end, and the screen's resolution and refresh rate.
 - **Weather and prices:** the WeatherAPI.com key, the place with its latitude and longitude, and where the prices come from.
-- **This TV box:** its name (with more than one box), the PIN, keeping the box in Twilight TV and the one other app allowed, the nightly fresh start, updates.
+- **This TV box:** its name (with more than one box), the PIN, keeping the box in Twilight TV and the other app allowed, the nightly fresh start, updates.
 - **Status and diary:** first, **What happened on this TV**: restarts, crashes and the box going to sleep and waking up, newest first, each with its time, what went wrong in red. When the box started again by itself, it says how long it was off, what Android gives as the reason (when it gives one), and how much free memory the box had and how hot its chip was a minute before. If a TV ever turns off by itself, look here. Then what each part says: the music, today, what comes from the internet (settings.json, weather, prices, prayer times, updates) and the box itself. When something went wrong in the last week, the list of pages says when.
 - **Tools:** test mode on the TV, **Show this TV's name on its screen** (with more than one box), look for a new version, restart the app, unlock the box for 15 minutes, and clear the TV's memory (shuffle history, song volumes, zooms, the list of songs that won't play).
 
@@ -229,8 +237,8 @@ Open `settings.json` in this repository, click the pencil (Edit), change a value
 | `videoFormat` | What YouTube sends: `"h264"` (smoothest, up to 1080p), `"vp9"` (up to 4K) or `"any"` (AV1 too). A change here takes effect at the nightly fresh start | `"h264"` |
 | `screenSize` | `"1080"` or `"720"`: at most that many lines when the box draws more; `"box"` = the box's own | `"1080"` |
 | `screenRate` | `"50"` or `"60"` Hz; `"box"` = the box's own | `"box"` |
-| `lockApps` | Keep the box in Twilight TV: anything else opened is sent away, except `otherApp` | `true` |
-| `otherApp` | The one other app allowed, by its name on the box or its package | `"My TV Plus"` |
+| `lockApps` | Keep the box in Twilight TV: anything else opened is sent away, except `otherApp` and Twilight Movies | `true` |
+| `otherApp` | The other app allowed (besides Twilight Movies), by its name on the box or its package | `"My TV Plus"` |
 | `pricesUrl` | Where the prices come from: the tirezh worker's address (`/api/economy` is added to a bare address); `""` = `tirezh.qawechi.workers.dev` | `"https://tirezh.qawechi.workers.dev"` |
 
 Every setting of the page itself can go in the same file too: `fadeIn`, `fadeOut`, `titleSeconds`, `brandEnding`, `brandName`, `quality`, `autoZoom`, `songVolume`, `songZoom`, `blockAds`, `noSubtitles`, `cutEnding`, `noRepeat`, `refreshHours`, and the newer ones: `playlistSchedule`, `differentSinger`, `quietLevel`, `closingFade`, `prayerPause`, `prayerAdjust`, `place`, `lat`, `lon`, `infoPanel`, `clock24`, `videoColors`, `numerals`, `priceItems` (for example `["us", "eu", "gold21", "gold18"]`), `prayerCity`, `messages`, `menuSlides`, `wifiName`, `wifiPassword`, `menuUrl`, `specialDays`, `hijriAdjust`, `kurdishNewYear` (`"21march"` or `"equinox"`), `labels`. Their explanations are in `app/src/main/assets/tv/settings.js`.

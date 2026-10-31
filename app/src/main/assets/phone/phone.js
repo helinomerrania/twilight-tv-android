@@ -363,7 +363,7 @@
     $("otherApp").hidden = !other || !s.onScreen;
     $("otherApp").textContent = "Open " + (other || "the other app");
     $("backHome").hidden = !!s.onScreen;
-    $("notOnText").textContent = k.otherOpen ? other + " is on the TV. Press Home on the remote, or the button below, to bring the music back." :
+    $("notOnText").textContent = k.otherOpen ? (k.open || other) + " is on the TV. Press Home on the remote, or the button below, to bring the music back." :
       unlocked ? "The box is unlocked until " + clock(k.unlockedUntil) + ". Twilight TV isn't on screen." :
       k.on && k.canReturn ? "Twilight TV isn't on screen. It comes back by itself within 10 seconds." :
       "The Twilight TV app isn't on screen on this TV. Open it with the TV remote, or press the button below.";
@@ -674,9 +674,9 @@
     { key: "controlPin", label: "PIN for this page", type: "pin", check: "pin", page: "box", hint: "4 to 8 digits. Empty means this TV's own PIN (shown in test mode)." },
     { group: "Keeping the box in Twilight TV", page: "box" },
     { key: "lockApps", label: "Keep the box in Twilight TV", type: "toggle", page: "box",
-      hint: "Whatever else is opened on the box is sent away after 10 seconds, except the app below. On the remote, hold Back for 2 seconds to open it, and press Home to come back at once. For the box's own settings, unlock it (Settings, Tools) or hold Back for 10 seconds." },
-    { key: "otherApp", label: "The one other app allowed", type: "text", placeholder: "My TV Plus", page: "box",
-      hint: "Its name as on the box (capitals and spaces don't matter), or its package." },
+      hint: "Whatever else is opened on the box is sent away after 10 seconds, except the app below and Twilight Movies. On the remote, its own button (or Back held for 2 seconds) opens the app below, the YouTube button opens Twilight Movies, and Home comes back at once. For the box's own settings, unlock it (Settings, Tools) or hold Back for 10 seconds." },
+    { key: "otherApp", label: "The other app allowed", type: "text", placeholder: "My TV Plus", page: "box",
+      hint: "Besides Twilight Movies, which always is. Its name as on the box (capitals and spaces don't matter), or its package." },
     { group: "Restart and updates", page: "box" },
     { key: "restartAt", label: "Fresh start every night at", type: "time", page: "box" },
     { key: "updates", label: "Download new versions by themselves", type: "toggle", page: "box" }

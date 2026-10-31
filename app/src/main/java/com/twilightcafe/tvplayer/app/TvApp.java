@@ -110,7 +110,7 @@ public final class TvApp {
         status = new PhoneStatus(this);
         phoneSettings = new PhoneSettings(this);
         maintenance = new Maintenance(this);
-        keys = new RemoteKeys(player, engine, quality, test, lock);
+        keys = new RemoteKeys(player, engine, quality, test, lock, core.diary);
     }
 
     /** Once, after the parts are made: the engine, the box, the servers, the network, the questions, the clock */
